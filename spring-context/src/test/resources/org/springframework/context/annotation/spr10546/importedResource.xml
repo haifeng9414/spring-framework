@@ -4,5 +4,5 @@
 	xmlns:c="http://www.springframework.org/schema/c"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-	<bean id="myBean" class="java.lang.String" c:_0="myBean"/>
+	<bean id="myBeanA" class="java.lang.String" c:_0="myBeanA"/>
 </beans>

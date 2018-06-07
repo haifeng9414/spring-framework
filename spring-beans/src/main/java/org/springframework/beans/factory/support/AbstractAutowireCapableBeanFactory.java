@@ -478,6 +478,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Prepare method overrides.
 		try {
+			//验证methodOverrides代理的方法在指定的Class中都存在
 			mbdToUse.prepareMethodOverrides();
 		}
 		catch (BeanDefinitionValidationException ex) {
@@ -534,12 +535,15 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Instantiate the bean.
 		BeanWrapper instanceWrapper = null;
+		//bean默认就是singleton
 		if (mbd.isSingleton()) {
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
+			//解析构造函数，创建bean并保存到instanceWrapper中
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
+		//获取保存在instanceWrapper中的bean
 		final Object bean = instanceWrapper.getWrappedInstance();
 		Class<?> beanType = instanceWrapper.getWrappedClass();
 		if (beanType != NullBean.class) {
@@ -569,13 +573,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
+			//添加beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法对bean做了某些特殊处理，如AOP支持(如果有必要的话)
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
 		// Initialize the bean instance.
 		Object exposedObject = bean;
 		try {
+			//填充bean的属性
 			populateBean(beanName, mbd, instanceWrapper);
+			//调用初始化方法，如init-method
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
@@ -617,6 +624,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Register bean as disposable.
 		try {
+			//注册bean的destroy方法便于回收bean时执行
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
 		}
 		catch (BeanDefinitionValidationException ex) {
@@ -1037,8 +1045,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 				Class<?> targetType = determineTargetType(beanName, mbd);
 				if (targetType != null) {
+					//遍历beanPostProcessors调用postProcessBeforeInstantiation获取bean
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
+						//遍历beanPostProcessors调用postProcessAfterInitialization获取bean
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
 					}
 				}
@@ -1099,6 +1109,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return obtainFromSupplier(instanceSupplier, beanName);
 		}
 
+		//如果存在工厂方法则使用工厂方法创建bean
 		if (mbd.getFactoryMethodName() != null)  {
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
@@ -1108,6 +1119,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		boolean autowireNecessary = false;
 		if (args == null) {
 			synchronized (mbd.constructorArgumentLock) {
+				//如果已经解析过则直接使用解析的方法
 				if (mbd.resolvedConstructorOrFactoryMethod != null) {
 					resolved = true;
 					autowireNecessary = mbd.constructorArgumentsResolved;
@@ -1123,6 +1135,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			}
 		}
 
+		//否则根据参数判断使用哪个构造函数
 		// Need to determine the constructor...
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null ||
@@ -1131,6 +1144,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
 
+		//最后使用无参构造函数
 		// No special handling: simply use no-arg constructor.
 		return instantiateBean(beanName, mbd);
 	}

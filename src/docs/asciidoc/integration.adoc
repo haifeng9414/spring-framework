@@ -1403,7 +1403,7 @@ which will be the EJB proxy object. The configuration of the proxy, and setting 
 ----
 	<bean id="myComponent"
 			class="org.springframework.ejb.access.LocalStatelessSessionProxyFactoryBean">
-		<property name="jndiName" value="ejb/myBean"/>
+		<property name="jndiName" value="ejb/myBeanA"/>
 		<property name="businessInterface" value="com.mycom.MyComponent"/>
 	</bean>
 
@@ -1428,7 +1428,7 @@ the `<jee:local-slsb>` configuration element in Spring's "jee" namespace:
 [source,xml,indent=0]
 [subs="verbatim,quotes"]
 ----
-	<jee:local-slsb id="myComponent" jndi-name="ejb/myBean"
+	<jee:local-slsb id="myComponent" jndi-name="ejb/myBeanA"
 			business-interface="com.mycom.MyComponent"/>
 
 	<bean id="myController" class="com.mycom.myController">
@@ -3853,7 +3853,7 @@ __com.foo:type=MyClass,name=myBean__.
 [source,xml,indent=0]
 [subs="verbatim,quotes"]
 ----
-	<bean id="myBean" class="com.foo.MyClass"/>
+	<bean id="myBeanA" class="com.foo.MyClass"/>
 ----
 
 

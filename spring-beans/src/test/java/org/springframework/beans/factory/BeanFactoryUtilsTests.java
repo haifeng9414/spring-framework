@@ -28,11 +28,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
 import org.springframework.cglib.proxy.NoOp;
 import org.springframework.core.io.Resource;
-import org.springframework.tests.sample.beans.AnnotatedBean;
-import org.springframework.tests.sample.beans.ITestBean;
-import org.springframework.tests.sample.beans.IndexedTestBean;
-import org.springframework.tests.sample.beans.TestAnnotation;
-import org.springframework.tests.sample.beans.TestBean;
+import org.springframework.tests.sample.beans.*;
 import org.springframework.tests.sample.beans.factory.DummyFactory;
 import org.springframework.util.ObjectUtils;
 
@@ -76,6 +72,13 @@ public class BeanFactoryUtilsTests {
 		this.listableBeanFactory = child;
 	}
 
+	@Test
+	public void test() {
+		MyBeanA myBeanA = this.listableBeanFactory.getBean("myBeanA", MyBeanA.class);
+		System.out.println(myBeanA.getId());
+		System.out.println(myBeanA.getName());
+		System.out.println(myBeanA.getMyBeanB().getId());
+	}
 
 	@Test
 	public void testHierarchicalCountBeansWithNonHierarchicalFactory() {

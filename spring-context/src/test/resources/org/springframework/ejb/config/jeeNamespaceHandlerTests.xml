@@ -29,7 +29,7 @@
 			proxy-interface="com.myapp.Foo"
 			default-value="myValue"/>
 
-	<jee:jndi-lookup id="withEnvironment" jndi-name="jdbc/MyDataSource" default-ref="myBean">
+	<jee:jndi-lookup id="withEnvironment" jndi-name="jdbc/MyDataSource" default-ref="myBeanA">
 		<jee:environment>foo=bar</jee:environment>
 	</jee:jndi-lookup>
 

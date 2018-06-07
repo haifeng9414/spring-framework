@@ -2126,16 +2126,16 @@ scope proxy mode for WebSocket-scoped beans:
 	@Controller
 	public class MyController {
 
-		private final MyBean myBean;
+		private final MyBean myBeanA;
 
 		@Autowired
-		public MyController(MyBean myBean) {
-			this.myBean = myBean;
+		public MyController(MyBean myBeanA) {
+			this.myBeanA = myBeanA;
 		}
 
 		@MessageMapping("/action")
 		public void handle() {
-			// this.myBean from the current WebSocket session
+			// this.myBeanA from the current WebSocket session
 		}
 	}
 ----

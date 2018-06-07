@@ -485,7 +485,7 @@ requires more than one, the extra ones can be considered aliases.
 
 In XML-based configuration metadata, you use the `id` and/or `name` attributes
 to specify the bean identifier(s). The `id` attribute allows you to specify
-exactly one id. Conventionally these names are alphanumeric ('myBean',
+exactly one id. Conventionally these names are alphanumeric ('myBeanA',
 'fooService', etc.), but may contain special characters as well. If you want to
 introduce other aliases to the bean, you can also specify them in the `name`
 attribute, separated by a comma (`,`), semicolon (`;`), or white space. As a
@@ -4166,8 +4166,8 @@ itself.
 When you need to ask a container for an actual `FactoryBean` instance itself instead of
 the bean it produces, preface the bean's id with the ampersand symbol ( `&`) when
 calling the `getBean()` method of the `ApplicationContext`. So for a given `FactoryBean`
-with an id of `myBean`, invoking `getBean("myBean")` on the container returns the
-product of the `FactoryBean`; whereas, invoking `getBean("&myBean")` returns the
+with an id of `myBeanA`, invoking `getBean("myBeanA")` on the container returns the
+product of the `FactoryBean`; whereas, invoking `getBean("&myBeanA")` returns the
 `FactoryBean` instance itself.
 
 

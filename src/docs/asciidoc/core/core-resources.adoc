@@ -340,13 +340,13 @@ and expect that they will be injected into it.
 
 What makes it trivial to then inject these properties, is that all application contexts
 register and use a special JavaBeans `PropertyEditor` which can convert `String` paths
-to `Resource` objects. So if `myBean` has a template property of type `Resource`, it can
+to `Resource` objects. So if `myBeanA` has a template property of type `Resource`, it can
 be configured with a simple string for that resource, as follows:
 
 [source,xml,indent=0]
 [subs="verbatim,quotes"]
 ----
-	<bean id="myBean" class="...">
+	<bean id="myBeanA" class="...">
 		<property name="template" value="some/resource/path/myTemplate.txt"/>
 	</bean>
 ----

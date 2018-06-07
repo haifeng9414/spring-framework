@@ -229,11 +229,11 @@ public class FormHttpMessageConverterTests {
 		assertTrue(item.isFormField());
 		assertEquals("part2", item.getFieldName());
 
-		// With developer builds we get: <MyBean><string>foo</string></MyBean>
-		// But on CI server we get: <MyBean xmlns=""><string>foo</string></MyBean>
+		// With developer builds we get: <MyBeanA><string>foo</string></MyBeanA>
+		// But on CI server we get: <MyBeanA xmlns=""><string>foo</string></MyBeanA>
 		// So... we make a compromise:
 		assertThat(item.getString(),
-				allOf(startsWith("<MyBean"), endsWith("><string>foo</string></MyBean>")));
+				allOf(startsWith("<MyBeanA"), endsWith("><string>foo</string></MyBeanA>")));
 	}
 
 

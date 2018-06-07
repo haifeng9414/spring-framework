@@ -65,14 +65,14 @@ public class MappingJackson2XmlHttpMessageConverterTests {
 
 	@Test
 	public void read() throws IOException {
-		String body = "<MyBean>" +
+		String body = "<MyBeanA>" +
 				"<string>Foo</string>" +
 				"<number>42</number>" +
 				"<fraction>42.0</fraction>" +
 				"<array><array>Foo</array>" +
 				"<array>Bar</array></array>" +
 				"<bool>true</bool>" +
-				"<bytes>AQI=</bytes></MyBean>";
+				"<bytes>AQI=</bytes></MyBeanA>";
 		MockHttpInputMessage inputMessage = new MockHttpInputMessage(body.getBytes("UTF-8"));
 		inputMessage.getHeaders().setContentType(new MediaType("application", "xml"));
 		MyBean result = (MyBean) converter.read(MyBean.class, inputMessage);
@@ -117,7 +117,7 @@ public class MappingJackson2XmlHttpMessageConverterTests {
 
 	@Test
 	public void readValidXmlWithUnknownProperty() throws IOException {
-		String body = "<MyBean><string>string</string><unknownProperty>value</unknownProperty></MyBean>";
+		String body = "<MyBeanA><string>string</string><unknownProperty>value</unknownProperty></MyBeanA>";
 		MockHttpInputMessage inputMessage = new MockHttpInputMessage(body.getBytes("UTF-8"));
 		inputMessage.getHeaders().setContentType(new MediaType("application", "xml"));
 		converter.read(MyBean.class, inputMessage);
@@ -150,11 +150,11 @@ public class MappingJackson2XmlHttpMessageConverterTests {
 
 	@Test
 	public void readWithExternalReference() throws IOException {
-		String body = "<!DOCTYPE MyBean SYSTEM \"http://192.168.28.42/1.jsp\" [" +
+		String body = "<!DOCTYPE MyBeanA SYSTEM \"http://192.168.28.42/1.jsp\" [" +
 				"  <!ELEMENT root ANY >\n" +
 				"  <!ENTITY ext SYSTEM \"" +
 				new ClassPathResource("external.txt", getClass()).getURI() +
-				"\" >]><MyBean><string>&ext;</string></MyBean>";
+				"\" >]><MyBeanA><string>&ext;</string></MyBeanA>";
 
 		MockHttpInputMessage inputMessage = new MockHttpInputMessage(body.getBytes("UTF-8"));
 		inputMessage.getHeaders().setContentType(new MediaType("application", "xml"));
@@ -181,7 +181,7 @@ public class MappingJackson2XmlHttpMessageConverterTests {
 				" <!ENTITY lol8 \"&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;\">\n" +
 				" <!ENTITY lol9 \"&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;\">\n" +
 				"]>\n" +
-				"<MyBean>&lol9;</MyBean>";
+				"<MyBeanA>&lol9;</MyBeanA>";
 
 		MockHttpInputMessage inputMessage = new MockHttpInputMessage(body.getBytes("UTF-8"));
 		inputMessage.getHeaders().setContentType(new MediaType("application", "xml"));

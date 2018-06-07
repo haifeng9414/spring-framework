@@ -434,6 +434,7 @@ public class BeanDefinitionParserDelegate {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
 
+		//AbstractBeanDefinition类表示XML中的<bean>元素，包含了bean的所有相关信息
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
 		if (beanDefinition != null) {
 			if (!StringUtils.hasText(beanName)) {
@@ -512,16 +513,34 @@ public class BeanDefinitionParserDelegate {
 		}
 
 		try {
+			//初始化AbstractBeanDefinition，包含了parentName和class
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
+			//保存meta数据
 			parseMetaElements(ele, bd);
+			//解析lookup方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，lookup方法代理获取对象的方法，返回一个指定的bean，如
+			//<lookup-method name="getFruit" bean="apple"/>
 			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
+			//解析replaced方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，replaced方法替代某个方法的执行，如
+			/*
+			 <bean id="person" class="test.replaced.Person">
+    		    <replaced-method name="show" replacer="replace"></replaced-method>
+    		</bean>
+
+    		<bean id="replace" class="test.replaced.ReplacedClass">
+    		</bean>
+
+    		ReplacedClass实现了MethodReplacer接口，该接口只有一个方法，表示将取代其他方法的方法:
+    		Object reimplement(Object obj, Method method, Object[] args) throws Throwable
+			 */
 			parseReplacedMethodSubElements(ele, bd.getMethodOverrides());
 
+			//解析构造函数属性
 			parseConstructorArgElements(ele, bd);
+			//解析property
 			parsePropertyElements(ele, bd);
 			parseQualifierElements(ele, bd);
 
@@ -809,6 +828,17 @@ public class BeanDefinitionParserDelegate {
 		else {
 			try {
 				this.parseState.push(new ConstructorArgumentEntry());
+				//解析属性参数，配置如:
+				//<constructor-arg name="id" value="1"/>
+				//    <constructor-arg name="name" value="student"/>
+				//    <constructor-arg name="dream">
+				//        <list>
+				//            <value>soldier</value>
+				//            <value>scientist</value>
+				//            <value>pilot</value>
+				//        </list>
+				//    </constructor-arg>
+				// 如果是ref返回RuntimeBeanReference对象，如果是value返回TypedStringValue对象，如果是如上的list配置，则返回不同类型的对象如list为ManagedList
 				Object value = parsePropertyValue(ele, bd, null);
 				ConstructorArgumentValues.ValueHolder valueHolder = new ConstructorArgumentValues.ValueHolder(value);
 				if (StringUtils.hasLength(typeAttr)) {
@@ -841,6 +871,7 @@ public class BeanDefinitionParserDelegate {
 				error("Multiple 'property' definitions for property '" + propertyName + "'", ele);
 				return;
 			}
+			//值的解析同构造函数的解析
 			Object val = parsePropertyValue(ele, bd, propertyName);
 			PropertyValue pv = new PropertyValue(propertyName, val);
 			parseMetaElements(ele, pv);
