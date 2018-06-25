@@ -29,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.tests.sample.beans.*;
 import org.xml.sax.InputSource;
 
 import org.springframework.aop.framework.ProxyFactory;
@@ -55,12 +57,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.core.io.support.EncodedResource;
-import org.springframework.tests.sample.beans.DependenciesBean;
-import org.springframework.tests.sample.beans.DerivedTestBean;
-import org.springframework.tests.sample.beans.ITestBean;
-import org.springframework.tests.sample.beans.IndexedTestBean;
-import org.springframework.tests.sample.beans.ResourceTestBean;
-import org.springframework.tests.sample.beans.TestBean;
 import org.springframework.tests.sample.beans.factory.DummyFactory;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.FileCopyUtils;
@@ -121,6 +117,14 @@ public class XmlBeanFactoryTests {
 
 	private static ClassPathResource classPathResource(String suffix) {
 		return new ClassPathResource(CLASSNAME + suffix, CLASS);
+	}
+
+	@Test
+	public void testApplicationContext() {
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
+		System.out.println(myBeanA.getId());
+		System.out.println(myBeanA.getName());
 	}
 
 	/* SPR-2368 */
