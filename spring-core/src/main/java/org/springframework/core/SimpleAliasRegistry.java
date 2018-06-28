@@ -86,6 +86,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 			String registeredName = entry.getValue();
 			if (registeredName.equals(name)) {
 				String registeredAlias = entry.getKey();
+				//A是B的别名，C是A的别名则C也是B的别名，所以多了个hasAlias(registeredAlias, alias))的判断
 				return (registeredAlias.equals(alias) || hasAlias(registeredAlias, alias));
 			}
 		}
@@ -121,6 +122,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @param name the target name to find aliases for
 	 * @param result the resulting aliases list
 	 */
+	//获取name所有的别名，包括间接指向的
 	private void retrieveAliases(String name, List<String> result) {
 		this.aliasMap.forEach((alias, registeredName) -> {
 			if (registeredName.equals(name)) {
