@@ -93,7 +93,11 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @throws BeanCreationException if FactoryBean object creation failed
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
+	//从FactoryBean中获取Bean
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
+		/*如果FactoryBean单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
+		Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)执行的)
+		 */
 		if (factory.isSingleton() && containsSingleton(beanName)) {
 			synchronized (getSingletonMutex()) {
 				//尝试从FactoryBean name --> object的map中获取bean
@@ -138,7 +142,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 			}
 		}
 		else {
-			//不是单例的话直接创建新的对象
+			//不是单例或者FactoryBean还没有注册到singletonObjects的话直接创建新的对象
 			Object object = doGetObjectFromFactoryBean(factory, beanName);
 			if (shouldPostProcess) {
 				try {

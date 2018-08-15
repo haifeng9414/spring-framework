@@ -254,7 +254,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		Object bean;
 
 		// Eagerly check singleton cache for manually registered singletons.
-		//从缓存中获取单例bean，如果存在则返回否则尝试获取bean对应的beanFactory，beanFactory存在的意义是处理循环引用的情况
+		//从缓存中获取单例bean，如果存在则返回否则尝试获取bean对应的ObjectFactory，ObjectFactory存在的意义是处理循环引用的情况
 		//循环引用就是beanA的某个属性是beanB，而beanB的某个属性是beanA，这种情况只有在单例且相关依赖属性不是在构造函数中初始化时才有用
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
@@ -299,7 +299,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 			}
 
-			//如果不仅仅是类型检车则将当前bean置成已创建状态，因为运行到这里说明当前beanDefinitionMap存在该bean，下面就可以正在的创建bean
+			//如果不仅仅是类型检查则将当前bean置成已创建状态，因为运行到这里说明当前beanDefinitionMap存在该bean，下面就可以正在的创建bean
 			if (!typeCheckOnly) {
 				markBeanAsCreated(beanName);
 			}

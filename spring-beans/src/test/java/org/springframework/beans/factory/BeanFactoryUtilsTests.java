@@ -77,7 +77,7 @@ public class BeanFactoryUtilsTests {
 		MyBeanA myBeanA = this.listableBeanFactory.getBean("myBeanA", MyBeanA.class);
 		System.out.println(myBeanA.getId());
 		System.out.println(myBeanA.getName());
-		System.out.println(myBeanA.getMyBeanB().getId());
+//		System.out.println(myBeanA.getMyBeanB().getId());
 	}
 
 	@Test
