@@ -32,6 +32,8 @@ import org.springframework.util.StringValueResolver;
  * {@link org.springframework.beans.factory.support.BeanDefinitionRegistry}
  * implementations.
  *
+ * <p>实现AliasRegistry接口，并防止了别名的循环引用</p>
+ *
  * @author Juergen Hoeller
  * @since 2.5.2
  */
@@ -139,6 +141,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * in target bean names and even in alias names.
 	 * @param valueResolver the StringValueResolver to apply
 	 */
+	//用valueResolver解析所有已存在的alias及name，并把解析出来的新的alias及name放到aliasMap中
 	public void resolveAliases(StringValueResolver valueResolver) {
 		Assert.notNull(valueResolver, "StringValueResolver must not be null");
 		synchronized (this.aliasMap) {
@@ -182,6 +185,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @see #registerAlias
 	 * @see #hasAlias
 	 */
+	//判断是否存在循环引用
 	protected void checkForAliasCircle(String name, String alias) {
 		if (hasAlias(alias, name)) {
 			throw new IllegalStateException("Cannot register alias '" + alias +
@@ -195,6 +199,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @param name the user-specified name
 	 * @return the transformed name
 	 */
+	//获取别名的原始名称，如A -> B -> C则返回C，如果不存在别名则返回传入的name参数
 	public String canonicalName(String name) {
 		String canonicalName = name;
 		// Handle aliasing...

@@ -38,6 +38,8 @@ import org.springframework.lang.Nullable;
  *
  * <p>Serves as base class for {@link AbstractBeanFactory}.
  *
+ * <p>增加了对FactoryBean的支持，能够从FactoryBean中获取Bean(主要方法是getObjectFromFactoryBean)</p>
+ *
  * @author Juergen Hoeller
  * @since 2.5.1
  */
@@ -54,6 +56,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * or {@code null} if the type cannot be determined yet
 	 */
 	@Nullable
+	//返回FactoryBean创建的bean的类型
 	protected Class<?> getTypeForFactoryBean(final FactoryBean<?> factoryBean) {
 		try {
 			if (System.getSecurityManager() != null) {
@@ -80,6 +83,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * or {@code null} if not available
 	 */
 	@Nullable
+	//获取已经缓存下来的从指定的FactoryBean中创建的bean
 	protected Object getCachedObjectForFactoryBean(String beanName) {
 		return this.factoryBeanObjectCache.get(beanName);
 	}
@@ -164,6 +168,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @throws BeanCreationException if FactoryBean object creation failed
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
+	//调用FactoryBean的getObject方法创建bean
 	private Object doGetObjectFromFactoryBean(final FactoryBean<?> factory, final String beanName)
 			throws BeanCreationException {
 
@@ -244,6 +249,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	/**
 	 * Overridden to clear the FactoryBean object cache as well.
 	 */
+	//重写父类的clearSingletonCache方法，在清理的时候清理factoryBeanObjectCache
 	@Override
 	protected void clearSingletonCache() {
 		synchronized (getSingletonMutex()) {

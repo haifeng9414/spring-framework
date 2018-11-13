@@ -11,10 +11,42 @@
 加载Bean的配置信息有很多中方法，如从XML解析、根据注解解析等，下面主要介绍根据XML文件解析Bean配置信息。
 Spring中从XML文件解析Bean配置的信息的默认实现是[XmlBeanDefinitionReader]，该类的构造函数接收[BeanDefinitionRegistry]类为参数，
 [BeanDefinitionRegistry]用于Bean信息的增删改查，默认实现是[DefaultListableBeanFactory]，最简单的Spring容器测试代码如下:
-```java
+```
 DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
 new XmlBeanDefinitionReader(factory).loadBeanDefinitions(PATH_TO_XML);
 ```
+一般不会直接使用DefaultListableBeanFactory，通常使用一个[ApplicationContext]实例，BeanFactory提供的高级配置机制，使得管理任何性质的对象成为可能。
+ApplicationContext是BeanFactory的扩展，功能得到了进一步增强，比如更易与Spring AOP集成、消息资源处理(国际化处理)、事件传递及各种不同应用层的context实现(如针对web应用的WebApplicationContext)，
+例如，在web应用程序中，只需要在web.xml中添加简单的XML描述符即可。
+如下使用ContextLoaderListener来注册一个ApplicationContext：
+```
+<context-param>
+       <param-name>contextConfigLocation</param-name>
+       <param-value>/WEB-INF/daoContext.xml /WEB-INF/applicationContext.xml</param-value>
+</context-param>
+
+<listener>
+       <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+</listener>
+<!-- or use the ContextLoaderServlet instead of the above listener
+<servlet>
+       <servlet-name>context</servlet-name>
+       <servlet-class>org.springframework.web.context.ContextLoaderServlet</servlet-class>
+       <load-on-startup>1</load-on-startup>
+</servlet>
+-->
+```
+下面用[ClassPathXmlApplicationContext]举例说明[ApplicationContext]的工作过程，[ClassPathXmlApplicationContext]创建方式如下:
+```
+ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext("xxxx.xml");
+MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
+```
+[ClassPathXmlApplicationContext]的初始化过程在其父类[AbstractApplicationContext]的`refresh()`方法中，
+
+
+[ApplicationContext]: aaa
+[ClassPathXmlApplicationContext]: aaa
+[AbstractApplicationContext]: aaa
 
 ## 获取Bean
 
@@ -44,9 +76,9 @@ new XmlBeanDefinitionReader(factory).loadBeanDefinitions(PATH_TO_XML);
 1. a custom destroy-method definition
 
 [SingletonBeanRegistry]接口定义了单例`beanFactory`的相关方法如`registerSingleton(String beanName, Object singletonObject)`、`getSingleton()`,
-[DefaultSingletonBeanRegistry]类实现了基本的单例的注册功能，相当于是一个单例bean的`beanFactory`，并为[单例bean的循环引用](#单例bean的循环引用)提供了支持，
+[DefaultSingletonBeanRegistry]类实现了基本的单例的注册功能，相当于是一个单例bean的[BeanFactory]，并为[单例bean的循环引用](#单例bean的循环引用)提供了支持，
 [FactoryBeanRegistrySupport]类增加了对[FactoryBean]的支持，能够从[FactoryBean]中获取Bean(主要方法是`getObjectFromFactoryBean`)，[HierarchicalBeanFactory]接口在BeanFactory基础上添加了两个方法`getParentBeanFactory`和`containsLocalBean`，
-增加了`BeanFactory`的继承功能，[ConfigurableBeanFactory]添加了配置`BeanFactory`的方法，该接口主要在Spring内部配置`BeanFactory`时使用。[AbstractBeanFactory]类实现了[ConfigurableBeanFactory]接口的全部方法并继承了[FactoryBeanRegistrySupport]类，
+增加了[BeanFactory]的继承功能，[ConfigurableBeanFactory]添加了配置[BeanFactory]的方法，该接口主要在Spring内部配置[BeanFactory]时使用。[AbstractBeanFactory]类实现了[ConfigurableBeanFactory]接口的全部方法并继承了[FactoryBeanRegistrySupport]类，
 提供了一些模版方法供子类实现(主要是`getBeanDefinition`和`createBean`)，[AutowireCapableBeanFactory]接口增加了创建bean、自动注入、初始化以及应用bean的后置处理器等相关方法，[AbstractAutowireCapableBeanFactory]类继承[AbstractBeanFactory]并实现了[AutowireCapableBeanFactory]接口，
 [ListableBeanFactory]接口定义了获取bean配置清单的相关方法，[ConfigurableListableBeanFactory]接口添加了分析和修改bean definitions的方法，[DefaultListableBeanFactory]综合上面所有功能，主要是对bean注册后的处理。
 
@@ -67,6 +99,8 @@ new XmlBeanDefinitionReader(factory).loadBeanDefinitions(PATH_TO_XML);
 [AbstractBeanFactory]: aaa
 [AutowireCapableBeanFactory]: aaa
 [AbstractAutowireCapableBeanFactory]: aaa
+[ListableBeanFactory]: aaa
+[ConfigurableListableBeanFactory]: aaa
 
 ## 单例bean的循环引用
 

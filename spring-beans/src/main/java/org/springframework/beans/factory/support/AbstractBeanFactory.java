@@ -99,6 +99,9 @@ import org.springframework.util.StringValueResolver;
  * respectively. Default implementations of those operations can be found in
  * {@link DefaultListableBeanFactory} and {@link AbstractAutowireCapableBeanFactory}.
  *
+ * <p>实现了ConfigurableBeanFactory接口的全部方法并继承了FactoryBeanRegistrySupport类，
+ * 提供了一些模版方法供子类实现(主要是getBeanDefinition和createBean)</p>
+ *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Costin Leau
@@ -238,18 +241,18 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	//关于bean的aware的使用，aware有：
 	//BeanNameAware，将会调用setBeanName方法，使得bean能够获取自己在beanFactory中的名字
 	//BeanClassLoaderAware，将会调用setBeanClassLoader，使得bean能够获取到beanFactory的classLoader
-	//BeanFactoryAware，将会调用setBeanFactory，使得bean能够获取到beanFactory，bean能够通过该beanFactory获取到任何bean
+	//BeanFactoryAware，将会调用setBeanFactory，使得bean能够获取到BeanFactory，bean能够通过该BeanFactory获取到任何bean
 
 	//关于BeanPostProcessor，首先是在调用doCreateBean方法之前会调用resolveBeforeInstantiation方法，该方法
 	//会遍历InstantiationAwareBeanPostProcessor(BeanPostProcessor的子类)并调用postProcessBeforeInstantiation方法(不同于之后说的postProcessBeforeInitialization方法)，如果该方法返回了一个bean
 	//则会再次调用postProcessAfterInitialization方法，并将之前创建的bean作为参数传入，如果resolveBeforeInstantiation返回了bean则作为最终的bean返回，如果没有则
 	//先创建bean，创建bean后将会调用initializeBean方法，该方法会调用上面说的几种aware，之后会遍历BeanPostProcessor并调用postProcessBeforeInitialization方法
-	//调用完后再调用init-method，最后再BeanPostProcessor遍历调用postProcessAfterInitialization方法，返回最终的bean
+	//调用完后再调用init-method，最后再遍历BeanPostProcessor调用postProcessAfterInitialization方法，返回最终的bean
 	@SuppressWarnings("unchecked")
 	protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredType,
 			@Nullable final Object[] args, boolean typeCheckOnly) throws BeansException {
 
-		//提取bean的名字，如果是别名则返回的是真正的bean的名字
+		//提取bean的名字，如果是别名则返回的是真正的bean的名字，如果是FactoryBean的名字则去掉前面的BeanFactory.FACTORY_BEAN_PREFIX
 		final String beanName = transformedBeanName(name);
 		Object bean;
 
@@ -284,6 +287,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			//判断是否存在父factory，如果存在且当前类的beanDefinitionMap不包含正在创建的bean则从父factory获取bean
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
+				//获取想要获取的bean的名字，返回的也可能是FactoryBean的名字
 				String nameToLookup = originalBeanName(name);
 				if (parentBeanFactory instanceof AbstractBeanFactory) {
 					return ((AbstractBeanFactory) parentBeanFactory).doGetBean(
@@ -299,7 +303,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 			}
 
-			//如果不仅仅是类型检查则将当前bean置成已创建状态，因为运行到这里说明当前beanDefinitionMap存在该bean，下面就可以正在的创建bean
+			//如果不仅仅是类型检查则将当前bean置成已创建状态，即保存到alreadyCreated中
 			if (!typeCheckOnly) {
 				markBeanAsCreated(beanName);
 			}
@@ -310,14 +314,25 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
+				//确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性中存在其他的bean这种依赖，而是用户自己声明的
+				//如BeanA可以声明dependOn BeanB，即使两个bean没有关系，dependOn用于确保创建bean之前已经创建了某些bean
 				String[] dependsOn = mbd.getDependsOn();
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
+						//这里在获取当前bean的依赖后检查dep是否是beanName看上去是多此一举的，因为dep就是从beanName的dependOn列表里获取到的
+						//但是实际上这么检查是有原因的，假设A dependOn B，B dependOn A，则在创建A的时候当前BeanFactory的dependentBeanMap
+						//是空的，所以在创建A的时候不会发现循环引用，这里的if条件不会成立，之后调用registerDependentBean保存依赖关系，之后调用
+						//getBean获取被依赖的B，在getBean的过程中获取B的dependOn，再次到此处判断是否存在依赖，此时已经保存了A依赖B的关系，这里判断
+						//是否存在B依赖A为false，之后registerDependentBean方法保存B依赖A的关系，再次调用getBean获取A，再次到此处判断发现已经存在A依赖B
+						//的关系，则发现循环依赖并报错
+						//这里判断被beanName依赖的bean中是否存在dep
 						if (isDependent(beanName, dep)) {
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}
 						//保存bean和其依赖的bean的关系，及被依赖的bean和依赖该bean的关系到map中
+						//这里将beanName作为被dep依赖的bean保存(个人认为这里应该写成registerDependentBean(beanName, dep)，上面的
+						//isDependent(beanName, dep)应该写成isDependent(dep, beanName)比较符合逻辑，因为beanName依赖的是dep)
 						registerDependentBean(dep, beanName);
 						try {
 							//尝试获取bean，如果不存在则抛出异常
@@ -332,16 +347,16 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 				// Create bean instance.
 				if (mbd.isSingleton()) {
-					//单例bean是支持循环引用的，处理过程是，这里先创建一个beanFactory，在getSingleton中将会调用这里的匿名beanFactory的
+					//单例bean是支持循环引用的，处理过程是，这里先创建一个ObjectFactory，在getSingleton中将会调用这里的匿名ObjectFactory的
 					//createBean方法，而createBean方法会调用doCreateBean方法创建bean，doCreateBean在创建bean时解析构造函数或者工厂方法
 					//并创建bean实例，在创建完成后执行addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
-					//将能够返回刚创建的bean的beanFactory添加到内存中，getEarlyBeanReference只是对bean做一些特殊处理，一般直接返回原始bean。
-					//在将beanFactory添加到内存中后将继续该bean的创建，首先是populateBean方法，该方法将填充bean的属性，假设当前正在创建的bean是
+					//将能够返回刚创建的bean的匿名ObjectFactory添加到内存中，getEarlyBeanReference只是对bean做一些特殊处理，一般直接返回原始bean。
+					//在将ObjectFactory添加到内存中后将继续该bean的创建，首先是populateBean方法，该方法将填充bean的属性，假设当前正在创建的bean是
 					//beanA，而beanA有属性beanB，populateBean就将填充beanB到beanA，由于之前没有创建过beanB，所以填充之前将会创建一个beanB，
 					//如果beanB也有属性beanA，则存在循环引用，在创建beanB的时候将会尝试获取beanA，即上面的getBean方法，当getBean(beanA)时，会调用
-					//getSingleton(beanA)方法，该方法将会获取到之前添加到内存的beanFactory并通过该beanFactory的getBean方法获取到刚创建完但是还没有
-					//填充属性的beanA，之后将beanA添加到earlySingletonObjects以节省下次getSingleton(beanA)的时间，并从singletonFactories中删除beanFactory
-					//因为beanA已经保存到earlySingletonObjects了，beanFactory已经没有必要保持在内存中了。
+					//getSingleton(beanA)方法，该方法将会获取到之前添加到内存的匿名beanFactory并通过该beanFactory的getBean方法获取到刚创建完成正在
+					//填充属性的beanA，之后将beanA添加到earlySingletonObjects以节省下次getSingleton(beanA)的时间，并从singletonFactories中删除ObjectFactory
+					//因为beanA已经保存到earlySingletonObjects了，ObjectFactory已经没有必要保持在内存中了。
 					//在获取到beanA后beanB就能够顺利初始化了，之后返回beanB并继续beanA的创建，以上就是解决循环引用的过程，
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
@@ -355,6 +370,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 							throw ex;
 						}
 					});
+					//如果是FactoryBean则调用getObject方法获取bean
 					bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
 				}
 
@@ -362,13 +378,15 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// It's a prototype -> create a new instance.
 					Object prototypeInstance = null;
 					try {
-						//将beanName添加到prototypesCurrentlyInCreation中
+						//将beanName添加到prototypesCurrentlyInCreation中，在doGetBean方法每次创建bean的时候判断prototypesCurrentlyInCreation
+						//是否存在当前正在创建的bean，如果存在则说明有循环依赖，直接报错
 						beforePrototypeCreation(beanName);
 						prototypeInstance = createBean(beanName, mbd, args);
 					}
 					finally {
 						afterPrototypeCreation(beanName);
 					}
+					//如果是FactoryBean则调用getObject方法获取bean
 					bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
 				}
 
@@ -1679,6 +1697,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			if (mbd == null && containsBeanDefinition(beanName)) {
 				mbd = getMergedLocalBeanDefinition(beanName);
 			}
+			//判断bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring自己创建的bean
 			boolean synthetic = (mbd != null && mbd.isSynthetic());
 			object = getObjectFromFactoryBean(factory, beanName, !synthetic);
 		}

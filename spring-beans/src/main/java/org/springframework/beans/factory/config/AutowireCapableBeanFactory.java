@@ -53,6 +53,8 @@ import org.springframework.lang.Nullable;
  * ApplicationContext, to get access to an AutowireCapableBeanFactory:
  * simply cast the passed-in BeanFactory to AutowireCapableBeanFactory.
  *
+ * <p>定义支持自动注入的BeanFactory的接口</p>
+ *
  * @author Juergen Hoeller
  * @since 04.12.2003
  * @see org.springframework.beans.factory.BeanFactoryAware

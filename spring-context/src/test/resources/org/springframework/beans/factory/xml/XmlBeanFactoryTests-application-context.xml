@@ -15,16 +15,14 @@
 
 	<bean id="inheritedTestBeanSingleton" class="org.springframework.tests.sample.beans.TestBean"/>
 
-	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
+	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA" autowire="byType">
 		<constructor-arg value="1"/>
 		<constructor-arg value="2"/>
-		<property name="myBeanB" ref="myBeanB"/>
 	</bean>
 
 	<bean id="myBeanB" class="org.springframework.tests.sample.beans.MyBeanB">
 		<constructor-arg value="3"/>
 		<constructor-arg value="4"/>
-		<property name="myBeanA" ref="myBeanA"/>
 	</bean>
 
 </beans>

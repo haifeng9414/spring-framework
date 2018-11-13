@@ -125,6 +125,7 @@ public class XmlBeanFactoryTests {
 		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		System.out.println(myBeanA.getId());
 		System.out.println(myBeanA.getName());
+		System.out.println(myBeanA.getProp());
 		System.out.println(myBeanA.getMyBeanB());
 	}
 

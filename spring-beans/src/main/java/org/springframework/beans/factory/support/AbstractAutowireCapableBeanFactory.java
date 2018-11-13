@@ -105,6 +105,9 @@ import org.springframework.util.StringUtils;
  * {@link BeanDefinitionRegistry} interfaces, which represent the API and SPI
  * view of such a factory, respectively.
  *
+ * <p>实现了AutowireCapableBeanFactory接口和AbstractBeanFactory接口的createBean方法，即实现了bean的创建逻辑，支持属性输入、构造方法解析、
+ * bean的初始化等</p>
+ *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Rob Harrop
@@ -121,6 +124,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		implements AutowireCapableBeanFactory {
 
 	/** Strategy for creating bean instances */
+	//创建代理bean的方式，默认是cglib、也可以是动态代理
 	private InstantiationStrategy instantiationStrategy = new CglibSubclassingInstantiationStrategy();
 
 	/** Resolver strategy for method parameter names */
@@ -140,18 +144,21 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * Dependency types to ignore on dependency check and autowire, as Set of
 	 * Class objects: for example, String. Default is none.
 	 */
+	//在byType的autowire配置下，需要忽略的属性类型，如String
 	private final Set<Class<?>> ignoredDependencyTypes = new HashSet<>();
 
 	/**
 	 * Dependency interfaces to ignore on dependency check and autowire, as Set of
 	 * Class objects. By default, only the BeanFactory interface is ignored.
 	 */
+	//在byType的autowire配置下，需要忽略的接口类型，如BeanNameAware
 	private final Set<Class<?>> ignoredDependencyInterfaces = new HashSet<>();
 
 	/**
 	 * The name of the currently created bean, for implicit dependency registration
 	 * on getBean etc invocations triggered from a user-specified Supplier callback.
 	 */
+	//保存当前正在被创建的bean的name，用户在自己定义的Supplier中可以通过这个属性获取到beanName
 	private final NamedThreadLocal<String> currentlyCreatedBean = new NamedThreadLocal<>("Currently created bean");
 
 	/** Cache of unfinished FactoryBean instances: FactoryBean name --> BeanWrapper */
@@ -167,6 +174,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 */
 	public AbstractAutowireCapableBeanFactory() {
 		super();
+		//添加需要忽略的接口
 		ignoreDependencyInterface(BeanNameAware.class);
 		ignoreDependencyInterface(BeanFactoryAware.class);
 		ignoreDependencyInterface(BeanClassLoaderAware.class);
@@ -470,6 +478,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Make sure bean class is actually resolved at this point, and
 		// clone the bean definition in case of a dynamically resolved Class
 		// which cannot be stored in the shared merged bean definition.
+		//获取bean的类型
 		Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
 		if (resolvedClass != null && !mbd.hasBeanClass() && mbd.getBeanClassName() != null) {
 			mbdToUse = new RootBeanDefinition(mbd);
@@ -573,7 +582,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
-			//添加beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法对bean做了某些特殊处理，如AOP支持(如果有必要的话)
+			//添加匿名的beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法对bean做了某些特殊处理，如AOP支持(如果有必要的话)
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -604,6 +613,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				if (exposedObject == bean) {
 					exposedObject = earlySingletonReference;
 				}
+				//是否允许自动注入被包装过的bean，如果不允许则检查是否存在被包装的依赖
 				else if (!this.allowRawInjectionDespiteWrapping && hasDependentBean(beanName)) {
 					String[] dependentBeans = getDependentBeans(beanName);
 					Set<String> actualDependentBeans = new LinkedHashSet<>(dependentBeans.length);
@@ -1335,7 +1345,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		//获取所有从XML的property元素解析到的属性
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
 
-		//判断属性的注入方式，通过在XML配置bean时设置autowire属性指定
+		//判断属性的注入方式，通过在XML配置bean时设置autowire属性指定，如果设置了autowire则尝试自动注入bean的属性(即使没有声明注解)
 		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME ||
 				mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
@@ -1481,6 +1491,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		PropertyValues pvs = mbd.getPropertyValues();
 		PropertyDescriptor[] pds = bw.getPropertyDescriptors();
 		for (PropertyDescriptor pd : pds) {
+			//待自动注入的属性存在setter方法并且不包含在ignoredDependencyInterfaces和ignoredDependencyTypes中并且没有配置在XML中并且不是基础属性如String、Array等
 			if (pd.getWriteMethod() != null && !isExcludedFromDependencyCheck(pd) && !pvs.contains(pd.getName()) &&
 					!BeanUtils.isSimpleProperty(pd.getPropertyType())) {
 				result.add(pd.getName());

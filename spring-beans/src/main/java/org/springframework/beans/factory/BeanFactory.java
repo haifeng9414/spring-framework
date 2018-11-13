@@ -94,6 +94,8 @@ import org.springframework.lang.Nullable;
  * <li>a custom destroy-method definition
  * </ol>
  *
+ * <p>定义了访问容器bean的相关方法</p>
+ *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Chris Beams

@@ -42,6 +42,9 @@ import org.springframework.util.StringValueResolver;
  * needs. This extended interface is just meant to allow for framework-internal
  * plug'n'play and for special access to bean factory configuration methods.
  *
+ * <p>定义了配置BeanFactory的相关接口如设置parentBeanFactory、添加BeanPostProcessor、bean生命周期的注册和销毁，
+ * 并定义了两个默认的bean生命周期:singleton、prototype</p>
+ *
  * @author Juergen Hoeller
  * @since 03.11.2003
  * @see org.springframework.beans.factory.BeanFactory
