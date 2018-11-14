@@ -45,6 +45,8 @@ package org.springframework.core.env;
  * of property names in shell environments (e.g. Bash) that disallow period characters in
  * variable names.
  *
+ * <p>Environment接口继承了PropertyResolver，StandardEnvironment是默认的实现，会自动注册System.getProperties()和System.getenv()</p>
+ *
  * @author Chris Beams
  * @since 3.1
  * @see ConfigurableEnvironment

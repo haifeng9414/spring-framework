@@ -15,9 +15,9 @@ Spring中从XML文件解析Bean配置的信息的默认实现是[XmlBeanDefiniti
 DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
 new XmlBeanDefinitionReader(factory).loadBeanDefinitions(PATH_TO_XML);
 ```
-一般不会直接使用DefaultListableBeanFactory，通常使用一个[ApplicationContext]实例，BeanFactory提供的高级配置机制，使得管理任何性质的对象成为可能。
+一般不会直接使用DefaultListableBeanFactory，通常使用一个[ApplicationContext]实例，[BeanFactory]提供的高级配置机制，使得管理任何性质的对象成为可能，
 ApplicationContext是BeanFactory的扩展，功能得到了进一步增强，比如更易与Spring AOP集成、消息资源处理(国际化处理)、事件传递及各种不同应用层的context实现(如针对web应用的WebApplicationContext)，
-例如，在web应用程序中，只需要在web.xml中添加简单的XML描述符即可。
+同时也是开箱即用，只需要设置资源文件的位置就可以了，例如，在web应用程序中，只需要在web.xml中添加简单的XML描述符即可。
 如下使用ContextLoaderListener来注册一个ApplicationContext：
 ```
 <context-param>
@@ -41,12 +41,47 @@ ApplicationContext是BeanFactory的扩展，功能得到了进一步增强，比
 ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext("xxxx.xml");
 MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 ```
-[ClassPathXmlApplicationContext]的初始化过程在其父类[AbstractApplicationContext]的`refresh()`方法中，
-
+继承结构如下:
+![DefaultListableBeanFactory继承结构图](img/ClassPathXmlApplicationContext.png)
+[BeanFactory]定义了访问Spring容器的方法，[ListableBeanFactory]接口定义了不同于[BeanFactory]一个一个访问Spring Bean的访问方式，以列举的方式访问的方法，
+[HierarchicalBeanFactory]接口定于了可继承的[BeanFactory]的方法，[EnvironmentCapable]定义了获取[Environment]的方法，标识类存在[Environment]的引用，Spring的`application context`都实现了该方法，
+可以在接受[BeanFactory]类型的方法中判断是否是[EnvironmentCapable]以访问该[BeanFactory]的[Environment]，[ApplicationEventPublisher]封装了事件发布功能，[MessageSource]定义了支持国际化和解析字符串参数的功能。
+[ResourceLoader]接口定义了从指定位置加载资源的方法，[ResourcePatternResolver]定义了从指定位置加载资源的方法，扩展了[ResourceLoader]接口，默认实现是[PathMatchingResourcePatternResolver]。
+[ApplicationContext]接口定义了`application context`的功能，[Lifecycle]接口定义了控制生命周期功能，[ConfigurableApplicationContext]接口定义了配置`application context`的功能，如添加[BeanFactoryPostProcessor]、[ApplicationListener]等，
+预定义了一些Spring自带的`bean`的名字，如`loadTimeWeaver`，`environment`等，[DefaultResourceLoader]接口实现了[ResourceLoader]接口，能够解析URL、classpath:...、或普通的文件路径等资源。[AbstractApplicationContext]的抽象实现，采用模版方法模式，
+提供了一些供子类实现，在[ConfigurableApplicationContext]的基础上又定义了一些内部bean，如`messageSource`
+[ClassPathXmlApplicationContext]的初始化过程在其父类[AbstractApplicationContext]的`refresh()`方法中，该方法所做的工作直接看方法里写的注释，`refresh()`中的`obtainFreshBeanFactory`方法中调用了抽象方法refreshBeanFactory，
+该方法在[AbstractRefreshableApplicationContext]中实现了，[AbstractRefreshableApplicationContext]类支持多次调用容器的`refresh`，每次调用`refresh`都会销毁之前的`beanFactory`并重写创建一个。[AbstractRefreshableApplicationContext]也是一个抽象类，
+需要子类实现的抽象方法是`loadBeanDefinitions`，该方法在[AbstractRefreshableApplicationContext]创建`beanFactory`后被执行，用于解析资源文件并将解析出的`beanDefinition`添加到`beanFactory`中，
+[AbstractRefreshableConfigApplicationContext]类重写了`getConfigLocations`方法，用于指定资源文件(该类还实现了[BeanNameAware]和[InitializingBean]接口，目的是在[ApplicationContext]被作为一个`bean`时做一些工作，
+但是在[AbstractApplicationContext]的`refresh`方法中调用`prepareBeanFactory`时已经将容器自身作为一个`bean`添加到了`beanFactory`了，而容器自身的创建并不像普通的`bean`，不会调用各种`bean`的回调方法，包括[BeanNameAware]和[InitializingBean]接口的方法，
+所以个人认为[AbstractRefreshableConfigApplicationContext]类实现这两个接口并没有啥用，至少我没找到可能导致这两个方法调用的地方，另外，`bean`获取[ApplicationContext]一般是通过实现[ApplicationContextAware]接口注入的，直接`autowire byType`当然也可以)，[AbstractXmlApplicationContext]实现了`loadBeanDefinitions`方法，使用[XmlBeanDefinitionReader]加载XML资源文件，
+[ClassPathXmlApplicationContext]类实现从`classpath`获取资源。
 
 [ApplicationContext]: aaa
 [ClassPathXmlApplicationContext]: aaa
 [AbstractApplicationContext]: aaa
+[BeanFactory]: aaa
+[Environment]: aaa
+[ListableBeanFactory]: aaa
+[HierarchicalBeanFactory]: aaa
+[EnvironmentCapable]: aaa
+[ApplicationEventPublisher]: aaa
+[MessageSource]: aaa
+[ResourceLoader]: aaa
+[ResourcePatternResolver]: aaa
+[PathMatchingResourcePatternResolver]: aaa
+[ApplicationContext]: aaa
+[Lifecycle]: aaa
+[ConfigurableApplicationContext]: aaa
+[BeanFactoryPostProcessor]: aaa
+[ApplicationListener]: aaa
+[DefaultResourceLoader]: aaa
+[AbstractRefreshableApplicationContext]: aaa
+[AbstractRefreshableConfigApplicationContext]: aaa
+[AbstractXmlApplicationContext]: aaa
+[XmlBeanDefinitionReader]: aaa
+[ClassPathXmlApplicationContext]: aaa
 
 ## 获取Bean
 

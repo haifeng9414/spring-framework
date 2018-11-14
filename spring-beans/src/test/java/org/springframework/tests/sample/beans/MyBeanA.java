@@ -1,6 +1,11 @@
 package org.springframework.tests.sample.beans;
 
-public class MyBeanA {
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+
+public class MyBeanA implements BeanDefinitionRegistryPostProcessor {
 	private String id;
 	private String name;
 	private String prop;
@@ -41,5 +46,15 @@ public class MyBeanA {
 
 	public void setMyBeanB(MyBeanB myBeanB) {
 		this.myBeanB = myBeanB;
+	}
+
+	@Override
+	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+		System.out.println("MyBeanA postProcessBeanDefinitionRegistry");
+	}
+
+	@Override
+	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+		System.out.println("MyBeanA postProcessBeanFactory");
 	}
 }

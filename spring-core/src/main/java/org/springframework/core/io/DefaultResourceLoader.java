@@ -50,6 +50,9 @@ public class DefaultResourceLoader implements ResourceLoader {
 	@Nullable
 	private ClassLoader classLoader;
 
+	//ProtocolResolver以location和ResourceLoader为参数返回Resource，存在protocolResolvers的目的是在DefaultResourceLoader
+	//解析资源前先遍历protocolResolvers以便支持任意的资源类型的加载，用户可以添加自己的ProtocolResolver到DefaultResourceLoader，
+	//DefaultResourceLoader会以添加顺序调用ProtocolResolver并以自己作为ResourceLoader参数解析资源，如果某个ProtocolResolver返回了Resource则以该结果作为解析结果
 	private final Set<ProtocolResolver> protocolResolvers = new LinkedHashSet<>(4);
 
 	private final Map<Class<?>, Map<Resource, ?>> resourceCaches = new ConcurrentHashMap<>(4);
@@ -151,6 +154,7 @@ public class DefaultResourceLoader implements ResourceLoader {
 			}
 		}
 
+		//如果是/开头的则作为classpath处理
 		if (location.startsWith("/")) {
 			return getResourceByPath(location);
 		}

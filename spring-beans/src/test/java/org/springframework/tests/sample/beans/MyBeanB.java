@@ -1,7 +1,5 @@
 package org.springframework.tests.sample.beans;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
 public class MyBeanB {
 	private String id;
 	private String name;

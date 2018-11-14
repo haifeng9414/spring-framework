@@ -1061,7 +1061,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					//遍历beanPostProcessors调用postProcessBeforeInstantiation获取bean
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
-						//遍历beanPostProcessors调用postProcessAfterInitialization获取bean
+						//如果返回的bean不为空则调用postProcessAfterInitialization获取bean并将该bean作为正在的bean返回
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
 					}
 				}

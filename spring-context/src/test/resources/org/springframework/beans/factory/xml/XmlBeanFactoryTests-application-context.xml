@@ -25,4 +25,14 @@
 		<constructor-arg value="4"/>
 	</bean>
 
+	<bean id="myBeanC" class="org.springframework.tests.sample.beans.MyBeanC">
+		<constructor-arg value="5"/>
+		<constructor-arg value="6"/>
+	</bean>
+
+	<bean id="myBeanD" class="org.springframework.tests.sample.beans.MyBeanC" autowire="byType">
+		<constructor-arg value="5"/>
+		<constructor-arg value="6"/>
+	</bean>
+
 </beans>

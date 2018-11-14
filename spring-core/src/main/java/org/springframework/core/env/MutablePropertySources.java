@@ -34,6 +34,8 @@ import org.springframework.lang.Nullable;
  * and {@link #addLast}, this is with regard to the order in which property sources
  * will be searched when resolving a given property with a {@link PropertyResolver}.
  *
+ * <p>支持从多个PropertySource中获取属性</p>
+ *
  * @author Chris Beams
  * @author Juergen Hoeller
  * @since 3.1

@@ -48,6 +48,9 @@ import org.springframework.util.ObjectUtils;
  * annotation provides a convenient and declarative way of adding property sources to the
  * enclosing {@code Environment}.
  *
+ * <p>表示一个数据源，可以从成员变量source中获取属性，实现类如MapPropertySource接受一个Map并从Map中获取属性，
+ * ResourcePropertySource接受properties文件，ServletContextPropertySource的属性来自ServletContext上下文初始化参数等等</p>
+ *
  * @author Chris Beams
  * @since 3.1
  * @see PropertySources
@@ -220,6 +223,7 @@ public abstract class PropertySource<T> {
 	/**
 	 * @see PropertySource#named(String)
 	 */
+	//用于PropertySource的比较，PropertySource的equals只对name进行了比较，看MutablePropertySources的contains实现
 	static class ComparisonPropertySource extends StubPropertySource {
 
 		private static final String USAGE_ERROR =

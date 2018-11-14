@@ -21,6 +21,9 @@ import org.springframework.lang.Nullable;
 /**
  * Interface for resolving properties against any underlying source.
  *
+ * <p>用于解析属性，根据给定的PropertySource中存在的属性，解析字符串，如propertyResolver.resolvePlaceholders("must be encoding ${encoding}")
+ * Environment接口继承该接口</p>
+ *
  * @author Chris Beams
  * @author Juergen Hoeller
  * @since 3.1

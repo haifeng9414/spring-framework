@@ -80,6 +80,7 @@ class PostProcessorRegistrationDelegate {
 			List<BeanDefinitionRegistryPostProcessor> currentRegistryProcessors = new ArrayList<>();
 
 			// First, invoke the BeanDefinitionRegistryPostProcessors that implement PriorityOrdered.
+			//查找所有BeanDefinitionRegistryPostProcessor类型的bean，并分别调用实现了PriorityOrdered、Order和没有实现优先级相关接口的bean的postProcessBeanDefinitionRegistry监听方法
 			String[] postProcessorNames =
 					beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
 			for (String ppName : postProcessorNames) {
@@ -125,6 +126,7 @@ class PostProcessorRegistrationDelegate {
 			}
 
 			// Now, invoke the postProcessBeanFactory callback of all processors handled so far.
+			//调用所有BeanDefinitionRegistryPostProcessor和BeanFactoryPostProcessor的postProcessBeanFactory监听方法
 			invokeBeanFactoryPostProcessors(registryProcessors, beanFactory);
 			invokeBeanFactoryPostProcessors(regularPostProcessors, beanFactory);
 		}
@@ -136,6 +138,11 @@ class PostProcessorRegistrationDelegate {
 
 		// Do not initialize FactoryBeans here: We need to leave all regular beans
 		// uninitialized to let the bean factory post-processors apply to them!
+		//上面的处理逻辑中如果beanFactory不是BeanDefinitionRegistry则直接以传入的beanFactoryPostProcessors为参数调用postProcessBeanFactory监听方法，
+		//这样保存在beanFactory中的BeanFactoryPostProcessor类型的bean还没有被调用(如AbstractApplicationContext中beanFactoryPostProcessors是成员变量，
+		//而不是保存在beanFactory中的，所以是可能存在传入的beanFactoryPostProcessors和beanFactory中的beanFactoryPostProcessors不一样的情况的)，所以下面处理这些bean，
+		//处理顺序是先处理实现了PriorityOrdered的bean，之后是实现了Order的，最后是剩下的，处理过程中跳过上面已经处理过得bean(如果beanFactory是BeanDefinitionRegistry
+		//则到这里所有的相关bean的监听方法都已经被调用了，所以这里需要进行过滤)
 		String[] postProcessorNames =
 				beanFactory.getBeanNamesForType(BeanFactoryPostProcessor.class, true, false);
 

@@ -37,6 +37,13 @@ package org.springframework.beans.factory;
  * implement {@link org.springframework.context.Lifecycle} instead which offers
  * a richer model for runtime management and allows for phased startup/shutdown.
  *
+ * <p>在所有的常规单例bean都初始化完后执行，该接口应该是单例bean实现的，在常规单例bean初始化完后会遍历所有
+ * SmartInitializingSingleton类型的单例bean并执行afterSingletonsInstantiated方法，这个接口可以认为是
+ * InitializingBean接口的替代品，InitializingBean接口在初始化完某个实现了InitializingBean接口的bean后执行，
+ * 而SmartInitializingSingleton是常规单例bean都初始化完后执行，该接口也可以作为对ContextRefreshedEvent事件
+ * 感兴趣的ApplicationListener的替代品，实现了该接口通常而不是ApplicationListener并监听ContextRefreshedEvent事件
+ * 能最小化对spring包的依赖</p>
+ *
  * @author Juergen Hoeller
  * @since 4.1
  * @see org.springframework.beans.factory.config.ConfigurableListableBeanFactory#preInstantiateSingletons()
