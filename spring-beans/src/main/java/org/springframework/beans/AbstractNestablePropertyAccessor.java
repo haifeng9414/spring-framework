@@ -107,6 +107,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	 * @see #setWrappedInstance
 	 */
 	protected AbstractNestablePropertyAccessor(boolean registerDefaultEditors) {
+		//激活PropertyEditorRegistrySupport类的createDefaultEditors过程
 		if (registerDefaultEditors) {
 			registerDefaultEditors();
 		}

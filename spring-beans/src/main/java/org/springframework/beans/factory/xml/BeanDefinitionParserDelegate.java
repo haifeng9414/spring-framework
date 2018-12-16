@@ -524,7 +524,7 @@ public class BeanDefinitionParserDelegate {
 			//合并而来(子bean合并父bean之后才能作为一个单独的bean)，是容器中一个具体bean的BeanDefinition视图。
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
-			//根据element获取beanDefinition属性，如autowire、destroyMethod、socpe、abstract等bean标签上的属性
+			//根据element获取beanDefinition属性，如autowire、destroyMethod、scope、abstract等bean标签上的属性
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
@@ -889,11 +889,15 @@ public class BeanDefinitionParserDelegate {
 				error("Multiple 'property' definitions for property '" + propertyName + "'", ele);
 				return;
 			}
-			//值的解析同构造函数的解析
+			//返回property对应的值，如果是ref的属性则返回RuntimeBeanReference，其他返回TypedStringValue
 			Object val = parsePropertyValue(ele, bd, propertyName);
 			PropertyValue pv = new PropertyValue(propertyName, val);
 			parseMetaElements(ele, pv);
+			//提取source，默认直接返回null(NullSourceExtractor)，另一个实现类PassThroughSourceExtractor返回
+			//传入的Element即这里的ele
 			pv.setSource(extractSource(ele));
+			//getPropertyValues由AbstractBeanDefinition实现，判断当前BeanDefinition的propertyValues是否为空，
+			//为空则创建一个MutablePropertyValues并返回
 			bd.getPropertyValues().addPropertyValue(pv);
 		}
 		finally {
@@ -978,6 +982,7 @@ public class BeanDefinitionParserDelegate {
 					" is only allowed to contain either 'ref' attribute OR 'value' attribute OR sub-element", ele);
 		}
 
+		//如果是rel则使用RuntimeBeanReference代表value，在创建bean的时候通过传入的refName查找bean
 		if (hasRefAttribute) {
 			String refName = ele.getAttribute(REF_ATTRIBUTE);
 			if (!StringUtils.hasText(refName)) {
@@ -987,6 +992,7 @@ public class BeanDefinitionParserDelegate {
 			ref.setSource(extractSource(ele));
 			return ref;
 		}
+		//如果是字符串则使用TypedStringValue封装
 		else if (hasValueAttribute) {
 			TypedStringValue valueHolder = new TypedStringValue(ele.getAttribute(VALUE_ATTRIBUTE));
 			valueHolder.setSource(extractSource(ele));

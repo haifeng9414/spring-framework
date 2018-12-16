@@ -4,6 +4,7 @@ public class MyBeanA {
 	private String id;
 	private String name;
 	private String prop;
+	private String age;
 	private MyBeanB myBeanB;
 
 	public MyBeanA(String id, String name) {
@@ -33,6 +34,14 @@ public class MyBeanA {
 
 	public void setProp(String prop) {
 		this.prop = prop;
+	}
+
+	public String getAge() {
+		return age;
+	}
+
+	public void setAge(String age) {
+		this.age = age;
 	}
 
 	public MyBeanB getMyBeanB() {

@@ -125,7 +125,7 @@ public class XmlBeanFactoryTests {
 		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		System.out.println(myBeanA.getId());
 		System.out.println(myBeanA.getName());
-		System.out.println(myBeanA.getProp());
+		System.out.println(myBeanA.getAge());
 		System.out.println(myBeanA.getMyBeanB());
 		System.out.println(applicationContext.getBean("lookupMethod", MyBeanLookupMethod.class).getMyBeanC().getName());
 	}

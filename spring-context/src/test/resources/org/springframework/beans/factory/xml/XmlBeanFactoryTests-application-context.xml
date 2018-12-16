@@ -2,28 +2,16 @@
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN" "http://www.springframework.org/dtd/spring-beans-2.0.dtd">
 
 <beans>
-
-	<bean id="inheritedTestBean" class="org.springframework.tests.sample.beans.TestBean" abstract="true" scope="prototype">
-		<property name="name"><value>parent</value></property>
-		<property name="age"><value>1</value></property>
-	</bean>
-
-	<bean id="inheritedTestBeanPrototype" class="org.springframework.tests.sample.beans.TestBean" scope="prototype">
-		<property name="name"><value>parent</value></property>
-		<property name="age"><value>2</value></property>
-	</bean>
-
-	<bean id="inheritedTestBeanSingleton" class="org.springframework.tests.sample.beans.TestBean"/>
-
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA" autowire="byType">
 		<constructor-arg value="1"/>
 		<constructor-arg value="2"/>
+		<property name="age" value="100"/>
 	</bean>
 
 	<bean id="myBeanB" class="org.springframework.tests.sample.beans.MyBeanB">
 		<constructor-arg value="3"/>
 		<constructor-arg value="4"/>
-		<property name="myBeanA" ref="myBeanA"/>
+		<property name="date" value="2018/12/01"/>
 	</bean>
 
 	<bean id="myBeanC" class="org.springframework.tests.sample.beans.MyBeanC">
@@ -45,4 +33,9 @@
 		<lookup-method name="getMyBeanC" bean="myBeanE"/>
 	</bean>
 
+	<bean id="customEditorConfigurer" class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+		<property name="propertyEditorRegistrars">
+			<bean class="org.springframework.jmx.export.CustomDateEditorRegistrar"/>
+		</property>
+	</bean>
 </beans>

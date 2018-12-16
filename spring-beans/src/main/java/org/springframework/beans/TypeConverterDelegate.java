@@ -158,6 +158,7 @@ class TypeConverterDelegate {
 		ConversionFailedException conversionAttemptEx = null;
 
 		// No custom editor but custom ConversionService specified?
+		//如果没有找到自定义的PropertyEditor并且conversionService不为空时使用conversionService进行转换
 		ConversionService conversionService = this.propertyEditorRegistry.getConversionService();
 		if (editor == null && conversionService != null && newValue != null && typeDescriptor != null) {
 			TypeDescriptor sourceTypeDesc = TypeDescriptor.forObject(newValue);
@@ -175,17 +176,22 @@ class TypeConverterDelegate {
 		Object convertedValue = newValue;
 
 		// Value not of required type?
+		//如果没有找到自定义的PropertyEditor并且将被转换的值类型不是需要的类型
 		if (editor != null || (requiredType != null && !ClassUtils.isAssignableValue(requiredType, convertedValue))) {
+			//如果需要的是集合类型并且被转换值是字符串则将被转换值按逗号分隔转换成字符串数组
 			if (typeDescriptor != null && requiredType != null && Collection.class.isAssignableFrom(requiredType) &&
 					convertedValue instanceof String) {
+				//获取集合的元素类型
 				TypeDescriptor elementTypeDesc = typeDescriptor.getElementTypeDescriptor();
 				if (elementTypeDesc != null) {
 					Class<?> elementType = elementTypeDesc.getType();
+					//如果是枚举或者是Class类型的才进行转换
 					if (Class.class == elementType || Enum.class.isAssignableFrom(elementType)) {
 						convertedValue = StringUtils.commaDelimitedListToStringArray((String) convertedValue);
 					}
 				}
 			}
+			//如果没有自定义的PropertyEditor则使用defaultEditor
 			if (editor == null) {
 				editor = findDefaultEditor(requiredType);
 			}
@@ -394,6 +400,7 @@ class TypeConverterDelegate {
 
 		Object convertedValue = newValue;
 
+		//如果PropertyEditor不为空并且被转换属性不是字符串则调用PropertyEditor对值进行转换
 		if (editor != null && !(convertedValue instanceof String)) {
 			// Not a String -> use PropertyEditor's setValue.
 			// With standard PropertyEditors, this will return the very same object;
@@ -419,6 +426,7 @@ class TypeConverterDelegate {
 
 		Object returnValue = convertedValue;
 
+		//如果被转换值是字符串数组但是需要的类型不是数组则将字符串数组转换成字符串，逗号分隔
 		if (requiredType != null && !requiredType.isArray() && convertedValue instanceof String[]) {
 			// Convert String array to a comma-separated String.
 			// Only applies if no PropertyEditor converted the String array before.
