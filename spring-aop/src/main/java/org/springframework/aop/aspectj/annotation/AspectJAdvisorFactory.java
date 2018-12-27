@@ -36,6 +36,7 @@ import org.springframework.lang.Nullable;
  * @see AspectMetadata
  * @see org.aspectj.lang.reflect.AjTypeSystem
  */
+//从根据类注解的AspectJ语法创建AspectJ切面
 public interface AspectJAdvisorFactory {
 
 	/**

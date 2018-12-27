@@ -59,6 +59,7 @@ public class AopNamespaceHandler extends NamespaceHandlerSupport {
 	 * '{@code config}', '{@code spring-configured}', '{@code aspectj-autoproxy}'
 	 * and '{@code scoped-proxy}' tags.
 	 */
+	//NamespaceHandlerSupport的调用过程见DefaultBeanDefinitionDocumentReader的parseBeanDefinitions方法
 	@Override
 	public void init() {
 		// In 2.0 XSD as well as in 2.1 XSD.

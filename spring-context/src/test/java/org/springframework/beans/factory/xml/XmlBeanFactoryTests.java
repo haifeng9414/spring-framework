@@ -130,6 +130,13 @@ public class XmlBeanFactoryTests {
 		System.out.println(applicationContext.getBean("lookupMethod", MyBeanLookupMethod.class).getMyBeanC().getName());
 	}
 
+	@Test
+	public void testAop() {
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+		MyTestBean myTestBean = applicationContext.getBean("myTestBean", MyTestBean.class);
+		myTestBean.test();
+	}
+
 	/* SPR-2368 */
 	@Test
 	public void testCollectionsReferredToAsRefLocals() throws Exception {

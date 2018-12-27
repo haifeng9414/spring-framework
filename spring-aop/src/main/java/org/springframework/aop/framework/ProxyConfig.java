@@ -28,6 +28,7 @@ import org.springframework.util.Assert;
  * @author Juergen Hoeller
  * @see AdvisedSupport
  */
+//创建bean代理类的类的父类，维护了拥有创建代理类功能的类的属性，确保代理的creator拥有一致的配置属性
 public class ProxyConfig implements Serializable {
 
 	/** use serialVersionUID from Spring 1.2 for interoperability */

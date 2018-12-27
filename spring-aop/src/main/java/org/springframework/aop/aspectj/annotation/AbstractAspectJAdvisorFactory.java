@@ -56,6 +56,7 @@ import org.springframework.util.StringUtils;
  * @author Juergen Hoeller
  * @since 2.0
  */
+//实现了AspectJ注解的解析和验证，创建切面的功能由子类实现
 public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFactory {
 
 	private static final String AJC_MAGIC = "ajc$";
@@ -101,6 +102,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 	@Override
 	public void validate(Class<?> aspectClass) throws AopConfigException {
 		// If the parent has the annotation and isn't abstract it's an error
+		//如果父类有Aspect注解并且不是抽象类则报错
 		if (aspectClass.getSuperclass().getAnnotation(Aspect.class) != null &&
 				!Modifier.isAbstract(aspectClass.getSuperclass().getModifiers())) {
 			throw new AopConfigException("[" + aspectClass.getName() + "] cannot extend concrete aspect [" +
@@ -108,13 +110,16 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 		}
 
 		AjType<?> ajType = AjTypeSystem.getAjType(aspectClass);
+		//没有Aspect注解报错
 		if (!ajType.isAspect()) {
 			throw new NotAnAtAspectException(aspectClass);
 		}
+		//不支持PERCFLOW
 		if (ajType.getPerClause().getKind() == PerClauseKind.PERCFLOW) {
 			throw new AopConfigException(aspectClass.getName() + " uses percflow instantiation model: " +
 					"This is not supported in Spring AOP.");
 		}
+		//不支持PERCFLOWBELOW
 		if (ajType.getPerClause().getKind() == PerClauseKind.PERCFLOWBELOW) {
 			throw new AopConfigException(aspectClass.getName() + " uses percflowbelow instantiation model: " +
 					"This is not supported in Spring AOP.");
@@ -125,6 +130,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 	 * Find and return the first AspectJ annotation on the given method
 	 * (there <i>should</i> only be one anyway...)
 	 */
+	//获取方法上的AspectJ注解，存在多个时只返回第一个找到的
 	@SuppressWarnings("unchecked")
 	@Nullable
 	protected static AspectJAnnotation<?> findAspectJAnnotationOnMethod(Method method) {
@@ -141,6 +147,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 
 	@Nullable
 	private static <A extends Annotation> AspectJAnnotation<A> findAnnotation(Method method, Class<A> toLookFor) {
+		//获取指定类型的注解
 		A result = AnnotationUtils.findAnnotation(method, toLookFor);
 		if (result != null) {
 			return new AspectJAnnotation<>(result);
@@ -166,6 +173,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 	 * Class modelling an AspectJ annotation, exposing its type enumeration and
 	 * pointcut String.
 	 */
+	//用于获取注解的参数
 	protected static class AspectJAnnotation<A extends Annotation> {
 
 		private static final String[] EXPRESSION_PROPERTIES = new String[] {"value", "pointcut"};
@@ -195,7 +203,9 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 			// We know these methods exist with the same name on each object,
 			// but need to invoke them reflectively as there isn't a common interface.
 			try {
+				//获取注解的value值或pointcut值(先找value再找pointcut)
 				this.pointcutExpression = resolveExpression(annotation);
+				//获取注解的argNames属性值
 				this.argumentNames = (String) annotation.getClass().getMethod("argNames").invoke(annotation);
 			}
 			catch (Exception ex) {
@@ -270,6 +280,7 @@ public abstract class AbstractAspectJAdvisorFactory implements AspectJAdvisorFac
 			if (annotation == null) {
 				return null;
 			}
+			//获取注解的argNames，按逗号分隔返回字符串数组
 			StringTokenizer strTok = new StringTokenizer(annotation.getArgumentNames(), ",");
 			if (strTok.countTokens() > 0) {
 				String[] names = new String[strTok.countTokens()];

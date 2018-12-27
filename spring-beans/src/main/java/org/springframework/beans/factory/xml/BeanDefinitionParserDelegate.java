@@ -1414,13 +1414,14 @@ public class BeanDefinitionParserDelegate {
 		if (namespaceUri == null) {
 			return null;
 		}
-		//根据命名空间找到NamespaceHandler
+		//根据命名空间找到NamespaceHandler并调用其init方法注册BeanDefinitionParser
 		NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
 		if (handler == null) {
 			error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
 			return null;
 		}
-		//使用NamespaceHandler解析xml，NamespaceHandler会从init方法中注册的BeanDefinitionParser中找到当前元素匹配的BeanDefinitionParser并调用其进行解析
+		//使用NamespaceHandler解析xml，NamespaceHandler会从init方法中注册的BeanDefinitionParser中找到当前元素匹配的BeanDefinitionParser并调用其进行解析，
+		//this.readerContext为XmlBeanDefinitionReader的createReaderContext方法创建的
 		return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
 	}
 
