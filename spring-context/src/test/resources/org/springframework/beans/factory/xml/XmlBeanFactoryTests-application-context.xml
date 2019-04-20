@@ -20,12 +20,12 @@
 
 	<bean id="myBeanC" class="org.springframework.tests.sample.beans.MyBeanC">
 		<constructor-arg value="5"/>
-		<constructor-arg value="6"/>
+		<constructor-arg value="myBeanC"/>
 	</bean>
 
 	<bean id="myBeanD" class="org.springframework.tests.sample.beans.MyBeanC">
-		<constructor-arg value="5"/>
 		<constructor-arg value="6"/>
+		<constructor-arg value="myBeanD"/>
 	</bean>
 
 	<bean id="myBeanE" class="org.springframework.tests.sample.beans.MyBeanC" scope="prototype">
@@ -46,4 +46,12 @@
 	<aop:aspectj-autoproxy/>
 	<bean id="myBeanAop" class="org.springframework.tests.sample.beans.MyBeanAop"/>
 	<bean id="myTestBean" class="org.springframework.tests.sample.beans.MyTestBean"/>
+
+	<bean id="swapper" class="org.springframework.aop.target.HotSwappableTargetSource">
+		<constructor-arg ref="myBeanC"/>
+	</bean>
+
+	<bean id="swappable" class="org.springframework.aop.framework.ProxyFactoryBean">
+		<property name="targetSource" ref="swapper"/>
+	</bean>
 </beans>

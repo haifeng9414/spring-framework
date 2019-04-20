@@ -82,6 +82,7 @@ public abstract class AbstractExpressionPointcut implements ExpressionPointcut, 
 	 * @throws IllegalArgumentException if the expression is invalid
 	 * @see #setExpression
 	 */
+	//每当设置expression时调用
 	protected void onSetExpression(@Nullable String expression) throws IllegalArgumentException {
 	}
 

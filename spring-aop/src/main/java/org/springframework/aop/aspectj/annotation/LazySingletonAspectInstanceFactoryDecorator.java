@@ -46,7 +46,7 @@ public class LazySingletonAspectInstanceFactoryDecorator implements MetadataAwar
 		this.maaif = maaif;
 	}
 
-
+	//同步获取bean
 	@Override
 	public Object getAspectInstance() {
 		Object aspectInstance = this.materialized;

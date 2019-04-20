@@ -30,6 +30,7 @@ package org.springframework.aop;
  * @see org.springframework.aop.support.ClassFilters
  * @see org.springframework.aop.support.MethodMatchers
  */
+//获取类过滤对象和方法匹配对象
 public interface Pointcut {
 
 	/**

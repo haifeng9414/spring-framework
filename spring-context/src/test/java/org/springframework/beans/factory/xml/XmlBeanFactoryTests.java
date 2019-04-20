@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.LogFactory;
 import org.junit.Test;
+import org.springframework.aop.target.HotSwappableTargetSource;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.tests.sample.beans.*;
 import org.xml.sax.InputSource;
@@ -135,6 +136,15 @@ public class XmlBeanFactoryTests {
 		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
 		MyTestBean myTestBean = applicationContext.getBean("myTestBean", MyTestBean.class);
 		myTestBean.test();
+		MyBeanC myBeanC = applicationContext.getBean("myBeanC", MyBeanC.class);
+		System.out.println(myBeanC);
+		MyBeanC swappable = applicationContext.getBean("swappable", MyBeanC.class);
+		System.out.println(swappable);
+		MyBeanC myBeanD = applicationContext.getBean("myBeanD", MyBeanC.class);
+		HotSwappableTargetSource swapper = applicationContext.getBean("swapper", HotSwappableTargetSource.class);
+		System.out.println(swapper.swap(myBeanD));
+		System.out.println(myBeanC);
+		System.out.println(swappable);
 	}
 
 	/* SPR-2368 */

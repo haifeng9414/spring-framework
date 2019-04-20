@@ -83,7 +83,9 @@ public class AspectMetadata implements Serializable {
 
 		Class<?> currClass = aspectClass;
 		AjType<?> ajType = null;
+		//从aspectClass或其父类获取AjType
 		while (currClass != Object.class) {
+			//AjTypeSystem是AspectJ包里的类，用于获取指定类的AjType
 			AjType<?> ajTypeToCheck = AjTypeSystem.getAjType(currClass);
 			if (ajTypeToCheck.isAspect()) {
 				ajType = ajTypeToCheck;
