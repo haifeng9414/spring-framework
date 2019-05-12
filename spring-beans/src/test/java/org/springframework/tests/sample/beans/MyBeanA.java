@@ -1,6 +1,9 @@
 package org.springframework.tests.sample.beans;
 
-public class MyBeanA {
+import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
+
+public class MyBeanA implements ApplicationListener<ContextRefreshedEvent> {
 	private String id;
 	private String name;
 	private String prop;
@@ -50,5 +53,10 @@ public class MyBeanA {
 
 	public void setMyBeanB(MyBeanB myBeanB) {
 		this.myBeanB = myBeanB;
+	}
+
+	@Override
+	public void onApplicationEvent(ContextRefreshedEvent event) {
+		System.out.println("mybean A onApplicationEvent");
 	}
 }

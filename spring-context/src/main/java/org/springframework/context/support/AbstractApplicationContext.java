@@ -521,7 +521,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
-			//初始化BeanFactory
+			//初始化BeanFactory，解析资源文件注册BeanDefinition到BeanFactory
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
@@ -546,7 +546,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				//创建，而此时所有的BeanPostProcessor都还没有被注册到beanFactory的beanPostProcessors列表中，所以这种情况下的BeanPostProcessor类型的bean的两个监听方法在初始化其他bean的时候不会被调用，
 				//如Bean A是BeanDefinitionRegistryPostProcessor类型的，Bean A有成员变量Bean B，Bean C是BeanPostProcessor，这种情况下Bean A在invokeBeanFactoryPostProcessors
 				//方法中被初始化并调用postProcessBeanFactory和postProcessBeanDefinitionRegistry方法，并会在初始化Bean A的时候先初始化Bean B，Bean C监听不到Bean B的创建，
-				//只有在运行了，同样在registerBeanPostProcessors只是初始化了所有的BeanPostProcessor并添加到beanFactory中，所以BeanPostProcessor之间也是不会监听到创建，
+				//同样在registerBeanPostProcessors只是初始化了所有的BeanPostProcessor并添加到beanFactory中，所以BeanPostProcessor之间也是不会监听到创建，
 				//只有在registerBeanPostProcessors调用后BeanPostProcessor才会生效
 				registerBeanPostProcessors(beanFactory);
 
@@ -569,7 +569,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
-				//初始化剩余的非lazy-init的单例bean及ConversionService、LoadTimeWeaverAware等功能bean
+				//初始化剩余的非lazy-init的单例bean及ConversionService、LoadTimeWeaverAware等类型的bean
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
@@ -664,7 +664,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.setBeanClassLoader(getClassLoader());
 		//用于支持#{bean.xxx}这样的SPEL表达式
 		beanFactory.setBeanExpressionResolver(new StandardBeanExpressionResolver(beanFactory.getBeanClassLoader()));
-		//添加属性注册编辑器，在初始化BeanWrapper时会调用这里的ResourceEditorRegistrar的registerCustomEditors方法为BeanWrapper添加
+		//添加属性注册编辑器注册器，在初始化BeanWrapper时会调用这里的ResourceEditorRegistrar的registerCustomEditors方法为BeanWrapper添加
 		//属性解析器
 		beanFactory.addPropertyEditorRegistrar(new ResourceEditorRegistrar(this, getEnvironment()));
 
