@@ -47,7 +47,7 @@ import org.springframework.lang.Nullable;
  * will be interpreted relative to the application context too.
  *
  * <p>在父类获取dtd或xsd为空的清空下尝试使用成员变量resourceLoader(一般就是ApplicationContext)获取
- * 并dtd和xsd的Resource并新建InputSource返回</p>
+ * dtd和xsd的Resource并新建InputSource返回</p>
  *
  * @author Juergen Hoeller
  * @since 31.07.2003

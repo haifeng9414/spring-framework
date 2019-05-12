@@ -104,8 +104,7 @@ public class PluggableSchemaResolver implements EntityResolver {
 	}
 
 	/*
-	解析xsd文件位置，实现方法是META-INF/spring.schemas保存了不同的systemId对应的xsd文件路径，直接获取传入的systemId对应的
-	文件即可
+	解析xsd文件位置，实现方法是META-INF/spring.schemas保存了不同的systemId对应的xsd文件路径，直接获取传入的systemId对应的文件即可
 	 */
 	@Override
 	@Nullable
