@@ -258,7 +258,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 		// Eagerly check singleton cache for manually registered singletons.
 		//从缓存中获取单例bean，如果存在则返回否则尝试获取bean对应的ObjectFactory，ObjectFactory存在的意义是处理循环引用的情况
-		//循环引用就是beanA的某个属性是beanB，而beanB的某个属性是beanA，这种情况只有在单例且相关依赖属性不是在构造函数中初始化时才有用
+		//循环引用就是beanA的某个属性是beanB，而beanB的某个属性是beanA，如果beanA和beanB都是单例的且不是在构造函数中传入的，
+		//则beanA和beanB可以循环引用
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
 			if (logger.isDebugEnabled()) {
@@ -1275,9 +1276,11 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @throws NoSuchBeanDefinitionException if there is no bean with the given name
 	 * @throws BeanDefinitionStoreException in case of an invalid bean definition
 	 */
-	//合并当前bean和其父bean的属性
+	//合并当前bean和其父bean的属性，即当前bean定义在其他bean内的话，则创建父bean的BeanDefinition并用当前bean的属性覆盖或合并父bean的属性并返回
+	//如果不存在父bean则直接根据当前bean的BeanDefinition创建RootBeanDefinition
 	protected RootBeanDefinition getMergedLocalBeanDefinition(String beanName) throws BeansException {
 		// Quick check on the concurrent map first, with minimal locking.
+		// 首先从缓存获取数据
 		RootBeanDefinition mbd = this.mergedBeanDefinitions.get(beanName);
 		if (mbd != null) {
 			return mbd;
@@ -1703,11 +1706,13 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		// Now we have the bean instance, which may be a normal bean or a FactoryBean.
 		// If it's a FactoryBean, we use it to create a bean instance, unless the
 		// caller actually wants a reference to the factory.
-		//如果name是&开头的则表示想要获取的就是beanFactory，或者该beanInstance不是beanFactory则是具体的bean，直接返回
+		//如果name是&开头的则表示想要获取的就是beanFactory，或者该beanInstance不是beanFactory则直接返回
 		if (!(beanInstance instanceof FactoryBean) || BeanFactoryUtils.isFactoryDereference(name)) {
 			return beanInstance;
 		}
 
+		// 如果不满足上面的条件则表示beanInstance是FactoryBean类型的并且想要获取的是FactoryBean创建出来的bean，此时调用FactoryBean的
+		// getObject方法返回bean
 		Object object = null;
 		if (mbd == null) {
 			//尝试从缓存中获取beanFactory产生的bean
@@ -1718,6 +1723,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			FactoryBean<?> factory = (FactoryBean<?>) beanInstance;
 			// Caches object obtained from FactoryBean if it is a singleton.
 			if (mbd == null && containsBeanDefinition(beanName)) {
+				// getMergedLocalBeanDefinition方法的作用查看该方法注释
 				mbd = getMergedLocalBeanDefinition(beanName);
 			}
 			//判断bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring自己创建的bean

@@ -38,9 +38,9 @@
 11. [AbstractAutowireCapableBeanFactory]类继承[AbstractBeanFactory]并实现了[AutowireCapableBeanFactory]接口
 12. [ListableBeanFactory]接口定义了获取Bean配置清单的相关方法
 13. [ConfigurableListableBeanFactory]接口添加了分析和修改[BeanDefinition]的方法
-14. [DefaultListableBeanFactory]综合上面所有功能，主要是对bean注册后的处理
+14. [DefaultListableBeanFactory]综合上面所有功能，主要是对Bean注册后的处理
 
-上面相关接口和抽象类的具体实现可以看代码中的注释，下面着重介绍Bean的获取过程，Bean的获取入口是`getBean()`方法，该方法有多个重载版本，典型的是`getBeanFactory().getBean(name, requiredType)`方法，该方法的实现为[AbstractBeanFactory]类的`doGetBean(final String name, @Nullable final Class<T> requiredType, @Nullable final Object[] args, boolean typeCheckOnly)`方法
+上面相关接口和抽象类的具体实现可以看代码中的注释，下面着重介绍Bean的获取过程，Bean的获取入口是`getBean()`方法，该方法有多个重载版本，典型的是`getBeanFactory().getBean(name, requiredType)`方法，该方法的实现为[AbstractBeanFactory]类的`doGetBean(final String name, @Nullable final Class<T> requiredType, @Nullable final Object[] args, boolean typeCheckOnly)`方法，代码如下，代码注释中说到的[FactoryBean]可以看笔记[FactoryBean的使用和实现原理](FactoryBean的使用和实现原理)
 
 [ClassPathXmlApplicationContext]: aaa
 [XmlBeanDefinitionReader]: aaa
