@@ -94,9 +94,9 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		}
 	}
    ```
-   容器的`refresh()`方法可以被重复调用，所以需要判断[BeanFactory]是否已存在，存在则销毁。
+   容器的`refresh()`方法可以被重复调用，所以`refreshBeanFactory()`方法判断了[BeanFactory]是否已存在，存在则销毁。
 
-3. Bean配置信息的加载在`loadBeanDefinitions()`方法中，该方法是个抽象方法，容器的实现可以重写该方法实现自己的Bean配置信息加载逻辑，[ClassPathXmlApplicationContext]用XML配置Bean的信息，该方法的实现在其父类[AbstractXmlApplicationContext]，代码：
+3. Bean配置信息的加载在`loadBeanDefinitions()`方法中，该方法是个抽象方法，容器的实现可以重写该方法实现自己的Bean配置信息加载逻辑，[ClassPathXmlApplicationContext]用XML配置Bean的信息，其父类[AbstractXmlApplicationContext]实现了该方法，代码：
    ```java
    protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throws BeansException, IOException {
 		// Create a new XmlBeanDefinitionReader for the given BeanFactory.
@@ -209,10 +209,125 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
    	return getRegistry().getBeanDefinitionCount() - countBefore;
    }
    ```
-   `Document`到[BeanDefinition]的解析，[XmlBeanDefinitionReader]对象委托给了[BeanDefinitionDocumentReader]，默认实现是[DefaultBeanDefinitionDocumentReader]，[XmlBeanDefinitionReader]调用该对象的`registerBeanDefinitions()`方法，传入`Document`对象注册[BeanDefinition]
+   `Document`到[BeanDefinition]的解析，[XmlBeanDefinitionReader]对象委托给了[BeanDefinitionDocumentReader]，默认实现是[DefaultBeanDefinitionDocumentReader]，[XmlBeanDefinitionReader]调用该对象的`registerBeanDefinitions()`方法，传入`Document`对象注册[BeanDefinition]，代码：
+   ```java
+   public void registerBeanDefinitions(Document doc, XmlReaderContext readerContext) {
+		this.readerContext = readerContext;
+		logger.debug("Loading bean definitions");
+		Element root = doc.getDocumentElement();
+		doRegisterBeanDefinitions(root);
+	}
+   ```
 
-8. `registerBeanDefinitions()`方法首先调用`Document`的`getDocumentElement()`方法获取XML的`root element`，从`root element`开始XML的解析，解析时首先创建一个[BeanDefinitionParserDelegate]对象，该对象的作用是提供解析XML文件的工具方法，如`isDefaultNamespace()`方法用于判断当前XML文件是否是默认的命名空间，还提供了XML文件中不同元素的解析功能，如`import`、`alias`、`bean`等。[DefaultBeanDefinitionDocumentReader]对象利用[BeanDefinitionParserDelegate]对象获取XML的信息，再根据这些信息调用[BeanDefinitionParserDelegate]对象的不同方法解析XML文件。[DefaultBeanDefinitionDocumentReader]创建完[BeanDefinitionParserDelegate]对象后，调用`parseBeanDefinitions()`方法从`root element`开始解析XML
-9.  `parseBeanDefinitions()`方法获取`root element`的所有子元素并遍历，如果是默认命名空间的元素，如`<bean>`，则调用`parseDefaultElement()`方法解析，如果是自定义元素，如Spring自定义的`<tx:annotation-driven>`元素，则调用`parseCustomElement()`方法解析，对于自定义元素的使用，可以看[DefaultBeanDefinitionDocumentReader]类的`parseBeanDefinitions()`方法的注释。对于默认命名空间的解析，[DefaultBeanDefinitionDocumentReader]对象根据元素标签调用不同的方法，如`<bean>`元素调用`processBeanDefinition()`方法，`import`调用`importBeanDefinitionResource()`方法，而对于[BeanDefinition]的解析注册主要就在`processBeanDefinition()`方法，该方法首先调用[BeanDefinitionParserDelegate]对象的`parseBeanDefinitionElement()`方法获取[BeanDefinitionHolder]，该对象包含了bean的所有配置，如class、id、alias等，具体创建[BeanDefinitionHolder]对象的过程可以看的[BeanDefinitionParserDelegate]对象的`parseBeanDefinitionElement()`方法。创建[BeanDefinitionHolder]对象后就可以根据该对象获取[BeanDefinition]注册到[BeanDefinitionRegistry]，即[DefaultListableBeanFactory]，[DefaultListableBeanFactory]会以`beanName`为key，[BeanDefinition]为value，将[BeanDefinition]保存到Map中。
+8. `registerBeanDefinitions()`方法获取XML的`root element`并开始解析，代码：
+   ```java
+   protected void doRegisterBeanDefinitions(Element root) {
+              // <bean>标签可以包含内嵌的<bean>，而内嵌的<bean>的解析会递归的调用doRegisterBeanDefinitions方法，所以这里记录下每个
+              // BeanDefinitionParserDelegate的parent，以支持内嵌的<bean>使用其父<bean>的默认属性
+		BeanDefinitionParserDelegate parent = this.delegate;
+		this.delegate = createDelegate(getReaderContext(), root, parent);
+
+		//过滤掉profile不等于当前environment中激活的profile的资源
+		if (this.delegate.isDefaultNamespace(root)) {
+			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
+			if (StringUtils.hasText(profileSpec)) {
+				String[] specifiedProfiles = StringUtils.tokenizeToStringArray(
+						profileSpec, BeanDefinitionParserDelegate.MULTI_VALUE_ATTRIBUTE_DELIMITERS);
+				if (!getReaderContext().getEnvironment().acceptsProfiles(specifiedProfiles)) {
+					if (logger.isInfoEnabled()) {
+						logger.info("Skipped XML bean definition file due to specified profiles [" + profileSpec +
+								"] not matching: " + getReaderContext().getResource());
+					}
+					return;
+				}
+			}
+		}
+
+		//空方法、供子类实现
+              preProcessXml(root);
+              // 解析Bean配置信息
+		parseBeanDefinitions(root, this.delegate);
+		//空方法、供子类实现
+		postProcessXml(root);
+
+              // 回溯
+		this.delegate = parent;
+	}
+   ```
+   `doRegisterBeanDefinitions()`方法过滤掉了未被激活的配置，创建并设置[BeanDefinitionParserDelegate]对象的parent属性，[BeanDefinitionParserDelegate]对象提供解析XML文件的工具方法，如`isDefaultNamespace()`方法用于判断当前XML文件是否是默认的命名空间，还提供了XML文件中不同元素的解析功能，如`import`、`alias`、`bean`等，解析Bean配置信息的逻辑又转到了`parseBeanDefinitions()`方法
+9. `parseBeanDefinitions()`方法代码：
+   ```java
+   protected void parseBeanDefinitions(Element root, BeanDefinitionParserDelegate delegate) {
+		if (delegate.isDefaultNamespace(root)) {
+			NodeList nl = root.getChildNodes();
+			for (int i = 0; i < nl.getLength(); i++) {
+				Node node = nl.item(i);
+				if (node instanceof Element) {
+					Element ele = (Element) node;
+					// 如果是默认的命名空间则使用默认的处理方法
+					if (delegate.isDefaultNamespace(ele)) {
+						parseDefaultElement(ele, delegate);
+					}
+                                   /*
+                                   否则用自定义的处理方式，spring自己就使用了自定义标签，如<tx:annotation-driven>，当解析到该元素时spring会
+					作为自定义标签处理，可以看spring-tx模块中的实现，想要实现一个自定义标签的处理需要做的工作有:
+					1.新建一个xsd文件，如spring-tx/src/main/resources/org/springframework/transaction/config/spring-tx.xsd文件，用于校验xml
+					2.实现BeanDefinitionParser接口，如AnnotationDrivenBeanDefinitionParser类，用于xml解析
+					3.实现一个NamespaceHandler继承自NamespaceHandlerSupport，如TxNamespaceHandler，用于注册自定义的BeanDefinitionParser
+					4.编写spring.handlers和spring.schemas文件，如spring.handlers添加如下内容:
+						http\://www.springframework.org/schema/tx=org.springframework.transaction.config.TxNamespaceHandler
+						spring.schemas添加如下内容:
+						http\://www.springframework.org/schema/tx/spring-tx.xsd=org/springframework/transaction/config/spring-tx.xsd
+					参考例子:spring-tx/src/main/resources/META-INF/spring.handlers和spring-tx/src/main/resources/META-INF/spring.schemas
+					xml配置文件中使用方式如下:
+					在xml中引入自定义命名空间: xmlns:tx="http://www.springframework.org/schema/tx"
+                                   之后在xml写<tx:annotation-driven>，spring就会寻找tx对应的命名空间，即http://www.springframework.org/schema/tx对应的NamespaceHandler，并在tx指定的命名空间对应的NamespaceHandler中找annotation-driven对应的BeanDefinitionParser进行解析。
+					在命名空间下引入xsd，如:
+                                   http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+                                   上面的配置表示http://www.springframework.org/schema/tx命名空间的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+					整个xml配置头信息:
+					<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    				              xmlns:tx="http://www.springframework.org/schema/tx" <!--这一行引入命名空间-->
+    				              xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    				              http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd"> <!--这一行表示http://www.springframework.org/schema/tx的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd-->
+					*/
+					else {
+						delegate.parseCustomElement(ele);
+					}
+				}
+			}
+		}
+		else {
+			delegate.parseCustomElement(root);
+		}
+	}
+   ``` 
+   `parseBeanDefinitions()`方法获取`root element`的所有子元素并遍历，如果是默认命名空间的元素，如`<bean>`，则调用`parseDefaultElement()`方法解析，如果是自定义元素，如Spring自定义的`<tx:annotation-driven>`元素，则调用`parseCustomElement()`方法解析。
+10. 对默认命名空间的解析在`parseDefaultElement()`方法，代码：
+    ```java
+    private void parseDefaultElement(Element ele, BeanDefinitionParserDelegate delegate) {
+		//解析import元素，原理就是获取资源并调用getReaderContext().getReader().loadBeanDefinitions()方法
+		if (delegate.nodeNameEquals(ele, IMPORT_ELEMENT)) {
+			importBeanDefinitionResource(ele);
+		}
+		//解析别名
+		else if (delegate.nodeNameEquals(ele, ALIAS_ELEMENT)) {
+			processAliasRegistration(ele);
+		}
+		//解析bean
+		else if (delegate.nodeNameEquals(ele, BEAN_ELEMENT)) {
+			processBeanDefinition(ele, delegate);
+		}
+		//解析beans，原理是重新以<beans>元素为root元素开始解析
+		else if (delegate.nodeNameEquals(ele, NESTED_BEANS_ELEMENT)) {
+			// recurse
+			doRegisterBeanDefinitions(ele);
+		}
+	}
+    ```
+    [DefaultBeanDefinitionDocumentReader]对象利用[BeanDefinitionParserDelegate]对象获取元素的结点名，再根据结点名调用[BeanDefinitionParserDelegate]对象的不同方法解析XML文件，
+
+       默认命名空间的解析，[DefaultBeanDefinitionDocumentReader]对象根据元素标签调用不同的方法，如`<bean>`元素调用`processBeanDefinition()`方法，`import`调用`importBeanDefinitionResource()`方法，而对于[BeanDefinition]的解析注册主要就在`processBeanDefinition()`方法，该方法首先调用[BeanDefinitionParserDelegate]对象的`parseBeanDefinitionElement()`方法获取[BeanDefinitionHolder]，该对象包含了bean的所有配置，如class、id、alias等，具体创建[BeanDefinitionHolder]对象的过程可以看的[BeanDefinitionParserDelegate]对象的`parseBeanDefinitionElement()`方法。创建[BeanDefinitionHolder]对象后就可以根据该对象获取[BeanDefinition]注册到[BeanDefinitionRegistry]，即[DefaultListableBeanFactory]，[DefaultListableBeanFactory]会以`beanName`为key，[BeanDefinition]为value，将[BeanDefinition]保存到Map中。
 
 [BeanDefinitionRegistry]: aaa
 [DefaultListableBeanFactory]: aaa

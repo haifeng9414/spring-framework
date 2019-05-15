@@ -178,7 +178,8 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 					if (delegate.isDefaultNamespace(ele)) {
 						parseDefaultElement(ele, delegate);
 					}
-					/*否则用自定义的处理方式，spring自己就使用了，自定义标签，如<tx:annotation-driven>，当解析到该元素时spring会
+					/*
+                    否则用自定义的处理方式，spring自己就使用了自定义标签，如<tx:annotation-driven>，当解析到该元素时spring会
 					作为自定义标签处理，可以看spring-tx模块中的实现，想要实现一个自定义标签的处理需要做的工作有:
 					1.新建一个xsd文件，如spring-tx/src/main/resources/org/springframework/transaction/config/spring-tx.xsd文件，用于校验xml
 					2.实现BeanDefinitionParser接口，如AnnotationDrivenBeanDefinitionParser类，用于xml解析
@@ -188,17 +189,17 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 						spring.schemas添加如下内容:
 						http\://www.springframework.org/schema/tx/spring-tx.xsd=org/springframework/transaction/config/spring-tx.xsd
 					参考例子:spring-tx/src/main/resources/META-INF/spring.handlers和spring-tx/src/main/resources/META-INF/spring.schemas
-					使用方式如下:
-					在xml中引入自定义命名空间，如:
-					xmlns:tx="http://www.springframework.org/schema/tx"，之后在xml写<tx:annotation-driven>，spring就会寻找tx对应的命名空间，
-					即http://www.springframework.org/schema/tx对应的NamespaceHandler，并在tx指定的命名空间对应的NamespaceHandler中找annotation-driven对应的BeanDefinitionParser进行解析。
+					xml配置文件中使用方式如下:
+					在xml中引入自定义命名空间: xmlns:tx="http://www.springframework.org/schema/tx"
+                    之后在xml写<tx:annotation-driven>，spring就会寻找tx对应的命名空间，即http://www.springframework.org/schema/tx对应的NamespaceHandler，并在tx指定的命名空间对应的NamespaceHandler中找annotation-driven对应的BeanDefinitionParser进行解析。
 					在命名空间下引入xsd，如:
-					http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd，表示http://www.springframework.org/schema/tx命名空间的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
-					对应的xsd文件，例子如下:
+                    http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+                    上面的配置表示http://www.springframework.org/schema/tx命名空间的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+					整个xml配置头信息:
 					<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    				  xmlns:tx="http://www.springframework.org/schema/tx" <!--这一行引入命名空间-->
-    				  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
-    				http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd"> <!--这一行表示http://www.springframework.org/schema/tx的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd-->
+    				              xmlns:tx="http://www.springframework.org/schema/tx" <!--这一行引入命名空间-->
+    				              xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    				              http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd"> <!--这一行表示http://www.springframework.org/schema/tx的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd-->
 					*/
 					else {
 						delegate.parseCustomElement(ele);
