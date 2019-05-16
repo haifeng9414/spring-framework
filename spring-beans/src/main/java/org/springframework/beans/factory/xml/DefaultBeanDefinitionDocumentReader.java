@@ -337,7 +337,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
 		if (bdHolder != null) {
 			/*
-			对于使用默认标签配置的情况下，子元素使用了自定义配置时对这些属性进行处理，如
+			如果存在自定义的子元素，如下，则需要调用相应的NamespaceHandler处理
 			<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
 				<mybean:user username='aaa'/>
 			</bean>

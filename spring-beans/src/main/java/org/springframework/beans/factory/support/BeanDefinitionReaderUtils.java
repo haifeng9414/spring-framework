@@ -106,6 +106,7 @@ public class BeanDefinitionReaderUtils {
 
 		String generatedBeanName = definition.getBeanClassName();
 		if (generatedBeanName == null) {
+			// 如果没有指定className则使用parentName创建beanName
 			if (definition.getParentName() != null) {
 				generatedBeanName = definition.getParentName() + "$child";
 			}
@@ -119,6 +120,7 @@ public class BeanDefinitionReaderUtils {
 		}
 
 		String id = generatedBeanName;
+		// 如果是内嵌bean则给beanNama多加一些字符串做区分
 		if (isInnerBean) {
 			// Inner bean: generate identity hashcode suffix.
 			id = generatedBeanName + GENERATED_BEAN_NAME_SEPARATOR + ObjectUtils.getIdentityHexString(definition);
@@ -127,6 +129,7 @@ public class BeanDefinitionReaderUtils {
 			// Top-level bean: use plain class name.
 			// Increase counter until the id is unique.
 			int counter = -1;
+			// 如果beanName已存在则用beanName#count的形式生成beanName
 			while (counter == -1 || registry.containsBeanDefinition(id)) {
 				counter++;
 				id = generatedBeanName + GENERATED_BEAN_NAME_SEPARATOR + counter;

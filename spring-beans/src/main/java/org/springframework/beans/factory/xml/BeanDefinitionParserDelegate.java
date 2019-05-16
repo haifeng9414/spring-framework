@@ -412,19 +412,31 @@ public class BeanDefinitionParserDelegate {
 	 */
 	@Nullable
 	public BeanDefinitionHolder parseBeanDefinitionElement(Element ele, @Nullable BeanDefinition containingBean) {
+		/*
+		一个普通的<bean>配置
+		<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA" autowire="byType">
+			<constructor-arg value="1"/>
+			<constructor-arg value="2"/>
+			<property name="age" value="100"/>
+		</bean>
+		 */
+
+		// 获取id属性
 		String id = ele.getAttribute(ID_ATTRIBUTE);
+		// 获取name属性
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
 
 		List<String> aliases = new ArrayList<>();
-		//以,或者;为分隔符，nameAttr属性即指定了beanName也指定了alias
+		// 以,或者;为分隔符，nameAttr属性即指定了beanName也指定了alias，nameAttr也可为空
 		if (StringUtils.hasLength(nameAttr)) {
 			String[] nameArr = StringUtils.tokenizeToStringArray(nameAttr, MULTI_VALUE_ATTRIBUTE_DELIMITERS);
 			aliases.addAll(Arrays.asList(nameArr));
 		}
 
 		String beanName = id;
-		//如果id为空则使用name为beanName
+		// 如果id为空则使用name为beanName，否则以id为beanName
 		if (!StringUtils.hasText(beanName) && !aliases.isEmpty()) {
+			// 以别名的第一个名称为beanName，并将该名称从别名中移除
 			beanName = aliases.remove(0);
 			if (logger.isDebugEnabled()) {
 				logger.debug("No XML 'id' specified - using '" + beanName +
@@ -432,27 +444,31 @@ public class BeanDefinitionParserDelegate {
 			}
 		}
 
-		//判断beanName是否已经被使用过
+		// 判断beanName和所有的别名是否已经被使用过
 		if (containingBean == null) {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
 
-		//AbstractBeanDefinition类表示XML中的<bean>元素，包含了bean的所有相关信息
+		// AbstractBeanDefinition类表示XML中的<bean>元素，包含了bean的所有相关信息
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
 		if (beanDefinition != null) {
-			//如果无法获取beanName则创建一个
+			// 如果即没有指定id也没有指定name，则beanName为空，这里创建一个别名
 			if (!StringUtils.hasText(beanName)) {
 				try {
+					// 根据Spring的命名规则创建beanName，默认是className + 一些其他字符串，具体可以看generateBeanName方法注释
 					if (containingBean != null) {
 						beanName = BeanDefinitionReaderUtils.generateBeanName(
 								beanDefinition, this.readerContext.getRegistry(), true);
 					}
 					else {
+						// 如果不是内嵌bean则委托给readerContext创建，而readerContext是调用的DefaultBeanNameGenerator创建的
+						// DefaultBeanNameGenerator又是调用BeanDefinitionReaderUtils.generateBeanName(beanDefinition, this.readerContext.getRegistry(), false)
 						beanName = this.readerContext.generateBeanName(beanDefinition);
 						// Register an alias for the plain bean class name, if still possible,
 						// if the generator returned the class name plus a suffix.
 						// This is expected for Spring 1.2/2.0 backwards compatibility.
 						String beanClassName = beanDefinition.getBeanClassName();
+						// 如果当前beanName不等于className则新增一个className的别名
 						if (beanClassName != null &&
 								beanName.startsWith(beanClassName) && beanName.length() > beanClassName.length() &&
 								!this.readerContext.getRegistry().isBeanNameInUse(beanClassName)) {
@@ -470,6 +486,7 @@ public class BeanDefinitionParserDelegate {
 				}
 			}
 			String[] aliasesArray = StringUtils.toStringArray(aliases);
+			// BeanDefinitionHolder维护了传入构造函数的三个属性，供之后的注册bean信息使用
 			return new BeanDefinitionHolder(beanDefinition, beanName, aliasesArray);
 		}
 
@@ -505,46 +522,50 @@ public class BeanDefinitionParserDelegate {
 	public AbstractBeanDefinition parseBeanDefinitionElement(
 			Element ele, String beanName, @Nullable BeanDefinition containingBean) {
 
+		// 保存当前解析状态，用于发生异常时显示解析状态
 		this.parseState.push(new BeanEntry(beanName));
 
 		String className = null;
+		// 获取className
 		if (ele.hasAttribute(CLASS_ATTRIBUTE)) {
 			className = ele.getAttribute(CLASS_ATTRIBUTE).trim();
 		}
+		// 获取parent
 		String parent = null;
 		if (ele.hasAttribute(PARENT_ATTRIBUTE)) {
 			parent = ele.getAttribute(PARENT_ATTRIBUTE);
 		}
 
 		try {
-			//初始化AbstractBeanDefinition，包含了parentName和class，注意创建出来的是GenericBeanDefinition，spring中
-			//有3中BeanDefinition，分别是ChildBeanDefinition:表示存在父bean的BeanDefinition、GenericBeanDefinition:一站式的BeanDefinition，保存了parentName属性(如果有的话)
-			//RootBeanDefinition:表示普通的bean，这3中BeanDefinition都继承自AbstractBeanDefinition，AbstractBeanDefinition已经实现了大部分BeanDefinition需要的功能，
-			//ChildBeanDefinition只是多了校验parentName不为空的逻辑(重写validate方法)，GenericBeanDefinition定义了parentName属性、RootBeanDefinition由一个或多个BeanDefinition
-			//合并而来(子bean合并父bean之后才能作为一个单独的bean)，是容器中一个具体bean的BeanDefinition视图。
+			// 初始化AbstractBeanDefinition，包含了parentName和class，创建出来的是GenericBeanDefinition类型，spring中
+			// 有3中BeanDefinition，分别是ChildBeanDefinition: 表示存在父bean的BeanDefinition、GenericBeanDefinition: 一站式的BeanDefinition，保存了parentName属性(如果有的话)
+			// RootBeanDefinition: 表示普通的bean，这3中BeanDefinition都继承自AbstractBeanDefinition，AbstractBeanDefinition已经实现了大部分BeanDefinition需要的功能，
+			// ChildBeanDefinition只是多了校验parentName不为空的逻辑(重写validate方法)，GenericBeanDefinition定义了parentName属性、RootBeanDefinition由一个或多个BeanDefinition
+			// 合并而来(子bean合并父bean的属性之后才能作为一个单独的bean)，是容器中一个具体bean的BeanDefinition视图。
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
-			//根据element获取beanDefinition属性，如autowire、destroyMethod、scope、abstract等bean标签上的属性
+			// 根据element获取beanDefinition属性，如autowire、destroyMethod、scope、abstract等所有bean标签上的属性
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
 			//保存meta数据，meta属性不会影响bean的创建，当需要获取meta时通过beanDefinition.getAttribute(key)获取
 			parseMetaElements(ele, bd);
-			/*解析lookup方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，lookup方法代理获取对象的方法，返回一个指定的bean，如
-			<lookup-method name="getFruit" bean="apple"/>这样的声明存在于某个bean声明中的话表示该bean的getFruit方法将会放回bean apple，
+			/*
+			解析lookup方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，lookup方法代理获取对象的方法，返回一个指定的bean，如
+			<lookup-method name="getFruit" bean="apple"/>这样的声明存在于某个bean声明中的话表示该bean的getFruit方法将会返回bean apple，
 			常用的使用场景是:
 			假设一个单例模式的bean A需要引用另外一个非单例模式的bean B，为了在每次引用的时候都能拿到最新的bean B，可以让bean A通过实现ApplicationContextWare来
 			获取applicationContext(即可以获得容器上下文)，从而能在运行时通过ApplicationContext.getBean(String beanName)的方法来获取最新的bean B，
 			但是如果用ApplicationContextAware接口，就与Spring代码耦合了，违背了反转控制原则(IoC，即bean完全由Spring容器管理，我们代码只需要用bean就可以了)，
 			所以Spring为我们提供了方法注入的方式来实现以上的场景。方法注入方式主要是通过<lookup-method/>标签，Spring通过CGLIB代理了包含lookup-method的bean，
 			被代理的方法如上面是getFruit可以是抽象方法，被代理的bean也可以是抽象bean，一般被返回的bean如上面的apple的scope是prototype的，如果是singleton的话每次返回的都是
-			同一个bean，那样lookup-method的意义就不大了，当然apple是singleton也不会报错。spring实现lookup-method的地方是在创建bean是AbstractAutowireCapableBeanFactory
-			在调用instantiateBean实例话bean的时候判断当前创建的bean是否存在MethodOverrides，lookup-method都保存在属性中，如果存在MethodOverrides则使用CGLIB创建代理bean
+			同一个bean，那样lookup-method的意义就不大了，当然apple是singleton也不会报错。spring实现lookup-method的地方是在创建bean时AbstractAutowireCapableBeanFactory
+			在调用instantiateBean实例化bean的时候判断当前创建的bean是否存在MethodOverrides，如果存在MethodOverrides则使用CGLIB创建代理bean
 			*/
 			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
-			//解析replaced方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，replaced方法替代某个方法的执行，如
 			/*
-			 <bean id="person" class="test.replaced.Person">
+			解析replaced方法，将该方法的相关属性也是保存到bd.getMethodOverrides()中，replaced方法替代某个方法的执行，如
+			<bean id="person" class="test.replaced.Person">
     		    <replaced-method name="show" replacer="replace"></replaced-method>
     		</bean>
 
@@ -555,11 +576,12 @@ public class BeanDefinitionParserDelegate {
 			 */
 			parseReplacedMethodSubElements(ele, bd.getMethodOverrides());
 
-			//解析构造函数属性
+			// 解析构造函数
 			parseConstructorArgElements(ele, bd);
-			//解析property
+			// 解析property
 			parsePropertyElements(ele, bd);
-			//Qualifier用于指定注入的bean的名字
+			// 解析qualifier元素，qualifier用于指定注入其他bean时设置需要的bean的名字，这样就能在由多个bean满足注入条件的情况下
+			// 选择一个特定的bean
 			parseQualifierElements(ele, bd);
 
 			bd.setResource(this.readerContext.getResource());
