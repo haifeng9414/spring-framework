@@ -57,7 +57,7 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		refresh();
 	}
    ```
-   [ClassPathXmlApplicationContext]重写了`getConfigResources()`方法，返回构造函数中创建的[ClassPathResource]对象数组，[ClassPathResource]对象表示当前[ApplicationContext]需要解析的资源，可以返回类路径下资源的URL和File。[ClassPathXmlApplicationContext]的构造函数在最后调用了`refresh()`方法开始创建容器，`refresh()`方法的实现在其父类[AbstractApplicationContext]
+   [ClassPathXmlApplicationContext]实现了`getConfigResources()`方法，返回构造函数中创建的[ClassPathResource]对象数组，[ClassPathResource]对象表示当前[ApplicationContext]需要解析的资源，可以返回类路径下资源的URL和File。[ClassPathXmlApplicationContext]的构造函数在最后调用了`refresh()`方法开始创建容器，`refresh()`方法的实现在其父类[AbstractApplicationContext]
 2. `refresh()`方法包含了所有容器创建过程中需要执行的操作，这些过程可以看笔记[容器的初始化过程](容器的初始化过程.md)，对于Bean配置信息的加载，在`refresh()`方法中调用的`obtainFreshBeanFactory()`方法，代码：
    ```java
    protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {

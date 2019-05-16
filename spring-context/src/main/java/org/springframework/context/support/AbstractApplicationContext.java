@@ -517,63 +517,64 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	public void refresh() throws BeansException, IllegalStateException {
 		synchronized (this.startupShutdownMonitor) {
 			// Prepare this context for refreshing.
-			//初始化容器状态并对系统属性及环境变量进行验证
+			// 初始化容器状态并对系统属性及环境变量进行验证
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
-			//初始化BeanFactory，解析资源文件注册BeanDefinition到BeanFactory
+			// 初始化BeanFactory，解析资源文件注册BeanDefinition到BeanFactory
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
+			// 初始化beanFactory的组件
 			prepareBeanFactory(beanFactory);
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
-				//供子类实现的方法，调用该方法时所有的bean definition都已经注册，但是所有的bean都还没有开始创建，此时可以添加自定义的BeanPostProcessor
+				// 供子类实现的方法，调用该方法时所有的bean definition都已经注册，但是所有的bean都还没有开始创建，此时可以添加自定义的BeanPostProcessor
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
-				//调用注册的BeanFactoryPostProcessor和BeanFactoryPostProcessor的子接口BeanDefinitionRegistryPostProcessor
-				//即通知所有BeanDefinitionRegistryPostProcessor，当前BeanDefinitionRegistry注册事件，通知所有的BeanFactoryPostProcessor，当前
-				//的ConfigurableListableBeanFactory注册事件，该方法内部会调用beanFactory.getBean，所以从这里开始有的bean就会开始初始化
+				// 调用注册的BeanFactoryPostProcessor和BeanFactoryPostProcessor的子接口BeanDefinitionRegistryPostProcessor
+				// 即通知所有BeanDefinitionRegistryPostProcessor，当前BeanDefinitionRegistry注册事件，通知所有的BeanFactoryPostProcessor，当前
+				// 的ConfigurableListableBeanFactory注册事件，该方法内部会调用beanFactory.getBean，所以从这里开始bean就可能开始初始化
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
-				//注册所有的BeanPostProcessor到beanFactory中，上面的invokeBeanFactoryPostProcessors只会初始化所有的BeanFactoryPostProcessor和
-				//BeanDefinitionRegistryPostProcessor类型的bean，这里查找所有的BeanPostProcessor类型的bean并初始化，同时也要注意如果一个BeanFactoryPostProcessor或
-				//BeanDefinitionRegistryPostProcessor类型的bean依赖了其他的bean，在invokeBeanFactoryPostProcessors初始化这个BeanFactoryPostProcessor或
-				//BeanDefinitionRegistryPostProcessor类型的bean时被依赖的bean会先于BeanFactoryPostProcessor或BeanDefinitionRegistryPostProcessor类型的bean
-				//创建，而此时所有的BeanPostProcessor都还没有被注册到beanFactory的beanPostProcessors列表中，所以这种情况下的BeanPostProcessor类型的bean的两个监听方法在初始化其他bean的时候不会被调用，
-				//如Bean A是BeanDefinitionRegistryPostProcessor类型的，Bean A有成员变量Bean B，Bean C是BeanPostProcessor，这种情况下Bean A在invokeBeanFactoryPostProcessors
-				//方法中被初始化并调用postProcessBeanFactory和postProcessBeanDefinitionRegistry方法，并会在初始化Bean A的时候先初始化Bean B，Bean C监听不到Bean B的创建，
-				//同样在registerBeanPostProcessors只是初始化了所有的BeanPostProcessor并添加到beanFactory中，所以BeanPostProcessor之间也是不会监听到创建，
-				//只有在registerBeanPostProcessors调用后BeanPostProcessor才会生效
+				// 注册所有的BeanPostProcessor到beanFactory中，上面的invokeBeanFactoryPostProcessors只会初始化所有的BeanFactoryPostProcessor和
+				// BeanDefinitionRegistryPostProcessor类型的bean，这里查找所有的BeanPostProcessor类型的bean并初始化，同时也要注意如果一个BeanFactoryPostProcessor或
+				// BeanDefinitionRegistryPostProcessor类型的bean依赖了其他的bean，在invokeBeanFactoryPostProcessors初始化这个BeanFactoryPostProcessor或
+				// BeanDefinitionRegistryPostProcessor类型的bean时被依赖的bean会先于BeanFactoryPostProcessor或BeanDefinitionRegistryPostProcessor类型的bean
+				// 创建，而此时所有的BeanPostProcessor都还没有被注册到beanFactory的beanPostProcessors列表中，所以这种情况下的BeanPostProcessor类型的bean的两个监听方法在初始化其他bean的时候不会被调用，
+				// 如Bean A是BeanDefinitionRegistryPostProcessor类型的，Bean A有成员变量Bean B，Bean C是BeanPostProcessor，这种情况下Bean A在invokeBeanFactoryPostProcessors
+				// 方法中被初始化并调用postProcessBeanFactory和postProcessBeanDefinitionRegistry方法，并会在初始化Bean A的时候先初始化Bean B，Bean C监听不到Bean B的创建，
+				// 同样在registerBeanPostProcessors只是初始化了所有的BeanPostProcessor并添加到beanFactory中，所以BeanPostProcessor之间也是不会监听到创建，
+				// 只有在registerBeanPostProcessors调用后BeanPostProcessor才会生效
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
-				//初始化MessageSource
+				// 初始化MessageSource
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
-				//初始化ApplicationEventMulticaster，默认实现是SimpleApplicationEventMulticaster
+				// 初始化ApplicationEventMulticaster，默认实现是SimpleApplicationEventMulticaster
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
-				//供子类实现，可用于初始化自定义的bean或执行其他初始化工作，注意该方法执行的时候普通的bean还没有初始化
+				// 供子类实现，可用于初始化自定义的bean或执行其他初始化工作，注意该方法执行的时候普通的bean还没有初始化
 				onRefresh();
 
 				// Check for listener beans and register them.
-				//初始化ApplicationListener类型的bean，并把保存在earlyApplicationEvents中的事件广播到所有的ApplicationListener，
-				//之后清空earlyApplicationEvents以便事件广播能够正常工作，earlyApplicationEvents的目的是在调用initApplicationEventMulticaster
-				//初始化ApplicationEventMulticaster之前保存被要求发布的事件
+				// 初始化ApplicationListener类型的bean，并把保存在earlyApplicationEvents中的事件广播到所有的ApplicationListener，
+				// 之后清空earlyApplicationEvents以便事件广播能够正常工作，earlyApplicationEvents的目的是在调用initApplicationEventMulticaster
+				// 初始化ApplicationEventMulticaster之前保存被要求发布的事件
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
-				//初始化剩余的非lazy-init的单例bean及ConversionService、LoadTimeWeaverAware等类型的bean
+				// 初始化剩余的非lazy-init的单例bean及ConversionService、LoadTimeWeaverAware等类型的bean
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
-				//初始化lifecycleProcessor bean并调用lifecycleProcessor的onRefresh，发送ContextRefreshedEvent事件
+				// 初始化lifecycleProcessor bean并调用lifecycleProcessor的onRefresh，发送ContextRefreshedEvent事件
 				finishRefresh();
 			}
 
@@ -615,16 +616,19 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 
 		// Initialize any placeholder property sources in the context environment
-		//供子类实现，可以添加需要的PropertySources
+		// 供子类实现，可以添加需要的PropertySources，PropertySources为PropertySource的集合，而PropertySource
+		// 表示一个数据源，实现类如MapPropertySource接受一个Map并从Map中获取属性，ResourcePropertySource接受properties文件并从中获取属性，
+		// ServletContextPropertySource的属性来自ServletContext上下文初始化参数等等
 		initPropertySources();
 
 		// Validate that all properties marked as required are resolvable
 		// see ConfigurablePropertyResolver#setRequiredProperties
-		//验证需要的属性文件是否放入环境中
+		// 验证必要的属性是否已经存在，即遍历environment中的requiredProperties属性，判断PropertySources中是否存在该属性
 		getEnvironment().validateRequiredProperties();
 
 		// Allow for the collection of early ApplicationEvents,
 		// to be published once the multicaster is available...
+		// 保存事件监听器初始化完成之前需要发送的事件，待监听器初始化完成后发送
 		this.earlyApplicationEvents = new LinkedHashSet<>();
 	}
 
@@ -644,9 +648,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
-		//刷新beanFactory，抽象方法
+		// 刷新beanFactory，抽象方法
 		refreshBeanFactory();
-		//抽象方法
+
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		if (logger.isDebugEnabled()) {
 			logger.debug("Bean factory for " + getDisplayName() + ": " + beanFactory);
