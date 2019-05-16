@@ -448,7 +448,7 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		return null;
 	}
     ```
-12. `parseBeanDefinitionElement()`方法解析了bean的名称和别名，而bean的配置信息则`parseBeanDefinitionElement()`方法的重载版本完成的，代码：
+12. `parseBeanDefinitionElement()`方法解析了Bean的名称和别名，而Bean的配置信息则交由`parseBeanDefinitionElement()`方法的重载版本完成的，代码：
     ```java
     public AbstractBeanDefinition parseBeanDefinitionElement(
 			Element ele, String beanName, @Nullable BeanDefinition containingBean) {
@@ -578,7 +578,7 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		String[] aliases = definitionHolder.getAliases();
 		if (aliases != null) {
 			for (String alias : aliases) {
-				//以别名进行注册
+				// 以别名进行注册
 				registry.registerAlias(beanName, alias);
 			}
 		}
@@ -627,3 +627,5 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 [XmlBeanDefinitionReader]: aaa
 [BeanDefinitionReader]: aaa
 [AbstractBeanDefinitionReader]: aaa
+[NamespaceHandler]: aaa
+[BeanDefinitionReaderUtils]: aaa
