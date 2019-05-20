@@ -292,7 +292,8 @@ class PostProcessorRegistrationDelegate {
 		// 排序后按照顺序重新注册，internalPostProcessors在上面处理的三个for循环中已经被注册到BeanFactory了，但是BeanFactory在注册BeanPostProcessor时会
 		// 先移除BeanPostProcessor（如果有的话）再注册，所以不会存在重复注册的问题，而这里重新注册带来的效果是，如果BeanPostProcessor的实现类没有实现MergedBeanDefinitionPostProcessor接口，
 		// 则这些BeanPostProcessor比是MergedBeanDefinitionPostProcessor类型的BeanPostProcessor优先级会更高，即使MergedBeanDefinitionPostProcessor类型的BeanPostProcessors实现了
-		// PriorityOrdered接口，因为不是MergedBeanDefinitionPostProcessor类型的BeanPostProcessor不会被重新注册
+		// PriorityOrdered接口，因为不是MergedBeanDefinitionPostProcessor类型的BeanPostProcessor不会被重新注册，而重新注册时BeanFactory会先移除再注册，这样
+		// 使得重新注册的BeanPostProcessor在BeanFactory中的beanPostProcessors列表中更靠后，优先级就更低
 		registerBeanPostProcessors(beanFactory, internalPostProcessors);
 
 		// Re-register post-processor for detecting inner beans as ApplicationListeners,

@@ -917,7 +917,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// at this point, primarily for resolution in annotation attribute values.
 		// StringValueResolver作用是解析must be encoding ${encoding}这样包含变量的字符串，这里使用environment的resolvePlaceholders
 		// 作为StringValueResolver，environment在prepareRefresh方法中已经初始化了，默认实现是StandardEnvironment，StandardEnvironment中
-		// 使用PropertySourcesPropertyResolver实现resolvePlaceholders方法
+		// 使用PropertySourcesPropertyResolver实现resolvePlaceholders方法，即从PropertySource解析变量
 		if (!beanFactory.hasEmbeddedValueResolver()) {
 			beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlaceholders(strVal));
 		}
