@@ -770,8 +770,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void initMessageSource() {
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
-		//beanFactory是通过BeanDefinition作为bean是否存在的依据的，这里判断是否存在beanName为messageSource的bean，
-		//如果存在则以该bean为messageSource
+		// beanFactory是通过BeanDefinition作为bean是否存在的依据的，这里判断是否存在beanName为messageSource的bean，
+		// 如果存在则以该bean为messageSource
 		if (beanFactory.containsLocalBean(MESSAGE_SOURCE_BEAN_NAME)) {
 			//getBean方法如果获取不到指定的bean会抛出异常，所以如果存在beanName为messageSource但是不是MessageSource类型则会报错
 			this.messageSource = beanFactory.getBean(MESSAGE_SOURCE_BEAN_NAME, MessageSource.class);
@@ -790,6 +790,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 		else {
 			// Use empty MessageSource to be able to accept getMessage calls.
+			// 否则使用默认的messageSource
 			DelegatingMessageSource dms = new DelegatingMessageSource();
 			dms.setParentMessageSource(getInternalParentMessageSource());
 			this.messageSource = dms;
