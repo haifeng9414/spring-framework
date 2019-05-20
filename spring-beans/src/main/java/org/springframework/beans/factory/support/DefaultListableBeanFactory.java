@@ -737,7 +737,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		for (String beanName : beanNames) {
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
+				// 如果是bean是FactoryBean则先获取FactoryBean
 				if (isFactoryBean(beanName)) {
+					// 传入的beanName是FACTORY_BEAN_PREFIX + beanName，则返回的bean是FactoryBean而不是FactoryBean创建的bean
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
 					if (bean instanceof FactoryBean) {
 						final FactoryBean<?> factory = (FactoryBean<?>) bean;
@@ -748,21 +750,26 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 									getAccessControlContext());
 						}
 						else {
+							// 判断是否需要提前初始化FactoryBean创建的bean
 							isEagerInit = (factory instanceof SmartFactoryBean &&
 									((SmartFactoryBean<?>) factory).isEagerInit());
 						}
 						if (isEagerInit) {
+							// 如果需要则直接创建bean，这里传入的是beanName而不是上面的FACTORY_BEAN_PREFIX + beanName，这将会
+							// 通过FactoryBean的getObject方法获取bean
 							getBean(beanName);
 						}
 					}
 				}
 				else {
+					// 如果是普通bean则直接初始化
 					getBean(beanName);
 				}
 			}
 		}
 
 		// Trigger post-initialization callback for all applicable beans...
+		// 如果实例化的单例bean实现了SmartInitializingSingleton接口则调用该接口的回调方法
 		for (String beanName : beanNames) {
 			Object singletonInstance = getSingleton(beanName);
 			if (singletonInstance instanceof SmartInitializingSingleton) {

@@ -1,9 +1,12 @@
 package org.springframework.tests.sample.beans;
 
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.Lifecycle;
 import org.springframework.context.event.ContextRefreshedEvent;
 
-public class MyBeanA implements ApplicationListener<ContextRefreshedEvent> {
+import java.util.concurrent.TimeUnit;
+
+public class MyBeanA implements ApplicationListener<ContextRefreshedEvent>, Lifecycle {
 	private String id;
 	private String name;
 	private String prop;
@@ -58,5 +61,28 @@ public class MyBeanA implements ApplicationListener<ContextRefreshedEvent> {
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
 		System.out.println("mybean A onApplicationEvent");
+	}
+
+	@Override
+	public void start() {
+		System.out.println("myBeanA start");
+	}
+
+	@Override
+	public void stop() {
+		try {
+			for (int i = 0; i < 20; i++) {
+				System.out.println("myBeanA " + i);
+				TimeUnit.SECONDS.sleep(1);
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.out.println("myBeanA stop");
+	}
+
+	@Override
+	public boolean isRunning() {
+		return true;
 	}
 }

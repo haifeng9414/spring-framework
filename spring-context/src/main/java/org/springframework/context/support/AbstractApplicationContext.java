@@ -553,7 +553,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
-				// 初始化MessageSource
+				// 初始化MessageSource，MessageSource用于实现国际化
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
@@ -768,6 +768,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Initialize the MessageSource.
 	 * Use parent's if none defined in this context.
 	 */
+	// 初始化MessageSource，MessageSource用于实现国际化
 	protected void initMessageSource() {
 		ConfigurableListableBeanFactory beanFactory = getBeanFactory();
 		// beanFactory是通过BeanDefinition作为bean是否存在的依据的，这里判断是否存在beanName为messageSource的bean，
@@ -790,10 +791,11 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 		else {
 			// Use empty MessageSource to be able to accept getMessage calls.
-			// 否则使用默认的messageSource
+			// 否则使用DelegatingMessageSource作为messageSource的实现，DelegatingMessageSource基本上是个空实现
 			DelegatingMessageSource dms = new DelegatingMessageSource();
 			dms.setParentMessageSource(getInternalParentMessageSource());
 			this.messageSource = dms;
+			// 注册到beanFactory
 			beanFactory.registerSingleton(MESSAGE_SOURCE_BEAN_NAME, this.messageSource);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Unable to locate MessageSource with name '" + MESSAGE_SOURCE_BEAN_NAME +
@@ -818,6 +820,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		}
 		else {
 			this.applicationEventMulticaster = new SimpleApplicationEventMulticaster(beanFactory);
+			// 注册到beanFactory
 			beanFactory.registerSingleton(APPLICATION_EVENT_MULTICASTER_BEAN_NAME, this.applicationEventMulticaster);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Unable to locate ApplicationEventMulticaster with name '" +
@@ -845,6 +848,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			DefaultLifecycleProcessor defaultProcessor = new DefaultLifecycleProcessor();
 			defaultProcessor.setBeanFactory(beanFactory);
 			this.lifecycleProcessor = defaultProcessor;
+			// 注册到beanFactory
 			beanFactory.registerSingleton(LIFECYCLE_PROCESSOR_BEAN_NAME, this.lifecycleProcessor);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Unable to locate LifecycleProcessor with name '" +
@@ -869,6 +873,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Add beans that implement ApplicationListener as listeners.
 	 * Doesn't affect other listeners, which can be added without being beans.
 	 */
+	// 注册ApplicationListener到ApplicationEventMulticaster
 	protected void registerListeners() {
 		// Register statically specified listeners first.
 		for (ApplicationListener<?> listener : getApplicationListeners()) {
@@ -879,6 +884,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// uninitialized to let post-processors apply to them!
 		String[] listenerBeanNames = getBeanNamesForType(ApplicationListener.class, true, false);
 		for (String listenerBeanName : listenerBeanNames) {
+			// 这里只是添加beanName，没有实例化bean，只有在有需要通知的事件时才会初始化bean
 			getApplicationEventMulticaster().addApplicationListenerBean(listenerBeanName);
 		}
 
@@ -896,9 +902,10 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * Finish the initialization of this context's bean factory,
 	 * initializing all remaining singleton beans.
 	 */
+	// 初始化剩余的非lazy-init的单例bean及ConversionService、LoadTimeWeaverAware等类型的bean
 	protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
 		// Initialize conversion service for this context.
-		//一般用ConversionServiceFactoryBean来注册多个自定义的ConversionService
+		// 一般用ConversionServiceFactoryBean来注册多个自定义的ConversionService，ConversionService用于对象类型转换
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
 				beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
 			beanFactory.setConversionService(
@@ -908,9 +915,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// Register a default embedded value resolver if no bean post-processor
 		// (such as a PropertyPlaceholderConfigurer bean) registered any before:
 		// at this point, primarily for resolution in annotation attribute values.
-		//StringValueResolver作用是解析must be encoding ${encoding}这样包含变量的字符串，这里使用environment的resolvePlaceholders
-		//作为StringValueResolver，environment在prepareRefresh方法中已经初始化了，默认实现是StandardEnvironment，StandardEnvironment中
-		//使用PropertySourcesPropertyResolver代理resolvePlaceholders方法
+		// StringValueResolver作用是解析must be encoding ${encoding}这样包含变量的字符串，这里使用environment的resolvePlaceholders
+		// 作为StringValueResolver，environment在prepareRefresh方法中已经初始化了，默认实现是StandardEnvironment，StandardEnvironment中
+		// 使用PropertySourcesPropertyResolver实现resolvePlaceholders方法
 		if (!beanFactory.hasEmbeddedValueResolver()) {
 			beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlaceholders(strVal));
 		}
@@ -928,6 +935,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.freezeConfiguration();
 
 		// Instantiate all remaining (non-lazy-init) singletons.
+		// 实例化所有单例bean
 		beanFactory.preInstantiateSingletons();
 	}
 
@@ -936,17 +944,23 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * onRefresh() method and publishing the
 	 * {@link org.springframework.context.event.ContextRefreshedEvent}.
 	 */
+	// 初始化lifecycleProcessor bean并调用lifecycleProcessor的onRefresh，发送ContextRefreshedEvent事件
 	protected void finishRefresh() {
 		// Clear context-level resource caches (such as ASM metadata from scanning).
 		clearResourceCaches();
 
 		// Initialize lifecycle processor for this context.
+		// 和初始化MessageSource一样，检查是否存在指定名称的bean，如果没有则使用默认实现DefaultLifecycleProcessor
+		// LifecycleProcessor用于通知所有实现了Lifecycle接口的bean相关事件，而实现了Lifecycle接口的bean在容器启动、
+		// 停止时会被执行回调方法，如果多个实现了Lifecycle接口的bean对彼此的执行的顺序有要求则应该实现SmartLifecycle接口
+		// 该接口有父接口Phased，用于实现启动顺序
 		initLifecycleProcessor();
 
 		// Propagate refresh to lifecycle processor first.
 		getLifecycleProcessor().onRefresh();
 
 		// Publish the final event.
+		// 通过ApplicationEventMulticaster分发事件
 		publishEvent(new ContextRefreshedEvent(this));
 
 		// Participate in LiveBeansView MBean, if active.

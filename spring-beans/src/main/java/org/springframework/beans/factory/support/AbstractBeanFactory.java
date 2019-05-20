@@ -1276,8 +1276,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @throws NoSuchBeanDefinitionException if there is no bean with the given name
 	 * @throws BeanDefinitionStoreException in case of an invalid bean definition
 	 */
-	//合并当前bean和其父bean的属性，即当前bean定义在其他bean内的话，则创建父bean的BeanDefinition并用当前bean的属性覆盖或合并父bean的属性并返回
-	//如果不存在父bean则直接根据当前bean的BeanDefinition创建RootBeanDefinition
+	// 合并当前bean和其父bean的属性，即当前bean定义在其他bean内的话，则创建父bean的BeanDefinition并用当前bean的属性覆盖或合并父bean的属性并返回
+	// 如果不存在父bean则直接根据当前bean的BeanDefinition创建RootBeanDefinition
 	protected RootBeanDefinition getMergedLocalBeanDefinition(String beanName) throws BeansException {
 		// Quick check on the concurrent map first, with minimal locking.
 		// 首先从缓存获取数据
@@ -1359,9 +1359,9 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 								"Could not resolve parent bean definition '" + bd.getParentName() + "'", ex);
 					}
 					// Deep copy with overridden values.
-					//以parent beanDefinition创建RootBeanDefinition
+					// 以parent beanDefinition创建RootBeanDefinition
 					mbd = new RootBeanDefinition(pbd);
-					//复制bd上的属性到mdb，即复制子beanDefinition的属性到mbd，overrideFrom方法上的注释说明了某些属性取自子bean如scope，某个属性是合并的
+					// 复制bd上的属性到mdb，即复制子beanDefinition的属性到mbd，overrideFrom方法上的注释说明了某些属性取自子bean如scope，某个属性是合并的
 					mbd.overrideFrom(bd);
 				}
 
