@@ -40,6 +40,8 @@ import org.springframework.util.StringValueResolver;
 public class SimpleAliasRegistry implements AliasRegistry {
 
 	/** Map from alias to canonical name */
+	// 以alias为key，name为值，因为通常使用场景是通过alias找name，并且一个name可以对应多个alias，这种存储方法刚好能够满足需求
+	// 可以存在多个不同的alias对应同一个name
 	private final Map<String, String> aliasMap = new ConcurrentHashMap<>(16);
 
 
@@ -54,16 +56,20 @@ public class SimpleAliasRegistry implements AliasRegistry {
 			else {
 				String registeredName = this.aliasMap.get(alias);
 				if (registeredName != null) {
+					// 如果alias和name的映射关系已存在直接返回
 					if (registeredName.equals(name)) {
 						// An existing alias - no need to re-register
 						return;
 					}
+					// 否则如果不允许覆盖alias对应的name则报错
 					if (!allowAliasOverriding()) {
 						throw new IllegalStateException("Cannot register alias '" + alias + "' for name '" +
 								name + "': It is already registered for name '" + registeredName + "'.");
 					}
 				}
+				// 判断是否存在循环引用
 				checkForAliasCircle(name, alias);
+				// 注册别名
 				this.aliasMap.put(alias, name);
 			}
 		}
@@ -185,8 +191,10 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @see #registerAlias
 	 * @see #hasAlias
 	 */
-	//判断是否存在循环引用
+	// 判断是否存在循环引用
 	protected void checkForAliasCircle(String name, String alias) {
+		// hasAlias方法参数名称是name、alias，用于判断是否存在alias和name的映射关系，并且A -> B，B -> C，则A -> C也满足
+		// 这里以alias为name，name为alias，如果存在映射关系，则表示存在循环引用
 		if (hasAlias(alias, name)) {
 			throw new IllegalStateException("Cannot register alias '" + alias +
 					"' for name '" + name + "': Circular reference - '" +
@@ -199,7 +207,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @param name the user-specified name
 	 * @return the transformed name
 	 */
-	//获取别名的原始名称，如A -> B -> C则返回C，如果不存在别名则返回传入的name参数
+	// 获取别名的原始名称，如A -> B -> C则返回C，如果不存在别名则返回传入的name参数
 	public String canonicalName(String name) {
 		String canonicalName = name;
 		// Handle aliasing...
