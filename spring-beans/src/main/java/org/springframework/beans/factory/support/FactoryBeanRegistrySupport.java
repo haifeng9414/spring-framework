@@ -46,6 +46,7 @@ import org.springframework.lang.Nullable;
 public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanRegistry {
 
 	/** Cache of singleton objects created by FactoryBeans: FactoryBean name --> object */
+	// 以FactoryBean的name为key，其创建出来的bean为value，保存下来是因为从FactoryBean中获取单例bean的话只能创建一次bean
 	private final Map<String, Object> factoryBeanObjectCache = new ConcurrentHashMap<>(16);
 
 
@@ -56,7 +57,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * or {@code null} if the type cannot be determined yet
 	 */
 	@Nullable
-	//返回FactoryBean创建的bean的类型
+	// 返回FactoryBean创建的bean的类型
 	protected Class<?> getTypeForFactoryBean(final FactoryBean<?> factoryBean) {
 		try {
 			if (System.getSecurityManager() != null) {
@@ -83,7 +84,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * or {@code null} if not available
 	 */
 	@Nullable
-	//获取已经缓存下来的从指定的FactoryBean中创建的bean
+	// 获取已经缓存下来的从指定的FactoryBean中创建的单例bean
 	protected Object getCachedObjectForFactoryBean(String beanName) {
 		return this.factoryBeanObjectCache.get(beanName);
 	}
@@ -97,7 +98,9 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @throws BeanCreationException if FactoryBean object creation failed
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
-	//从FactoryBean中获取Bean
+	// 从FactoryBean中获取Bean，AbstractBeanFactory获取bean时，会判断通过反射创建出来的类是否是FactoryBean类型的，如果是，则会调用
+	// 该方法从FactoryBean中返回Bean，而一般bean实现FactoryBean接口时不直接实现，而是实现FactoryBean接口的的抽象实现类AbstractFactoryBean
+	// 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关系如果创建对象
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 		/*如果FactoryBean单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
 		Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)执行的)
@@ -169,7 +172,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @throws BeanCreationException if FactoryBean object creation failed
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
-	//调用FactoryBean的getObject方法创建bean
+	// 调用FactoryBean的getObject方法创建bean
 	private Object doGetObjectFromFactoryBean(final FactoryBean<?> factory, final String beanName)
 			throws BeanCreationException {
 

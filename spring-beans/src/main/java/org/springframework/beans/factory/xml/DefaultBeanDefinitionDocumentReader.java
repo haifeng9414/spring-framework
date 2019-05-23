@@ -129,7 +129,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		BeanDefinitionParserDelegate parent = this.delegate;
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
-		//过滤掉profile不等于当前environment中激活的profile的资源
+		// 过滤掉profile不等于当前environment中激活的profile的资源
 		if (this.delegate.isDefaultNamespace(root)) {
 			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
 			if (StringUtils.hasText(profileSpec)) {
@@ -145,10 +145,10 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
-		//空方法、供子类实现
+		// 空方法、供子类实现
 		preProcessXml(root);
 		parseBeanDefinitions(root, this.delegate);
-		//空方法、供子类实现
+		// 空方法、供子类实现
 		postProcessXml(root);
 
 		this.delegate = parent;

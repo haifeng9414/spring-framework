@@ -59,17 +59,21 @@ import org.springframework.util.ReflectionUtils;
  * @see #setSingleton
  * @see #createInstance()
  */
+// 通过模版方法模式，使得用户在实现FactoryBean类型的bean时只需要关心如果创建bean
 public abstract class AbstractFactoryBean<T>
 		implements FactoryBean<T>, BeanClassLoaderAware, BeanFactoryAware, InitializingBean, DisposableBean {
 
 	/** Logger available to subclasses */
 	protected final Log logger = LogFactory.getLog(getClass());
 
+	// 默认是单例的，这样bean只会被创建一次，如果不是单例的则每次调用getBean时都会创建一个新的bean
 	private boolean singleton = true;
 
+	// 通过BeanClassLoaderAware接口实现自动注入
 	@Nullable
 	private ClassLoader beanClassLoader = ClassUtils.getDefaultClassLoader();
 
+	// 通过BeanFactoryAware接口实现自动注入
 	@Nullable
 	private BeanFactory beanFactory;
 
