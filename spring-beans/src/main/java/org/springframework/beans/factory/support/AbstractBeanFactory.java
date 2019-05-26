@@ -238,28 +238,19 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @return an instance of the bean
 	 * @throws BeansException if the bean could not be created
 	 */
-	//关于bean的aware的使用，aware有：
-	//BeanNameAware，将会调用setBeanName方法，使得bean能够获取自己在beanFactory中的名字
-	//BeanClassLoaderAware，将会调用setBeanClassLoader，使得bean能够获取到beanFactory的classLoader
-	//BeanFactoryAware，将会调用setBeanFactory，使得bean能够获取到BeanFactory，bean能够通过该BeanFactory获取到任何bean
-
-	//关于BeanPostProcessor，首先是在调用doCreateBean方法之前会调用resolveBeforeInstantiation方法，该方法
-	//会遍历InstantiationAwareBeanPostProcessor(BeanPostProcessor的子类)并调用postProcessBeforeInstantiation方法(不同于之后说的postProcessBeforeInitialization方法)，如果该方法返回了一个bean
-	//则会再次调用postProcessAfterInitialization方法，并将之前创建的bean作为参数传入，如果resolveBeforeInstantiation返回了bean则作为最终的bean返回，如果没有则
-	//先创建bean，创建bean后将会调用initializeBean方法，该方法会调用上面说的几种aware，之后会遍历BeanPostProcessor并调用postProcessBeforeInitialization方法
-	//调用完后再调用init-method，最后再遍历BeanPostProcessor调用postProcessAfterInitialization方法，返回最终的bean
+	// 该方法实现了从容器获取Bean的基本过程，用模版方法模式调用了几个抽象方法实现创建Bean的过程
 	@SuppressWarnings("unchecked")
 	protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredType,
 			@Nullable final Object[] args, boolean typeCheckOnly) throws BeansException {
 
-		//提取bean的名字，如果是别名则返回的是真正的bean的名字，如果是FactoryBean的名字则去掉前面的BeanFactory.FACTORY_BEAN_PREFIX
+		// 提取bean的名字，如果是别名则返回的是真正的bean的名字，如果是FactoryBean的名字则去掉前面的BeanFactory.FACTORY_BEAN_PREFIX
 		final String beanName = transformedBeanName(name);
 		Object bean;
 
 		// Eagerly check singleton cache for manually registered singletons.
-		//从缓存中获取单例bean，如果存在则返回否则尝试获取bean对应的ObjectFactory，ObjectFactory存在的意义是处理循环引用的情况
-		//循环引用就是beanA的某个属性是beanB，而beanB的某个属性是beanA，如果beanA和beanB都是单例的且不是在构造函数中传入的，
-		//则beanA和beanB可以循环引用
+		// 从缓存中获取单例bean，如果存在则返回否则尝试获取bean对应的ObjectFactory，ObjectFactory存在的意义是处理循环引用的情况
+		// 循环引用就是beanA的某个属性是beanB，而beanB的某个属性是beanA，如果beanA和beanB都是单例的且不是在构造函数中传入的，
+		// 则beanA和beanB可以循环引用
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
 			if (logger.isDebugEnabled()) {
