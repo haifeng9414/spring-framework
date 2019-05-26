@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN" "http://www.springframework.org/dtd/spring-beans-2.0.dtd">
-
-<beans>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:context="http://www.springframework.org/schema/context"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
 
 	<bean id="inheritedTestBean" class="org.springframework.tests.sample.beans.TestBean" abstract="true" scope="prototype">
 		<property name="name"><value>parent</value></property>
@@ -15,24 +19,10 @@
 
 	<bean id="inheritedTestBeanSingleton" class="org.springframework.tests.sample.beans.TestBean"/>
 
-	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA" autowire="byType">
+	<context:annotation-config/>
+	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
 		<constructor-arg value="1"/>
 		<constructor-arg value="2"/>
-	</bean>
-
-	<bean id="myBeanB" class="org.springframework.tests.sample.beans.MyBeanB">
-		<constructor-arg value="3"/>
-		<constructor-arg value="4"/>
-	</bean>
-
-	<bean id="myBeanC" class="org.springframework.tests.sample.beans.MyBeanC">
-		<constructor-arg value="5"/>
-		<constructor-arg value="6"/>
-	</bean>
-
-	<bean id="myBeanD" class="org.springframework.tests.sample.beans.MyBeanC" autowire="byType">
-		<constructor-arg value="5"/>
-		<constructor-arg value="6"/>
 	</bean>
 
 </beans>

@@ -1,14 +1,11 @@
 package org.springframework.tests.sample.beans;
 
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.annotation.Autowired;
 
-public class MyBeanA implements BeanDefinitionRegistryPostProcessor {
+public class MyBeanA {
 	private String id;
 	private String name;
-	private String prop;
+	@Autowired(required = false)
 	private MyBeanB myBeanB;
 
 	public MyBeanA(String id, String name) {
@@ -32,29 +29,11 @@ public class MyBeanA implements BeanDefinitionRegistryPostProcessor {
 		this.name = name;
 	}
 
-	public String getProp() {
-		return prop;
-	}
-
-	public void setProp(String prop) {
-		this.prop = prop;
-	}
-
 	public MyBeanB getMyBeanB() {
 		return myBeanB;
 	}
 
 	public void setMyBeanB(MyBeanB myBeanB) {
 		this.myBeanB = myBeanB;
-	}
-
-	@Override
-	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-		System.out.println("MyBeanA postProcessBeanDefinitionRegistry");
-	}
-
-	@Override
-	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-		System.out.println("MyBeanA postProcessBeanFactory");
 	}
 }
