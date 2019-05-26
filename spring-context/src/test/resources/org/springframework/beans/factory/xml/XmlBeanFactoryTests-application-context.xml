@@ -6,7 +6,7 @@
 	   http://www.springframework.org/schema/beans/spring-beans.xsd
 	   http://www.springframework.org/schema/aop
 	   http://www.springframework.org/schema/aop/spring-aop.xsd">
-	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA" autowire="byType">
+	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA" autowire="byType" depends-on="myBeanB">
 		<constructor-arg value="1"/>
 		<constructor-arg value="2"/>
 		<property name="age" value="100"/>

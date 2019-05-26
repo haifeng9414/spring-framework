@@ -120,11 +120,11 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	private final Map<String, Set<String>> containedBeanMap = new ConcurrentHashMap<>(16);
 
 	/** Map between dependent bean names: bean name --> Set of dependent bean names */
-	// 以依赖beanName为key保存，被其依赖的beanName为value
+	// 以beanName为key保存，依赖该bean的beanName集合为value
 	private final Map<String, Set<String>> dependentBeanMap = new ConcurrentHashMap<>(64);
 
 	/** Map between depending bean names: bean name --> Set of bean names for the bean's dependencies */
-	// 以被依赖beanName为key保存，依赖该bean的beanName为value
+	// 以beanName为key保存，该bean依赖的beanName集合为value
 	private final Map<String, Set<String>> dependenciesForBeanMap = new ConcurrentHashMap<>(64);
 
 
@@ -414,8 +414,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				return;
 			}
 		}
-		// 这里调用另一个方法保存内部bean和外部bean的关系是因为registerContainedBean保存了内部bean和外部bean的关系，同时把这种
-		// 关系作为依赖关系，而registerDependentBean方法就是保存这种依赖关系的而不是针对内部bean和外部bean的
+		// 保存内部bean和外部bean的依赖关系，外部bean依赖内部bean
 		registerDependentBean(containedBeanName, containingBeanName);
 	}
 
@@ -429,7 +428,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	public void registerDependentBean(String beanName, String dependentBeanName) {
 		String canonicalName = canonicalName(beanName);
 
-		// 以依赖bean为key保存
+		// beanName为key保存，依赖该bean的beanName集合为value
 		synchronized (this.dependentBeanMap) {
 			Set<String> dependentBeans =
 					this.dependentBeanMap.computeIfAbsent(canonicalName, k -> new LinkedHashSet<>(8));
@@ -438,7 +437,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 			}
 		}
 
-		// 以被依赖bean为key保存
+		// beanName为key保存，该bean依赖的beanName集合为value
 		synchronized (this.dependenciesForBeanMap) {
 			Set<String> dependenciesForBean =
 					this.dependenciesForBeanMap.computeIfAbsent(dependentBeanName, k -> new LinkedHashSet<>(8));
@@ -453,6 +452,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @param dependentBeanName the name of the dependent bean
 	 * @since 4.0
 	 */
+	// 判断beanName对应的bean是否被dependentBeanName依赖
 	protected boolean isDependent(String beanName, String dependentBeanName) {
 		synchronized (this.dependentBeanMap) {
 			return isDependent(beanName, dependentBeanName, null);
@@ -464,7 +464,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 			return false;
 		}
 		String canonicalName = canonicalName(beanName);
-		// 获取被beanName依赖的bean
+		// 获取依赖beanName的集合
 		Set<String> dependentBeans = this.dependentBeanMap.get(canonicalName);
 		if (dependentBeans == null) {
 			return false;
@@ -472,13 +472,12 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		if (dependentBeans.contains(dependentBeanName)) {
 			return true;
 		}
-		// 被依赖的bean所依赖的bean也算传入的beanName所依赖的bean，这里遍历被依赖的bean所依赖的bean
+		// 检查是否存在间接依赖，如A依赖B，B依赖C，则A依赖C，alreadySeen是防止存在循环依赖的情况下无限循环
 		for (String transitiveDependency : dependentBeans) {
 			if (alreadySeen == null) {
 				alreadySeen = new HashSet<>();
 			}
 			alreadySeen.add(beanName);
-			// 检查是否存在间接依赖，如A依赖B，B依赖C，则A依赖C，alreadySeen是防止存在循环依赖的情况下无限循环
 			if (isDependent(transitiveDependency, dependentBeanName, alreadySeen)) {
 				return true;
 			}
@@ -490,7 +489,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * Determine whether a dependent bean has been registered for the given name.
 	 * @param beanName the name of the bean to check
 	 */
-	// 判断是否依赖了其他bean
+	// 判断是否有其他bean依赖beanName
 	protected boolean hasDependentBean(String beanName) {
 		return this.dependentBeanMap.containsKey(beanName);
 	}
@@ -500,7 +499,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @param beanName the name of the bean
 	 * @return the array of dependent bean names, or an empty array if none
 	 */
-	// 获取所有被beanName依赖的beanName
+	// 获取所有依赖beanName的beanName集合
 	public String[] getDependentBeans(String beanName) {
 		Set<String> dependentBeans = this.dependentBeanMap.get(beanName);
 		if (dependentBeans == null) {
@@ -517,7 +516,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @return the array of names of beans which the bean depends on,
 	 * or an empty array if none
 	 */
-	// 获取所有依赖beanNam的beanName
+	// 获取beanName的所有依赖
 	public String[] getDependenciesForBean(String beanName) {
 		Set<String> dependenciesForBean = this.dependenciesForBeanMap.get(beanName);
 		if (dependenciesForBean == null) {
@@ -542,7 +541,9 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		synchronized (this.disposableBeans) {
 			disposableBeanNames = StringUtils.toStringArray(this.disposableBeans.keySet());
 		}
-		// 调用DisposableBean类型的bean相应的回调方法
+		// 调用DisposableBean类型的bean相应的回调方法，这里从disposableBeanNames的最后一位开始遍历，因为如果存在依赖关系，则
+		// 被依赖的bean会被创建，那么被依赖的bean如果实现了DisposableBean接口，则其在disposableBeanNames的位置靠前，依赖他的DisposableBean
+		// 靠后，销毁的时候当然应该是从依赖其他bean的bean开始销毁
 		for (int i = disposableBeanNames.length - 1; i >= 0; i--) {
 			destroySingleton(disposableBeanNames[i]);
 		}
@@ -597,11 +598,12 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	protected void destroyBean(String beanName, @Nullable DisposableBean bean) {
 		// Trigger destruction of dependent beans first...
 		Set<String> dependencies;
+		// 获取依赖当前bean的所有beanName
 		synchronized (this.dependentBeanMap) {
 			// Within full synchronization in order to guarantee a disconnected Set
 			dependencies = this.dependentBeanMap.remove(beanName);
 		}
-		// 首先销毁被当前bean依赖的bean
+		// 首先销毁依赖当前bean的bean
 		if (dependencies != null) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Retrieved dependent beans for bean '" + beanName + "': " + dependencies);
@@ -637,7 +639,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 		}
 
 		// Remove destroyed bean from other beans' dependencies.
-		// dependentBeanMap以依赖beanName为key，被其依赖的bean为value，这里将当前bean从其他bean的依赖集合中删除
+		// dependentBeanMap以beanName为key，依赖它的bean集合为value，这里遍历所有依赖关系，将当前bean从其他bean的依赖集合中删除，防止重复销毁
 		synchronized (this.dependentBeanMap) {
 			for (Iterator<Map.Entry<String, Set<String>>> it = this.dependentBeanMap.entrySet().iterator(); it.hasNext();) {
 				Map.Entry<String, Set<String>> entry = it.next();

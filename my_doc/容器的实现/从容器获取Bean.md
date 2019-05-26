@@ -1,19 +1,19 @@
 ## 从容器获取Bean
 
-在初始化完容器后，[BeanFactory]也就初始化完了，容器中Bean都是从[BeanFactory]中获取的，同样以[ClassPathXmlApplicationContext]为例，[ClassPathXmlApplicationContext]的[BeanFactory]实现是[DefaultListableBeanFactory]，[DefaultListableBeanFactory]继承结构图如下：
+在初始化完容器后，[BeanFactory]也就初始化完了，容器中Bean都是从[BeanFactory]中获取的，同样以[ClassPathXmlApplicationContext]为例，[ClassPathXmlApplicationContext]的[BeanFactory]实现是[DefaultListableBeanFactory]，[DefaultListableBeanFactory]继承结构图如下：
 ![DefaultListableBeanFactory继承结构图](../../img/DefaultListableBeanFactory.png)
 
 获取Bean：
 ```java
 ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
-		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
+MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 ```
 getBean方法代码：
 ```java
 public <T> T getBean(String name, @Nullable Class<T> requiredType) throws BeansException {
 		assertBeanFactoryActive();
-		return getBeanFactory().getBean(name, requiredType);
-	}
+	return getBeanFactory().getBean(name, requiredType);
+}
 ```
 
 容器获取Bean的过程完全委托给了[BeanFactory]，默认实现就是[DefaultListableBeanFactory]，[DefaultListableBeanFactory]实现了很多接口，每个接口都赋予了[DefaultListableBeanFactory]不同的职能：
@@ -35,6 +35,11 @@ public <T> T getBean(String name, @Nullable Class<T> requiredType) throws BeansE
 
 上面相关接口和抽象类的具体实现可以看代码中的注释，下面着重介绍Bean的获取过程，Bean的获取入口是[DefaultListableBeanFactory]的`getBean()`方法，代码：
 ```java
+public <T> T getBean(String name, @Nullable Class<T> requiredType) throws BeansException {
+	return doGetBean(name, requiredType, null, false);
+}
+
+
 ```
 
 [ClassPathXmlApplicationContext]: aaa

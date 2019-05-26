@@ -70,14 +70,6 @@ public class MyBeanA implements ApplicationListener<ContextRefreshedEvent>, Life
 
 	@Override
 	public void stop() {
-		try {
-			for (int i = 0; i < 20; i++) {
-				System.out.println("myBeanA " + i);
-				TimeUnit.SECONDS.sleep(1);
-			}
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
 		System.out.println("myBeanA stop");
 	}
 

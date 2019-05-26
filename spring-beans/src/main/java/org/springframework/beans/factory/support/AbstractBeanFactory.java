@@ -269,17 +269,17 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		else {
 			// Fail if we're already creating this bean instance:
 			// We're assumably within a circular reference.
-			//对于以prototype为scope的bean，如果在当前加载过程中发现当前bean已经处于创建过程，则抛出异常，用于防止循环引用
+			// 对于以prototype为scope的bean，如果在当前加载过程中发现当前bean已经处于创建过程，则抛出异常，用于防止循环引用
 			if (isPrototypeCurrentlyInCreation(beanName)) {
 				throw new BeanCurrentlyInCreationException(beanName);
 			}
 
 			// Check if bean definition exists in this factory.
+			// 判断是否存在父BeanFactory，如果存在并且当前BeanFactory的BeanDefinition中不包含正在创建的bean对应的BeanDefinition则从父BeanFactory获取bean
 			BeanFactory parentBeanFactory = getParentBeanFactory();
-			//判断是否存在父factory，如果存在且当前类的beanDefinitionMap不包含正在创建的bean则从父factory获取bean
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
-				//获取想要获取的bean的名字，返回的也可能是FactoryBean的名字
+				// 还原beanName，如果是FactoryBean则为&beanName
 				String nameToLookup = originalBeanName(name);
 				if (parentBeanFactory instanceof AbstractBeanFactory) {
 					return ((AbstractBeanFactory) parentBeanFactory).doGetBean(
@@ -295,40 +295,34 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 			}
 
-			//如果不仅仅是类型检查则将当前bean置成已创建状态，即保存到alreadyCreated中
+			// 如果不仅仅是类型检查则将当前bean置成已创建状态，即保存到alreadyCreated中
 			if (!typeCheckOnly) {
 				markBeanAsCreated(beanName);
 			}
 
 			try {
-				//获取保存在mergedBeanDefinitions中已经获取过的RootBeanDefinition，如果没有则获取beanDefinitionMap中的GenericBeanDefinition(在容器启动阶段注册的BeanDefinition是GenericBeanDefinition类型的，
-				//可以看BeanDefinitionParserDelegate的parseBeanDefinitionElement方法如何解析BeanDefinition的)，并合并父BeanDefinition的属性(如果有的话)
+				// 获取bean的BeanDefinition
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
+				// 如果BeanDefinition声明了bean是abstract的则报错
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
-				//确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性中存在其他的bean这种依赖，而是用户自己声明的
-				//如BeanA可以声明dependOn BeanB，即使两个bean没有关系，dependOn用于确保创建bean之前已经创建了某些bean
+				// 确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性依赖，而是用户自己声明的
+				// 如BeanA可以声明dependOn BeanB，即使两个bean没有关系，dependOn用于确保创建bean之前已经创建了某些bean，
+				// 并且dependOn不可以循环依赖
 				String[] dependsOn = mbd.getDependsOn();
 				if (dependsOn != null) {
+					// 如果存在dependsOn则遍历并创建
 					for (String dep : dependsOn) {
-						//这里在获取当前bean的依赖后检查dep是否是beanName看上去是多此一举的，因为dep就是从beanName的dependOn列表里获取到的
-						//但是实际上这么检查是有原因的，假设A dependOn B，B dependOn A，则在创建A的时候当前BeanFactory的dependentBeanMap
-						//是空的，所以在创建A的时候不会发现循环引用，这里的if条件不会成立，之后调用registerDependentBean保存依赖关系，之后调用
-						//getBean获取被依赖的B，在getBean的过程中获取B的dependOn，再次到此处判断是否存在依赖，此时已经保存了A依赖B的关系，这里判断
-						//是否存在B依赖A为false，之后registerDependentBean方法保存B依赖A的关系，再次调用getBean获取A，再次到此处判断发现已经存在A依赖B
-						//的关系，则发现循环依赖并报错
-						//这里判断被beanName依赖的bean中是否存在dep
+						// 判断dep是否依赖beanName，如果存在说明是循环依赖，报错
 						if (isDependent(beanName, dep)) {
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}
-						//保存bean和其依赖的bean的关系，及被依赖的bean和依赖该bean的关系到map中
-						//这里将beanName作为被dep依赖的bean保存(个人认为这里应该写成registerDependentBean(beanName, dep)，上面的
-						//isDependent(beanName, dep)应该写成isDependent(dep, beanName)比较符合逻辑，因为beanName依赖的是dep)
+						// 保存beanName依赖dep的依赖关系
 						registerDependentBean(dep, beanName);
 						try {
-							//尝试获取bean，如果不存在则抛出异常
+							// 尝试获取/创建bean，如果不存在则抛出异常
 							getBean(dep);
 						}
 						catch (NoSuchBeanDefinitionException ex) {
@@ -339,6 +333,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				}
 
 				// Create bean instance.
+				// 如果bean是单例的
 				if (mbd.isSingleton()) {
 					//单例bean是支持循环引用的，处理过程是，这里先创建一个ObjectFactory，在getSingleton中将会调用这里的匿名ObjectFactory的
 					//createBean方法，而createBean方法会调用doCreateBean方法创建bean，doCreateBean在创建bean时解析构造函数或者工厂方法
@@ -1276,6 +1271,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		if (mbd != null) {
 			return mbd;
 		}
+		// getBeanDefinition(beanName)返回解析资源文件时注册的GenericBeanDefinition(在容器启动阶段注册的BeanDefinition是GenericBeanDefinition类型的，
+		// 可以看BeanDefinitionParserDelegate的parseBeanDefinitionElement方法如何解析BeanDefinition)
 		return getMergedBeanDefinition(beanName, getBeanDefinition(beanName));
 	}
 
@@ -1316,6 +1313,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			if (mbd == null) {
+				// 如果不存在父BeanDefinition则直接根据当前bean的BeanDefinition创建RootBeanDefinition返回
 				if (bd.getParentName() == null) {
 					// Use copy of given root bean definition.
 					if (bd instanceof RootBeanDefinition) {
@@ -1329,6 +1327,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// Child bean definition: needs to be merged with parent.
 					BeanDefinition pbd;
 					try {
+						// 否则获取父BeanDefinition进行合并
 						String parentBeanName = transformedBeanName(bd.getParentName());
 						if (!beanName.equals(parentBeanName)) {
 							pbd = getMergedBeanDefinition(parentBeanName);
@@ -1352,7 +1351,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// Deep copy with overridden values.
 					// 以parent beanDefinition创建RootBeanDefinition
 					mbd = new RootBeanDefinition(pbd);
-					// 复制bd上的属性到mdb，即复制子beanDefinition的属性到mbd，overrideFrom方法上的注释说明了某些属性取自子bean如scope，某个属性是合并的
+					// 复制当前bean的BeanDefinition上的属性到mdb，即复制子beanDefinition的属性到mbd，overrideFrom方法上的注释说明了某些属性取自子bean如scope，某个属性是合并的
 					mbd.overrideFrom(bd);
 				}
 
