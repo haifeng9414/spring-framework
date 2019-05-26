@@ -416,12 +416,14 @@ public class BeanDefinitionParserDelegate {
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
 
 		List<String> aliases = new ArrayList<>();
+		//以,或者;为分隔符，nameAttr属性即指定了beanName也指定了alias
 		if (StringUtils.hasLength(nameAttr)) {
 			String[] nameArr = StringUtils.tokenizeToStringArray(nameAttr, MULTI_VALUE_ATTRIBUTE_DELIMITERS);
 			aliases.addAll(Arrays.asList(nameArr));
 		}
 
 		String beanName = id;
+		//如果id为空则使用name为beanName
 		if (!StringUtils.hasText(beanName) && !aliases.isEmpty()) {
 			beanName = aliases.remove(0);
 			if (logger.isDebugEnabled()) {
@@ -430,6 +432,7 @@ public class BeanDefinitionParserDelegate {
 			}
 		}
 
+		//判断beanName是否已经被使用过
 		if (containingBean == null) {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
@@ -437,6 +440,7 @@ public class BeanDefinitionParserDelegate {
 		//AbstractBeanDefinition类表示XML中的<bean>元素，包含了bean的所有相关信息
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
 		if (beanDefinition != null) {
+			//如果无法获取beanName则创建一个
 			if (!StringUtils.hasText(beanName)) {
 				try {
 					if (containingBean != null) {
@@ -513,16 +517,30 @@ public class BeanDefinitionParserDelegate {
 		}
 
 		try {
-			//初始化AbstractBeanDefinition，包含了parentName和class
+			//初始化AbstractBeanDefinition，包含了parentName和class，注意创建出来的是GenericBeanDefinition，spring中
+			//有3中BeanDefinition，分别是ChildBeanDefinition:表示存在父bean的BeanDefinition、GenericBeanDefinition:一站式的BeanDefinition，保存了parentName属性(如果有的话)
+			//RootBeanDefinition:表示普通的bean，这3中BeanDefinition都继承自AbstractBeanDefinition，AbstractBeanDefinition已经实现了大部分BeanDefinition需要的功能，
+			//ChildBeanDefinition只是多了校验parentName不为空的逻辑(重写validate方法)，GenericBeanDefinition定义了parentName属性、RootBeanDefinition由一个或多个BeanDefinition
+			//合并而来(子bean合并父bean之后才能作为一个单独的bean)，是容器中一个具体bean的BeanDefinition视图。
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
+			//根据element获取beanDefinition属性，如autowire、destroyMethod、socpe、abstract等bean标签上的属性
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
-			//保存meta数据
+			//保存meta数据，meta属性不会影响bean的创建，当需要获取meta时通过beanDefinition.getAttribute(key)获取
 			parseMetaElements(ele, bd);
-			//解析lookup方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，lookup方法代理获取对象的方法，返回一个指定的bean，如
-			//<lookup-method name="getFruit" bean="apple"/>
+			/*解析lookup方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，lookup方法代理获取对象的方法，返回一个指定的bean，如
+			<lookup-method name="getFruit" bean="apple"/>这样的声明存在于某个bean声明中的话表示该bean的getFruit方法将会放回bean apple，
+			常用的使用场景是:
+			假设一个单例模式的bean A需要引用另外一个非单例模式的bean B，为了在每次引用的时候都能拿到最新的bean B，可以让bean A通过实现ApplicationContextWare来
+			获取applicationContext(即可以获得容器上下文)，从而能在运行时通过ApplicationContext.getBean(String beanName)的方法来获取最新的bean B，
+			但是如果用ApplicationContextAware接口，就与Spring代码耦合了，违背了反转控制原则(IoC，即bean完全由Spring容器管理，我们代码只需要用bean就可以了)，
+			所以Spring为我们提供了方法注入的方式来实现以上的场景。方法注入方式主要是通过<lookup-method/>标签，Spring通过CGLIB代理了包含lookup-method的bean，
+			被代理的方法如上面是getFruit可以是抽象方法，被代理的bean也可以是抽象bean，一般被返回的bean如上面的apple的scope是prototype的，如果是singleton的话每次返回的都是
+			同一个bean，那样lookup-method的意义就不大了，当然apple是singleton也不会报错。spring实现lookup-method的地方是在创建bean是AbstractAutowireCapableBeanFactory
+			在调用instantiateBean实例话bean的时候判断当前创建的bean是否存在MethodOverrides，lookup-method都保存在属性中，如果存在MethodOverrides则使用CGLIB创建代理bean
+			*/
 			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
 			//解析replaced方法，将该方法的相关属性添加到对象并保存到bd.getMethodOverrides()中，replaced方法替代某个方法的执行，如
 			/*
@@ -530,8 +548,7 @@ public class BeanDefinitionParserDelegate {
     		    <replaced-method name="show" replacer="replace"></replaced-method>
     		</bean>
 
-    		<bean id="replace" class="test.replaced.ReplacedClass">
-    		</bean>
+    		<bean id="replace" class="test.replaced.ReplacedClass"></bean>
 
     		ReplacedClass实现了MethodReplacer接口，该接口只有一个方法，表示将取代其他方法的方法:
     		Object reimplement(Object obj, Method method, Object[] args) throws Throwable
@@ -542,6 +559,7 @@ public class BeanDefinitionParserDelegate {
 			parseConstructorArgElements(ele, bd);
 			//解析property
 			parsePropertyElements(ele, bd);
+			//Qualifier用于指定注入的bean的名字
 			parseQualifierElements(ele, bd);
 
 			bd.setResource(this.readerContext.getResource());
@@ -1385,15 +1403,18 @@ public class BeanDefinitionParserDelegate {
 
 	@Nullable
 	public BeanDefinition parseCustomElement(Element ele, @Nullable BeanDefinition containingBd) {
+		//获取命名空间
 		String namespaceUri = getNamespaceURI(ele);
 		if (namespaceUri == null) {
 			return null;
 		}
+		//根据命名空间找到NamespaceHandler
 		NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
 		if (handler == null) {
 			error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
 			return null;
 		}
+		//使用NamespaceHandler解析xml，NamespaceHandler会从init方法中注册的BeanDefinitionParser中找到当前元素匹配的BeanDefinitionParser并调用其进行解析
 		return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
 	}
 

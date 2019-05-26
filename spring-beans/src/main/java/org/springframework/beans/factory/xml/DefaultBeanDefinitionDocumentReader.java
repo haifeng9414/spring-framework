@@ -129,6 +129,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		BeanDefinitionParserDelegate parent = this.delegate;
 		this.delegate = createDelegate(getReaderContext(), root, parent);
 
+		//过滤掉profile不等于当前environment中激活的profile的资源
 		if (this.delegate.isDefaultNamespace(root)) {
 			String profileSpec = root.getAttribute(PROFILE_ATTRIBUTE);
 			if (StringUtils.hasText(profileSpec)) {
@@ -144,8 +145,10 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 			}
 		}
 
+		//空方法、供子类实现
 		preProcessXml(root);
 		parseBeanDefinitions(root, this.delegate);
+		//空方法、供子类实现
 		postProcessXml(root);
 
 		this.delegate = parent;
@@ -171,9 +174,32 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 				Node node = nl.item(i);
 				if (node instanceof Element) {
 					Element ele = (Element) node;
+					//如果是默认的命名空间则使用默认的处理方法
 					if (delegate.isDefaultNamespace(ele)) {
 						parseDefaultElement(ele, delegate);
 					}
+					/*否则用自定义的处理方式，spring自己就使用了，自定义标签，如<tx:annotation-driven>，当解析到该元素时spring会
+					作为自定义标签处理，可以看spring-tx模块中的实现，想要实现一个自定义标签的处理需要做的工作有:
+					1.新建一个xsd文件，如spring-tx/src/main/resources/org/springframework/transaction/config/spring-tx.xsd文件，用于校验xml
+					2.实现BeanDefinitionParser接口，如AnnotationDrivenBeanDefinitionParser类，用于xml解析
+					3.实现一个NamespaceHandler继承自NamespaceHandlerSupport，如TxNamespaceHandler，用于注册自定义的BeanDefinitionParser
+					4.编写spring.handlers和spring.schemas文件，如spring.handlers添加如下内容:
+						http\://www.springframework.org/schema/tx=org.springframework.transaction.config.TxNamespaceHandler
+						spring.schemas添加如下内容:
+						http\://www.springframework.org/schema/tx/spring-tx.xsd=org/springframework/transaction/config/spring-tx.xsd
+					参考例子:spring-tx/src/main/resources/META-INF/spring.handlers和spring-tx/src/main/resources/META-INF/spring.schemas
+					使用方式如下:
+					在xml中引入自定义命名空间，如:
+					xmlns:tx="http://www.springframework.org/schema/tx"，之后在xml写<tx:annotation-driven>，spring就会寻找tx对应的命名空间，
+					即http://www.springframework.org/schema/tx对应的NamespaceHandler，并在tx指定的命名空间对应的NamespaceHandler中找annotation-driven对应的BeanDefinitionParser进行解析。
+					在命名空间下引入xsd，如:
+					http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd，表示http://www.springframework.org/schema/tx命名空间的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+					对应的xsd文件，例子如下:
+					<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    				  xmlns:tx="http://www.springframework.org/schema/tx" <!--这一行引入命名空间-->
+    				  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+    				http://www.springframework.org/schema/tx  http://www.springframework.org/schema/tx/spring-tx-4.0.xsd"> <!--这一行表示http://www.springframework.org/schema/tx的xsd文件在http://www.springframework.org/schema/tx/spring-tx-4.0.xsd-->
+					*/
 					else {
 						delegate.parseCustomElement(ele);
 					}
@@ -194,6 +220,7 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 		else if (delegate.nodeNameEquals(ele, ALIAS_ELEMENT)) {
 			processAliasRegistration(ele);
 		}
+		//解析bean
 		else if (delegate.nodeNameEquals(ele, BEAN_ELEMENT)) {
 			processBeanDefinition(ele, delegate);
 		}
@@ -305,9 +332,16 @@ public class DefaultBeanDefinitionDocumentReader implements BeanDefinitionDocume
 	 * and registering it with the registry.
 	 */
 	protected void processBeanDefinition(Element ele, BeanDefinitionParserDelegate delegate) {
+		//委托BeanDefinitionParserDelegate获取bdHolder，bdHolder包含了bean的所有配置，如class、id、alias等
 		BeanDefinitionHolder bdHolder = delegate.parseBeanDefinitionElement(ele);
 		if (bdHolder != null) {
-			//对于使用默认标签配置的情况下，子元素使用了自定义配置时对这些属性进行处理
+			/*
+			对于使用默认标签配置的情况下，子元素使用了自定义配置时对这些属性进行处理，如
+			<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
+				<mybean:user username='aaa'/>
+			</bean>
+			中的mybean
+			 */
 			bdHolder = delegate.decorateBeanDefinitionIfRequired(ele, bdHolder);
 			try {
 				// Register the final decorated instance.

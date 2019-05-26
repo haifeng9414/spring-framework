@@ -1,13 +1,15 @@
 package org.springframework.tests.sample.beans;
 
 import org.springframework.beans.BeansException;
+import org.springframework.beans.PropertyValues;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.context.ApplicationContext;
+import org.springframework.beans.factory.config.InstantiationAwareBeanPostProcessor;
 
-public class MyBeanC implements BeanPostProcessor {
+import java.beans.PropertyDescriptor;
+
+public class MyBeanC implements BeanPostProcessor, InstantiationAwareBeanPostProcessor {
 	private String id;
 	private String name;
-	private ApplicationContext applicationContext;
 
 	public MyBeanC(String id, String name) {
 		this.id = id;
@@ -42,12 +44,8 @@ public class MyBeanC implements BeanPostProcessor {
 		return bean;
 	}
 
-	public ApplicationContext getApplicationContext() {
-		return applicationContext;
-	}
-
-	public void setApplicationContext(ApplicationContext applicationContext) {
-		System.out.println(applicationContext.getDisplayName());
-		this.applicationContext = applicationContext;
+	@Override
+	public PropertyValues postProcessPropertyValues(PropertyValues pvs, PropertyDescriptor[] pds, Object bean, String beanName) throws BeansException {
+		return null;
 	}
 }

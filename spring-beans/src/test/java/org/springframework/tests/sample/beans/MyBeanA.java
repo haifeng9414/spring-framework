@@ -1,11 +1,9 @@
 package org.springframework.tests.sample.beans;
 
-import org.springframework.beans.factory.annotation.Autowired;
-
 public class MyBeanA {
 	private String id;
 	private String name;
-	@Autowired(required = false)
+	private String prop;
 	private MyBeanB myBeanB;
 
 	public MyBeanA(String id, String name) {
@@ -27,6 +25,14 @@ public class MyBeanA {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public String getProp() {
+		return prop;
+	}
+
+	public void setProp(String prop) {
+		this.prop = prop;
 	}
 
 	public MyBeanB getMyBeanB() {

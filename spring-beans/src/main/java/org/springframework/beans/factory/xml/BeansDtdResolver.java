@@ -50,6 +50,9 @@ public class BeansDtdResolver implements EntityResolver {
 	private static final Log logger = LogFactory.getLog(BeansDtdResolver.class);
 
 
+	/*
+	解析dtd文件位置，实现方法很简单，无论systemId是什么，只要是dtd文件，就返回classpath下的spring-beans.dtd文件
+	 */
 	@Override
 	@Nullable
 	public InputSource resolveEntity(String publicId, @Nullable String systemId) throws IOException {

@@ -85,11 +85,20 @@ public abstract class AbstractXmlApplicationContext extends AbstractRefreshableC
 		// Configure the bean definition reader with this context's
 		// resource loading environment.
 		beanDefinitionReader.setEnvironment(this.getEnvironment());
+		//容器本身就是个ResourceLoader
 		beanDefinitionReader.setResourceLoader(this);
+		//EntityResolver的作用是提供一个寻找DTD声明的方式。如果sax应用程序实现自定义处理外部实体,则必须实现此接口，
+		//并使用setEntityResolver方法向sax驱动器注册一个实例。对于解析一个xml，sax首先会读取该xml文档上的声明，
+		//根据声明去寻找相应的dtd定义，以便对文档的进行验证，默认的寻找规则是通过网络，实现上就是声明DTD的地址URI地址来下载DTD声明并进行认证，
+		//下载的过程是一个漫长的过程，而且当网络不可用时会报错，就是因为相应的dtd没找到。
+		//EntityResolver的作用就是项目本身就可以提供一个如何寻找DTD的声明方法，即:由程序来实现寻找DTD声明的过程，
+		//比如将DTD放在项目的某处在实现时直接将此文档读取并返回给sax即可，这样就避免了通过网络来寻找DTD的声明。
+		//spring具体实现EntityResolver接口的方法直接看ResourceEntityResolver及其父类的注释
 		beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
 
 		// Allow a subclass to provide custom initialization of the reader,
 		// then proceed with actually loading the bean definitions.
+		//对beanDefinitionReader做一些定制化的配置
 		initBeanDefinitionReader(beanDefinitionReader);
 		loadBeanDefinitions(beanDefinitionReader);
 	}

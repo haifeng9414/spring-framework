@@ -487,7 +487,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Prepare method overrides.
 		try {
-			//验证methodOverrides代理的方法在指定的Class中都存在
+			//验证methodOverrides代理的方法在指定的Class中都存在并且判断被代理的方法存不存在重载，如果不存在则
+			//设置overloaded属性为false，使得后面需要查找被代理方法时不需要做过多的分析操作节省性能
 			mbdToUse.prepareMethodOverrides();
 		}
 		catch (BeanDefinitionValidationException ex) {

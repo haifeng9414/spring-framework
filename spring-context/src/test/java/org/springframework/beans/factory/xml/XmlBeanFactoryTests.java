@@ -121,12 +121,13 @@ public class XmlBeanFactoryTests {
 
 	@Test
 	public void testApplicationContext() {
-		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath());
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
 		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 		System.out.println(myBeanA.getId());
 		System.out.println(myBeanA.getName());
 		System.out.println(myBeanA.getProp());
 		System.out.println(myBeanA.getMyBeanB());
+		System.out.println(applicationContext.getBean("lookupMethod", MyBeanLookupMethod.class).getMyBeanC().getName());
 	}
 
 	/* SPR-2368 */

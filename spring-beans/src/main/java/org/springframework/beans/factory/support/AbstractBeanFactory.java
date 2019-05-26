@@ -309,7 +309,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 
 			try {
-				//合并当前bean和其父bean的属性
+				//获取保存在mergedBeanDefinitions中已经获取过的RootBeanDefinition，如果没有则获取beanDefinitionMap中的GenericBeanDefinition(在容器启动阶段注册的BeanDefinition是GenericBeanDefinition类型的，
+				//可以看BeanDefinitionParserDelegate的parseBeanDefinitionElement方法如何解析BeanDefinition的)，并合并父BeanDefinition的属性(如果有的话)
 				final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 				checkMergedBeanDefinition(mbd, beanName, args);
 
@@ -360,6 +361,27 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					//在获取到beanA后beanB就能够顺利初始化了，之后返回beanB并继续beanA的创建，以上就是解决循环引用的过程，
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
+							/*
+							该方法创建bean，创建过程中涉及到了多个接口方法调用，顺序和用途如下:
+							1.如果当前BeanFactory存在InstantiationAwareBeanPostProcessor则调用该InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation方法，
+							如果方法返回了一个对象则以该对象作为bean返回并在返回前遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法(该方法的设计目的是在bean包括其属性初始化完毕后调用，
+							由于InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation返回的对象将作为最终的bean，所以需要在返回前调用该方法)对bean进行处理，如果遍历过程中某个
+							BeanPostProcessor的postProcessAfterInitialization返回null则结束遍历，否则以返回的对象为bean并继续遍历
+							2.如果正在创建的bean有Supplier则以Supplier提供的对象为bean，否则如果存在工厂方法则以工厂方法的返回结果做为bean，否则如果存在构造函数参数则使用反射以对应的构造函数创建bean，
+							否则以默认构造函数创建bean
+							3.过去所有的MergedBeanDefinitionPostProcessor调用postProcessMergedBeanDefinition对正在创建的bean的BeanDefinition就行处理
+							4.根据创建出来的bean创建ObjectFactory并将ObjectFactory添加到singletonFactories以支持循环依赖
+							5.开始设置bean的属性，在此之前再次获取所有的InstantiationAwareBeanPostProcessor，执行postProcessAfterInstantiation方法，目的是在设置属性之前对bean做定制，
+							遍历过程中如果某个InstantiationAwareBeanPostProcessor的postProcessAfterInstantiation返回false则结束遍历
+							6.根据autowire的设置，如果是byType或byName则用相应的策略填充属性，对于循环依赖的属性解决方法在上面的注释已经说了
+							7.如果bean实现了BeanNameAware、BeanClassLoaderAware或者BeanFactoryAware则调用相应的接口方法
+							8.遍历所有的BeanPostProcessor调用postProcessBeforeInitialization方法
+							9.如果bean实现了InitializingBean接口则调用afterPropertiesSet方法，否则如果bean存在init-method则调用该方法
+							10.遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法
+							11.如果bean是DisposableBean类型的或者bean存在destroy-method方法或者存在对当前bean感兴趣的DestructionAwareBeanPostProcessor类型的bean则注册
+							当前bean的DisposableBeanAdapter对象
+							 */
+
 							return createBean(beanName, mbd, args);
 						}
 						catch (BeansException ex) {
@@ -1335,7 +1357,9 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 								"Could not resolve parent bean definition '" + bd.getParentName() + "'", ex);
 					}
 					// Deep copy with overridden values.
+					//以parent beanDefinition创建RootBeanDefinition
 					mbd = new RootBeanDefinition(pbd);
+					//复制bd上的属性到mdb，即复制子beanDefinition的属性到mbd，overrideFrom方法上的注释说明了某些属性取自子bean如scope，某个属性是合并的
 					mbd.overrideFrom(bd);
 				}
 

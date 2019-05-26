@@ -103,6 +103,10 @@ public class PluggableSchemaResolver implements EntityResolver {
 		this.schemaMappingsLocation = schemaMappingsLocation;
 	}
 
+	/*
+	解析xsd文件位置，实现方法是META-INF/spring.schemas保存了不同的systemId对应的xsd文件路径，直接获取传入的systemId对应的
+	文件即可
+	 */
 	@Override
 	@Nullable
 	public InputSource resolveEntity(String publicId, @Nullable String systemId) throws IOException {

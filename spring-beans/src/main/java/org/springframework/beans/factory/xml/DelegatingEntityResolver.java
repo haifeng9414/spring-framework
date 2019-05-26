@@ -29,6 +29,8 @@ import org.springframework.util.Assert;
  * {@link EntityResolver} implementation that delegates to a {@link BeansDtdResolver}
  * and a {@link PluggableSchemaResolver} for DTDs and XML schemas, respectively.
  *
+ * <p>将*.dtd和*.xsd文件的获取分别代理到BeansDtdResolver和PluggableSchemaResolver</p>
+ *
  * @author Rob Harrop
  * @author Juergen Hoeller
  * @author Rick Evans
@@ -76,7 +78,23 @@ public class DelegatingEntityResolver implements EntityResolver {
 		this.schemaResolver = schemaResolver;
 	}
 
+	/*
+	<?xml version="1.0" encoding="UTF-8"?>
+	<!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN 2.0//EN" "http://www.springframework.org/dtd/spring-beans-2.0.dtd">
+	如上的声明获取到的参数为:
+	publicId : -//SPRING//DTD BEAN 2.0//EN
+	systemId : http://www.springframework.org/dtd/spring-beans-2.0.dtd
 
+	<?xml version="1.0" encoding="UTF-8"?>
+	<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:p="http://www.springframework.org/schema/p"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	如上的声明获取到的参数为:
+	publicId : null
+	systemId : http://www.springframework.org/schema/beans/spring-beans.xsd
+	 */
 	@Override
 	@Nullable
 	public InputSource resolveEntity(String publicId, @Nullable String systemId) throws SAXException, IOException {

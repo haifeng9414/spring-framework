@@ -57,6 +57,29 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 但是在[AbstractApplicationContext]的`refresh`方法中调用`prepareBeanFactory`时已经将容器自身作为一个`bean`添加到了`beanFactory`了，而容器自身的创建并不像普通的`bean`，不会调用各种`bean`的回调方法，包括[BeanNameAware]和[InitializingBean]接口的方法，
 所以个人认为[AbstractRefreshableConfigApplicationContext]类实现这两个接口并没有啥用，至少我没找到可能导致这两个方法调用的地方，另外，`bean`获取[ApplicationContext]一般是通过实现[ApplicationContextAware]接口注入的，直接`autowire byType`当然也可以)，[AbstractXmlApplicationContext]实现了`loadBeanDefinitions`方法，使用[XmlBeanDefinitionReader]加载XML资源文件，
 [ClassPathXmlApplicationContext]类实现从`classpath`获取资源。
+从上述分析可知，`bean`的配置信息加载实现在[AbstractXmlApplicationContext]的`loadBeanDefinitions`方法，该方法代码如下:
+```
+protected void loadBeanDefinitions(DefaultListableBeanFactory beanFactory) throws BeansException, IOException {
+	// Create a new XmlBeanDefinitionReader for the given BeanFactory.
+	XmlBeanDefinitionReader beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory);
+
+	// Configure the bean definition reader with this context's
+	// resource loading environment.
+	beanDefinitionReader.setEnvironment(this.getEnvironment());
+	beanDefinitionReader.setResourceLoader(this);
+	beanDefinitionReader.setEntityResolver(new ResourceEntityResolver(this));
+
+	// Allow a subclass to provide custom initialization of the reader,
+	// then proceed with actually loading the bean definitions.
+	initBeanDefinitionReader(beanDefinitionReader);
+	loadBeanDefinitions(beanDefinitionReader);
+}
+```
+[XmlBeanDefinitionReader]类是加载`beanDefinition`的关键，实现了所有的加载逻辑，[XmlBeanDefinitionReader]继承关系如下:
+![XmlBeanDefinitionReader继承结构图](img/XmlBeanDefinitionReader.png)
+[BeanDefinitionReader]接口定义了加载`beanDefinition`的通用方法，[EnvironmentCapable]表示[XmlBeanDefinitionReader]将持有[Environment]，
+[AbstractBeanDefinitionReader]接口是[BeanDefinitionReader]的抽象实现，实现了获取指定路径下的`Resource`并交由抽象方法`public int loadBeanDefinitions(Resource resource)`加载，
+[XmlBeanDefinitionReader]实现了`public int loadBeanDefinitions(Resource resource)`方法，
 
 [ApplicationContext]: aaa
 [ClassPathXmlApplicationContext]: aaa
@@ -82,6 +105,9 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 [AbstractXmlApplicationContext]: aaa
 [XmlBeanDefinitionReader]: aaa
 [ClassPathXmlApplicationContext]: aaa
+[XmlBeanDefinitionReader]: aaa
+[BeanDefinitionReader]: aaa
+[AbstractBeanDefinitionReader]: aaa
 
 ## 获取Bean
 
