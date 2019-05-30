@@ -484,7 +484,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Make sure bean class is actually resolved at this point, and
 		// clone the bean definition in case of a dynamically resolved Class
 		// which cannot be stored in the shared merged bean definition.
-		//获取bean的类型
+		// 获取bean的类型
 		Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
 		if (resolvedClass != null && !mbd.hasBeanClass() && mbd.getBeanClassName() != null) {
 			mbdToUse = new RootBeanDefinition(mbd);
@@ -493,8 +493,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Prepare method overrides.
 		try {
-			//验证methodOverrides代理的方法在指定的Class中都存在并且判断被代理的方法存不存在重载，如果不存在则
-			//设置overloaded属性为false，使得后面需要查找被代理方法时不需要做过多的分析操作节省性能
+			// 验证methodOverrides代理的方法在指定的Class中都存在并且判断被代理的方法存不存在重载，如果不存在则
+			// 设置overloaded属性为false，使得后面需要查找被代理方法时不需要做过多的分析操作节省性能
 			mbdToUse.prepareMethodOverrides();
 		}
 		catch (BeanDefinitionValidationException ex) {
@@ -504,8 +504,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
-			//主要针对InstantiationAwareBeanPostProcessor接口，如果InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation方法(before实例化前)返回了当前bean的实例则在调用
-			//所有BeanPostProcessor的postProcessAfterInitialization(after初始化后)方法后返回
+			// 主要针对InstantiationAwareBeanPostProcessor接口，如果存在实现了InstantiationAwareBeanPostProcessor接口的bean，则遍历并逐个调用postProcessBeforeInstantiation方法，
+			// 如果最终返回的对象不为空则以返回值作为bean，并遍历所有实现了BeanPostProcessor接口的bean，传入刚创建的bean，逐个调用postProcessAfterInitialization方法处理bean后返回
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -517,6 +517,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			// 创建bean
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isDebugEnabled()) {
 				logger.debug("Finished creating instance of bean '" + beanName + "'");
@@ -593,8 +594,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
-			//添加匿名的beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法调用SmartInstantiationAwareBeanPostProcessor接口的
-			//getEarlyBeanReference方法对bean做某些处理，如AOP的实现就通过该方法返回代理bean
+			// 添加匿名的beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法调用SmartInstantiationAwareBeanPostProcessor接口的
+			// getEarlyBeanReference方法对bean做某些处理，如AOP的实现就通过该方法返回代理bean
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -1070,10 +1071,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 				Class<?> targetType = determineTargetType(beanName, mbd);
 				if (targetType != null) {
-					//遍历beanPostProcessors调用postProcessBeforeInstantiation获取bean
+					// 遍历beanPostProcessors调用postProcessBeforeInstantiation获取bean
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
-						//如果返回的bean不为空则调用postProcessAfterInitialization获取bean并将该bean作为正在的bean返回
+						// 如果返回的bean不为空则调用postProcessAfterInitialization获取bean并将该bean作为正在的bean返回
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
 					}
 				}

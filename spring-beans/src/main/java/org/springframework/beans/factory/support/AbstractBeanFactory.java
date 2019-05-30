@@ -248,9 +248,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		Object bean;
 
 		// Eagerly check singleton cache for manually registered singletons.
-		// 从缓存中获取单例bean，如果存在则返回否则尝试获取bean对应的ObjectFactory，ObjectFactory存在的意义是处理循环引用的情况
-		// 循环引用就是beanA的某个属性是beanB，而beanB的某个属性是beanA，如果beanA和beanB都是单例的且不是在构造函数中传入的，
-		// 则beanA和beanB可以循环引用
+		// 从缓存中获取单例bean，如果存在则返回
 		Object sharedInstance = getSingleton(beanName);
 		if (sharedInstance != null && args == null) {
 			if (logger.isDebugEnabled()) {
@@ -262,14 +260,14 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					logger.debug("Returning cached instance of singleton bean '" + beanName + "'");
 				}
 			}
-			//如果sharedInstance是一个bean的话直接返回，如果是FactoryBean的话返回getObject方法的返回值
+			// 如果sharedInstance是一个普通bean的话直接返回，如果是FactoryBean的话返回getObject方法的返回值
 			bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
 		}
 
 		else {
 			// Fail if we're already creating this bean instance:
 			// We're assumably within a circular reference.
-			// 对于以prototype为scope的bean，如果在当前加载过程中发现当前bean已经处于创建过程，则抛出异常，用于防止循环引用
+			// 对于以prototype为scope的bean，如果在当前加载过程中发现当前bean已经处于创建过程，则抛出异常，防止循环引用
 			if (isPrototypeCurrentlyInCreation(beanName)) {
 				throw new BeanCurrentlyInCreationException(beanName);
 			}
@@ -314,7 +312,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				if (dependsOn != null) {
 					// 如果存在dependsOn则遍历并创建
 					for (String dep : dependsOn) {
-						// 判断dep是否依赖beanName，如果存在说明是循环依赖，报错
+						// 判断dep是否依赖beanName，如果是则为循环依赖，报错
 						if (isDependent(beanName, dep)) {
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
@@ -322,7 +320,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						// 保存beanName依赖dep的依赖关系
 						registerDependentBean(dep, beanName);
 						try {
-							// 尝试获取/创建bean，如果不存在则抛出异常
+							// 创建bean，如果不存在则抛出异常
 							getBean(dep);
 						}
 						catch (NoSuchBeanDefinitionException ex) {
@@ -335,23 +333,21 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				// Create bean instance.
 				// 如果bean是单例的
 				if (mbd.isSingleton()) {
-					//单例bean是支持循环引用的，处理过程是，这里先创建一个ObjectFactory，在getSingleton中将会调用这里的匿名ObjectFactory的
-					//createBean方法，而createBean方法会调用doCreateBean方法创建bean，doCreateBean在创建bean时解析构造函数或者工厂方法
-					//并创建bean实例，在创建完成后执行addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
-					//将能够返回刚创建的bean的匿名ObjectFactory添加到内存中，getEarlyBeanReference只是对bean做一些特殊处理，一般直接返回原始bean。
-					//在将ObjectFactory添加到内存中后将继续该bean的创建，首先是populateBean方法，该方法将填充bean的属性，假设当前正在创建的bean是
-					//beanA，而beanA有属性beanB，populateBean就将填充beanB到beanA，由于之前没有创建过beanB，所以填充之前将会创建一个beanB，
-					//如果beanB也有属性beanA，则存在循环引用，在创建beanB的时候将会尝试获取beanA，即上面的getBean方法，当getBean(beanA)时，会调用
-					//getSingleton(beanA)方法，该方法将会获取到之前添加到内存的匿名beanFactory并通过该beanFactory的getBean方法获取到刚创建完成正在
-					//填充属性的beanA，之后将beanA添加到earlySingletonObjects以节省下次getSingleton(beanA)的时间，并从singletonFactories中删除ObjectFactory
-					//因为beanA已经保存到earlySingletonObjects了，ObjectFactory已经没有必要保持在内存中了。
-					//在获取到beanA后beanB就能够顺利初始化了，之后返回beanB并继续beanA的创建，以上就是解决循环引用的过程，
+					// 单例bean是支持循环引用的，处理过程是，这里先创建一个ObjectFactory（下面的lambda就是ObjectFactory实例），在getSingleton中将会调用这里的匿名ObjectFactory的
+					// createBean方法，而createBean方法会调用doCreateBean方法创建bean，doCreateBean在创建bean时解析构造函数或者工厂方法
+					// 创建一个没有注入任何属性的简单bean，在创建完成后执行addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
+					// 将能够返回刚创建的bean的匿名ObjectFactory添加到内存中，getEarlyBeanReference遍历所有的SmartInstantiationAwareBeanPostProcessor对bean做一些特殊处理，AOP就是通过
+					// SmartInstantiationAwareBeanPostProcessor实现的，如果不存在SmartInstantiationAwareBeanPostProcessor则直接返回简单bean。在将ObjectFactory添加到内存中后将继续该bean的创建，
+					// 首先是populateBean方法，该方法将填充bean的属性，而填充属性就可能导致循环引用，假设当前正在创建的bean是beanA，而beanA有属性beanB，populateBean就将填充beanB到beanA，
+					// 由于之前没有创建过beanB，所以填充之前将会创建一个beanB，如果beanB也有属性beanA，则存在循环引用，在创建beanB的时候将会尝试获取beanA，获取方式就是执行getBean(beanA)，调用getBean(beanA)使得
+					// getSingleton(beanA)方法被调用，该方法将会获取到之前添加到内存的匿名beanFactory并通过该beanFactory的getBean方法获取到刚创建完成正在
+					// 填充属性的beanA，在获取到beanA后beanB就能够顺利初始化了，之后返回beanB并继续beanA的创建，以上就是解决循环引用的过程
 					sharedInstance = getSingleton(beanName, () -> {
 						try {
 							/*
 							该方法创建bean，创建过程中涉及到了多个接口方法调用，顺序和用途如下:
 							1.如果当前BeanFactory存在InstantiationAwareBeanPostProcessor则调用该InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation方法，
-							如果方法返回了一个对象则以该对象作为bean返回并在返回前遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法(该方法的设计目的是在bean包括其属性初始化完毕后调用，
+							如果方法返回了一个对象则以该对象作为bean返回并在返回前遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法(该方法的设计目的是在bean及其属性初始化完毕后调用，
 							由于InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation返回的对象将作为最终的bean，所以需要在返回前调用该方法)对bean进行处理，如果遍历过程中某个
 							BeanPostProcessor的postProcessAfterInitialization返回null则结束遍历，否则以返回的对象为bean并继续遍历
 							2.如果正在创建的bean有Supplier则以Supplier提供的对象为bean，否则如果存在工厂方法则以工厂方法的返回结果做为bean，否则如果存在构造函数参数则使用反射以对应的构造函数创建bean，
@@ -379,7 +375,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 							throw ex;
 						}
 					});
-					//如果是FactoryBean则调用getObject方法获取bean
+					// 如果是FactoryBean则调用getObject方法获取bean
 					bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
 				}
 
@@ -387,15 +383,16 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// It's a prototype -> create a new instance.
 					Object prototypeInstance = null;
 					try {
-						//将beanName添加到prototypesCurrentlyInCreation中，在doGetBean方法每次创建bean的时候判断prototypesCurrentlyInCreation
-						//是否存在当前正在创建的bean，如果存在则说明有循环依赖，直接报错
+						// 将beanName添加到prototypesCurrentlyInCreation中，在doGetBean方法每次创建bean的时候判断prototypesCurrentlyInCreation
+						// 是否存在当前正在创建的bean，如果存在则说明有循环依赖，直接报错
 						beforePrototypeCreation(beanName);
+						// 非单例bean每次都创建一个新的，所以不需要用ObjectFactory了
 						prototypeInstance = createBean(beanName, mbd, args);
 					}
 					finally {
 						afterPrototypeCreation(beanName);
 					}
-					//如果是FactoryBean则调用getObject方法获取bean
+					// 如果是FactoryBean则调用getObject方法获取bean
 					bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
 				}
 
@@ -432,7 +429,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 		}
 
-		//转换bean为需要的类型
+		// 转换bean为需要的类型
 		// Check if required type matches the type of the actual bean instance.
 		if (requiredType != null && !requiredType.isInstance(bean)) {
 			try {
