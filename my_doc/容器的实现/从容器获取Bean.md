@@ -251,6 +251,175 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
 }
 ```
 
+下面是具体过程：
+- 获取bean的名字，代码：
+  ```java
+  protected String transformedBeanName(String name) {
+      return canonicalName(BeanFactoryUtils.transformedBeanName(name));
+  }
+
+  // 如果name以&开头，则删除&返回
+  public static String transformedBeanName(String name) {
+      Assert.notNull(name, "'name' must not be null");
+      String beanName = name;
+      while (beanName.startsWith(BeanFactory.FACTORY_BEAN_PREFIX)) {
+          beanName = beanName.substring(BeanFactory.FACTORY_BEAN_PREFIX.length());
+      }
+      return beanName;
+  }
+
+  // 获取别名的原始名称，如A -> B -> C则返回C，如果不存在别名则返回传入的name
+  public String canonicalName(String name) {
+      String canonicalName = name;
+      // Handle aliasing...
+      String resolvedName;
+      do {
+          resolvedName = this.aliasMap.get(canonicalName);
+          if (resolvedName != null) {
+              canonicalName = resolvedName;
+          }
+      }
+      while (resolvedName != null);
+      return canonicalName;
+  }
+  ```
+  如果调用getBean方法时传入的beanName为`&beanName`，则表示想要获取的是[FactoryBean]，否则是[FactoryBean]创建的bean或非[FactoryBean]类型的普通bean，而[FactoryBean]在容器中是以beanName为key保存的，所以需要获取到原始的beanName来寻找[FactoryBean]
+- 获取缓存中的单例bean
+  ```java
+  // 从缓存中获取单例bean，如果存在则返回
+  Object sharedInstance = getSingleton(beanName);
+  if (sharedInstance != null && args == null) {
+      if (logger.isDebugEnabled()) {
+          // 如果bean正在被创建，说明发生了循环引用
+          if (isSingletonCurrentlyInCreation(beanName)) {
+              logger.debug("Returning eagerly cached instance of singleton bean '" + beanName +
+                      "' that is not fully initialized yet - a consequence of a circular reference");
+          }
+          else {
+              logger.debug("Returning cached instance of singleton bean '" + beanName + "'");
+          }
+      }
+      // 如果sharedInstance是一个普通bean的话直接返回，如果是FactoryBean的话返回getObject方法的返回值
+      bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
+  }
+  ```
+- 如果缓存中存在需要获取的bean，则需要判断bean是否实现了[FactoryBean]接口，和是否需要调用[FactoryBean]接口的`getObject()`方法获取bean，代码：
+  ```java
+  protected Object getObjectForBeanInstance(
+          Object beanInstance, String name, String beanName, @Nullable RootBeanDefinition mbd) {
+
+      // Don't let calling code try to dereference the factory if the bean isn't a factory.
+      if (BeanFactoryUtils.isFactoryDereference(name)) {
+          if (beanInstance instanceof NullBean) {
+              return beanInstance;
+          }
+          if (!(beanInstance instanceof FactoryBean)) {
+              throw new BeanIsNotAFactoryException(transformedBeanName(name), beanInstance.getClass());
+          }
+      }
+
+      // Now we have the bean instance, which may be a normal bean or a FactoryBean.
+      // If it's a FactoryBean, we use it to create a bean instance, unless the
+      // caller actually wants a reference to the factory.
+      // 当前bean不是FactoryBean类型的，直接返回，或者如果name是&开头的则表示想要获取的就是FactoryBean，直接返回
+      if (!(beanInstance instanceof FactoryBean) || BeanFactoryUtils.isFactoryDereference(name)) {
+          return beanInstance;
+      }
+
+      // 如果不满足上面的条件则表示beanInstance是FactoryBean类型的并且想要获取的是FactoryBean创建出来的bean，此时调用FactoryBean的
+      // getObject方法返回bean
+      Object object = null;
+      if (mbd == null) {
+          // 尝试从缓存中获取beanFactory产生的bean
+          object = getCachedObjectForFactoryBean(beanName);
+      }
+      if (object == null) {
+          // Return bean instance from factory.
+          FactoryBean<?> factory = (FactoryBean<?>) beanInstance;
+          // Caches object obtained from FactoryBean if it is a singleton.
+          if (mbd == null && containsBeanDefinition(beanName)) {
+              // getMergedLocalBeanDefinition方法的作用查看该方法注释
+              mbd = getMergedLocalBeanDefinition(beanName);
+          }
+          // synthetic表示bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring会
+          // 创建synthetic为true的bean
+          boolean synthetic = (mbd != null && mbd.isSynthetic());
+          object = getObjectFromFactoryBean(factory, beanName, !synthetic);
+      }
+      return object;
+  }
+
+  // 从FactoryBean中获取Bean，AbstractBeanFactory获取bean时，会判断通过反射创建出来的bean是否是FactoryBean类型的，如果是，则会调用
+  // 该方法从FactoryBean中返回真正的bean，一般情况下bean实现FactoryBean接口时不直接实现，而是实现FactoryBean接口的的抽象实现类AbstractFactoryBean
+  // 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关心如何创建对象
+  protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
+
+      // 如果FactoryBean单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
+      // Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)执行的)
+      // 这里的containsSingleton方法实现在FactoryBeanRegistrySupport的父类DefaultSingletonBeanRegistry中，判断单例bean是否已经保存在singletonObjects中
+      if (factory.isSingleton() && containsSingleton(beanName)) {
+          synchronized (getSingletonMutex()) {
+              // 尝试从FactoryBean name --> object的map中获取bean
+              Object object = this.factoryBeanObjectCache.get(beanName);
+              if (object == null) {
+                  // 调用factory.getObject()方法获取bean
+                  object = doGetObjectFromFactoryBean(factory, beanName);
+                  // Only post-process and store if not put there already during getObject() call above
+                  // (e.g. because of circular reference processing triggered by custom getBean calls)
+                  Object alreadyThere = this.factoryBeanObjectCache.get(beanName);
+                  if (alreadyThere != null) {
+                      object = alreadyThere;
+                  }
+                  else {
+                      // 是否需要执行后置处理
+                      if (shouldPostProcess) {
+                          if (isSingletonCurrentlyInCreation(beanName)) {
+                              // Temporarily return non-post-processed object, not storing it yet..
+                              return object;
+                          }
+                          // 将beanName添加到singletonsCurrentlyInCreation中
+                          beforeSingletonCreation(beanName);
+                          try {
+                              // 遍历BeanPostProcessor调用postProcessAfterInitialization方法
+                              object = postProcessObjectFromFactoryBean(object, beanName);
+                          }
+                          catch (Throwable ex) {
+                              throw new BeanCreationException(beanName,
+                                      "Post-processing of FactoryBean's singleton object failed", ex);
+                          }
+                          finally {
+                              // 从singletonsCurrentlyInCreation中删除beanName
+                              afterSingletonCreation(beanName);
+                          }
+                      }
+                      // 以FactoryBean name --> object的形式将bean添加到缓存中
+                      if (containsSingleton(beanName)) {
+                          this.factoryBeanObjectCache.put(beanName, object);
+                      }
+                  }
+              }
+              return object;
+          }
+      }
+      else {
+          // 不是单例或者FactoryBean还没有注册到singletonObjects的话直接创建新的对象
+          Object object = doGetObjectFromFactoryBean(factory, beanName);
+          if (shouldPostProcess) {
+              try {
+                  object = postProcessObjectFromFactoryBean(object, beanName);
+              }
+              catch (Throwable ex) {
+                  throw new BeanCreationException(beanName, "Post-processing of FactoryBean's object failed", ex);
+              }
+          }
+          return object;
+      }
+  }
+  ```
+  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean
+- 以上是缓存中存在bean时的处理，如果缓存中不存在bean，即bean还没有被创建过，则执行创建逻辑，代码：
+  
+
 [ClassPathXmlApplicationContext]: aaa
 [XmlBeanDefinitionReader]: aaa
 [BeanDefinitionRegistry]: aaa

@@ -1693,7 +1693,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		// Now we have the bean instance, which may be a normal bean or a FactoryBean.
 		// If it's a FactoryBean, we use it to create a bean instance, unless the
 		// caller actually wants a reference to the factory.
-		// 如果name是&开头的则表示想要获取的就是beanFactory，或者该beanInstance不是beanFactory则直接返回
+		// 当前bean不是FactoryBean类型的，直接返回，或者如果name是&开头的则表示想要获取的就是FactoryBean，直接返回
 		if (!(beanInstance instanceof FactoryBean) || BeanFactoryUtils.isFactoryDereference(name)) {
 			return beanInstance;
 		}
@@ -1713,7 +1713,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				// getMergedLocalBeanDefinition方法的作用查看该方法注释
 				mbd = getMergedLocalBeanDefinition(beanName);
 			}
-			// 判断bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring自己创建的bean
+			// synthetic表示bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring会
+			// 创建synthetic为true的bean
 			boolean synthetic = (mbd != null && mbd.isSynthetic());
 			object = getObjectFromFactoryBean(factory, beanName, !synthetic);
 		}

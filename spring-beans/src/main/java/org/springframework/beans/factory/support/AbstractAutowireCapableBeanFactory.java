@@ -1218,6 +1218,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	protected Object getObjectForBeanInstance(
 			Object beanInstance, String name, String beanName, @Nullable RootBeanDefinition mbd) {
 
+		// currentlyCreatedBean保存的是obtainFromSupplier方法中正在从Supplier中创建的beanName，
+		// 这里注册Supplier中正在创建的bean依赖当前正在创建的bean的依赖关系
 		String currentlyCreatedBean = this.currentlyCreatedBean.get();
 		if (currentlyCreatedBean != null) {
 			registerDependentBean(beanName, currentlyCreatedBean);

@@ -100,7 +100,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	// 从FactoryBean中获取Bean，AbstractBeanFactory获取bean时，会判断通过反射创建出来的bean是否是FactoryBean类型的，如果是，则会调用
 	// 该方法从FactoryBean中返回真正的bean，一般情况下bean实现FactoryBean接口时不直接实现，而是实现FactoryBean接口的的抽象实现类AbstractFactoryBean
-	// 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关系如果创建对象
+	// 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关心如何创建对象
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 
 		// 如果FactoryBean单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
@@ -115,10 +115,6 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 					object = doGetObjectFromFactoryBean(factory, beanName);
 					// Only post-process and store if not put there already during getObject() call above
 					// (e.g. because of circular reference processing triggered by custom getBean calls)
-					// 如果调用getObject()方法后factoryBeanObjectCache已经有需要获取的bean了，则直接使用该bean
-					// factory.getObject()方法中可以调用getBean方法，而这可能会导致这里的getObjectFromFactoryBean方法再次被调用，
-					// 类似递归操作，这里判断factoryBeanObjectCache中是否已存在bean了，如果存在则不执行下面shouldPostProcess的逻辑
-					// 防止shouldPostProcess逻辑被重复执行
 					Object alreadyThere = this.factoryBeanObjectCache.get(beanName);
 					if (alreadyThere != null) {
 						object = alreadyThere;

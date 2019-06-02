@@ -1,13 +1,6 @@
 package org.springframework.tests.sample.beans;
 
-import org.springframework.context.ApplicationListener;
-import org.springframework.context.Lifecycle;
-import org.springframework.context.event.ContextRefreshedEvent;
-
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
-
-public class MyBeanA implements ApplicationListener<ContextRefreshedEvent>, Lifecycle {
+public class MyBeanA {
 	private String id;
 	private String name;
 	private String prop;
@@ -58,25 +51,4 @@ public class MyBeanA implements ApplicationListener<ContextRefreshedEvent>, Life
 	public void setMyBeanB(MyBeanB myBeanB) {
 		this.myBeanB = myBeanB;
 	}
-
-	@Override
-	public void onApplicationEvent(ContextRefreshedEvent event) {
-		System.out.println("mybean A onApplicationEvent");
-	}
-
-	@Override
-	public void start() {
-		System.out.println("myBeanA start");
-	}
-
-	@Override
-	public void stop() {
-		System.out.println("myBeanA stop");
-	}
-
-	@Override
-	public boolean isRunning() {
-		return true;
-	}
-
 }

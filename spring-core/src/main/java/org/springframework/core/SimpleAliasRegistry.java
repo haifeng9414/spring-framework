@@ -207,7 +207,7 @@ public class SimpleAliasRegistry implements AliasRegistry {
 	 * @param name the user-specified name
 	 * @return the transformed name
 	 */
-	// 获取别名的原始名称，如A -> B -> C则返回C，如果不存在别名则返回传入的name参数
+	// 获取别名的原始名称，如A -> B -> C则返回C，如果不存在别名则返回传入的name
 	public String canonicalName(String name) {
 		String canonicalName = name;
 		// Handle aliasing...
