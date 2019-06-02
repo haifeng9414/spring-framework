@@ -277,7 +277,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			BeanFactory parentBeanFactory = getParentBeanFactory();
 			if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
 				// Not found -> check parent.
-				// 还原beanName，如果是FactoryBean则为&beanName
+				// 还原beanName，transformedBeanName方法的相反操作，如果是FactoryBean则返回&beanName
 				String nameToLookup = originalBeanName(name);
 				if (parentBeanFactory instanceof AbstractBeanFactory) {
 					return ((AbstractBeanFactory) parentBeanFactory).doGetBean(
@@ -320,7 +320,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						// 保存beanName依赖dep的依赖关系
 						registerDependentBean(dep, beanName);
 						try {
-							// 创建bean，如果不存在则抛出异常
+							// 创建依赖，如果不存在则抛出异常
 							getBean(dep);
 						}
 						catch (NoSuchBeanDefinitionException ex) {
@@ -337,7 +337,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					// createBean方法，而createBean方法会调用doCreateBean方法创建bean，doCreateBean在创建bean时解析构造函数或者工厂方法
 					// 创建一个没有注入任何属性的简单bean，在创建完成后执行addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 					// 将能够返回刚创建的bean的匿名ObjectFactory添加到内存中，getEarlyBeanReference遍历所有的SmartInstantiationAwareBeanPostProcessor对bean做一些特殊处理，AOP就是通过
-					// SmartInstantiationAwareBeanPostProcessor实现的，如果不存在SmartInstantiationAwareBeanPostProcessor则直接返回简单bean。在将ObjectFactory添加到内存中后将继续该bean的创建，
+					// SmartInstantiationAwareBeanPostProcessor实现的，如果不存在SmartInstantiationAwareBeanPostProcessor则直接返回简单bean。再将ObjectFactory添加到内存中后将继续该bean的创建，
 					// 首先是populateBean方法，该方法将填充bean的属性，而填充属性就可能导致循环引用，假设当前正在创建的bean是beanA，而beanA有属性beanB，populateBean就将填充beanB到beanA，
 					// 由于之前没有创建过beanB，所以填充之前将会创建一个beanB，如果beanB也有属性beanA，则存在循环引用，在创建beanB的时候将会尝试获取beanA，获取方式就是执行getBean(beanA)，调用getBean(beanA)使得
 					// getSingleton(beanA)方法被调用，该方法将会获取到之前添加到内存的匿名beanFactory并通过该beanFactory的getBean方法获取到刚创建完成正在
@@ -1685,6 +1685,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			if (beanInstance instanceof NullBean) {
 				return beanInstance;
 			}
+			// 如果name以&开头但是bean不是FactoryBean类型的则报错
 			if (!(beanInstance instanceof FactoryBean)) {
 				throw new BeanIsNotAFactoryException(transformedBeanName(name), beanInstance.getClass());
 			}

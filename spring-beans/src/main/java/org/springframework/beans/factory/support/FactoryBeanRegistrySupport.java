@@ -98,14 +98,10 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @throws BeanCreationException if FactoryBean object creation failed
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
-	// 从FactoryBean中获取Bean，AbstractBeanFactory获取bean时，会判断通过反射创建出来的bean是否是FactoryBean类型的，如果是，则会调用
-	// 该方法从FactoryBean中返回真正的bean，一般情况下bean实现FactoryBean接口时不直接实现，而是实现FactoryBean接口的的抽象实现类AbstractFactoryBean
-	// 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关心如何创建对象
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 
-		// 如果FactoryBean单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
-		// Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)执行的)
-		// 这里的containsSingleton方法实现在FactoryBeanRegistrySupport的父类DefaultSingletonBeanRegistry中，判断单例bean是否已经保存在singletonObjects中
+		// 如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中(doGetBean调用DefaultSingletonBeanRegistry的
+		// Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)时会添加bean到singletonObjects)
 		if (factory.isSingleton() && containsSingleton(beanName)) {
 			synchronized (getSingletonMutex()) {
 				// 尝试从FactoryBean name --> object的map中获取bean

@@ -18,7 +18,7 @@ public <T> T getBean(String name, @Nullable Class<T> requiredType) throws BeansE
 
 容器获取Bean的过程完全委托给了[BeanFactory]，默认实现就是[DefaultListableBeanFactory]，[DefaultListableBeanFactory]实现了很多接口，每个接口都赋予了[DefaultListableBeanFactory]不同的职能：
 1. [AliasRegistry]接口包含了别名管理的相关方法
-2. [SimpleAliasRegistry]类利用Map实现了[AliasRegistry]接口并提供了别名循环别名检查
+2. [SimpleAliasRegistry]类利用Map实现了[AliasRegistry]接口并提供了循环别名检查
 3. [BeanDefinitionRegistry]接口定义了[BeanDefinition]的管理方法，包括`beanName`与[BeanDefinition]关联关系的增删改查
 4. [BeanFactory]接口定义了访问Bean的相关操作，如`getBean()`，`isSingleton()`，`getType()`等方法
 5. [SingletonBeanRegistry]接口定义了访问和注册单例Bean的相关方法，如`registerSingleton()`，`getSingleton()`
@@ -283,7 +283,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       return canonicalName;
   }
   ```
-  如果调用getBean方法时传入的beanName为`&beanName`，则表示想要获取的是[FactoryBean]，否则是[FactoryBean]创建的bean或非[FactoryBean]类型的普通bean，而[FactoryBean]在容器中是以beanName为key保存的，所以需要获取到原始的beanName来寻找[FactoryBean]
+  如果调用`getBean()`方法时传入的beanName为`&beanName`，则表示想要获取的是[FactoryBean]，否则是[FactoryBean]创建的bean或非[FactoryBean]类型的普通bean，而[FactoryBean]在容器中是以beanName为key保存的，所以需要获取到原始的beanName来寻找[FactoryBean]
 - 获取缓存中的单例bean
   ```java
   // 从缓存中获取单例bean，如果存在则返回
@@ -313,6 +313,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
           if (beanInstance instanceof NullBean) {
               return beanInstance;
           }
+          // 如果name以&开头但是bean不是FactoryBean类型的则报错
           if (!(beanInstance instanceof FactoryBean)) {
               throw new BeanIsNotAFactoryException(transformedBeanName(name), beanInstance.getClass());
           }
@@ -354,7 +355,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
   // 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关心如何创建对象
   protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 
-      // 如果FactoryBean单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
+      // 如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
       // Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)执行的)
       // 这里的containsSingleton方法实现在FactoryBeanRegistrySupport的父类DefaultSingletonBeanRegistry中，判断单例bean是否已经保存在singletonObjects中
       if (factory.isSingleton() && containsSingleton(beanName)) {
@@ -416,11 +417,129 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
   }
   ```
-  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean
-- 以上是缓存中存在bean时的处理，如果缓存中不存在bean，即bean还没有被创建过，则执行创建逻辑，代码：
+  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean，一般情况下bean不直接实现[FactoryBean]接口，而是实现[FactoryBean]接口的的抽象实现类[AbstractFactoryBean]，该类通过模版方法模式，使得用户实现[FactoryBean]接口时只需要关心如何创建对象。
+- 以上是缓存中存在bean时的处理，如果缓存中不存在bean，即bean还没有被创建过，则执行创建逻辑，首先是创建前的前置条件检查：
+  ```java
+  // 对于以prototype为scope的bean，如果创建过程中发现当前bean已经处于创建过程，则抛出异常，防止scope为prototype的bean之间的循环引用
+  if (isPrototypeCurrentlyInCreation(beanName)) {
+      throw new BeanCurrentlyInCreationException(beanName);
+  }
+
+  // Check if bean definition exists in this factory.
+  // 判断是否存在父BeanFactory，如果存在并且当前BeanFactory的BeanDefinition中不包含正在创建的bean对应的BeanDefinition，则从父BeanFactory获取bean
+  BeanFactory parentBeanFactory = getParentBeanFactory();
+  if (parentBeanFactory != null && !containsBeanDefinition(beanName)) {
+      // Not found -> check parent.
+      // 还原beanName，transformedBeanName方法的相反操作，如果是FactoryBean则返回&beanName
+      String nameToLookup = originalBeanName(name);
+      if (parentBeanFactory instanceof AbstractBeanFactory) {
+          return ((AbstractBeanFactory) parentBeanFactory).doGetBean(
+                  nameToLookup, requiredType, args, typeCheckOnly);
+      }
+      else if (args != null) {
+          // Delegation to parent with explicit args.
+          return (T) parentBeanFactory.getBean(nameToLookup, args);
+      }
+      else {
+          // No args -> delegate to standard getBean method.
+          return parentBeanFactory.getBean(nameToLookup, requiredType);
+      }
+  }
+
+  // 如果不仅仅是类型检查则将当前bean置成已创建状态，即保存到alreadyCreated中
+  if (!typeCheckOnly) {
+      markBeanAsCreated(beanName);
+  }
+
+  try {
+      // 获取bean的BeanDefinition
+      final RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
+      // 如果BeanDefinition声明了bean是abstract的则报错
+      checkMergedBeanDefinition(mbd, beanName, args);
+
+      // Guarantee initialization of beans that the current bean depends on.
+      // 确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性依赖，而是用户自己声明的
+      // 如BeanA可以声明dependOn BeanB，即使两个bean没有关系，dependOn用于确保创建bean之前已经创建了某些bean，
+      // 并且dependOn不可以循环依赖
+      String[] dependsOn = mbd.getDependsOn();
+      if (dependsOn != null) {
+          // 如果存在dependsOn则遍历并创建
+          for (String dep : dependsOn) {
+              // 判断dep是否依赖beanName，如果是则为循环依赖，报错
+              if (isDependent(beanName, dep)) {
+                  throw new BeanCreationException(mbd.getResourceDescription(), beanName,
+                          "Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
+              }
+              // 保存beanName依赖dep的依赖关系
+              registerDependentBean(dep, beanName);
+              try {
+                  // 创建依赖，如果不存在则抛出异常
+                  getBean(dep);
+              }
+              catch (NoSuchBeanDefinitionException ex) {
+                  throw new BeanCreationException(mbd.getResourceDescription(), beanName,
+                          "'" + beanName + "' depends on missing bean '" + dep + "'", ex);
+              }
+          }
+      }
+  ```
+- 在满足创建条件以后，开始执行创建逻辑：
+  ```java
+  // 如果bean是单例的
+  if (mbd.isSingleton()) {
+      // 单例bean是支持循环引用的，处理过程是，这里先创建一个ObjectFactory（下面的lambda就是ObjectFactory实例），在getSingleton中将会调用这里的匿名ObjectFactory的
+      // createBean方法，而createBean方法会调用doCreateBean方法创建bean，doCreateBean在创建bean时解析构造函数或者工厂方法
+      // 创建一个没有注入任何属性的简单bean，在创建完成后执行addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
+      // 将能够返回刚创建的bean的匿名ObjectFactory添加到内存中，getEarlyBeanReference遍历所有的SmartInstantiationAwareBeanPostProcessor对bean做一些特殊处理，AOP就是通过
+      // SmartInstantiationAwareBeanPostProcessor实现的，如果不存在SmartInstantiationAwareBeanPostProcessor则直接返回简单bean。再将ObjectFactory添加到内存中后将继续该bean的创建，
+      // 首先是populateBean方法，该方法将填充bean的属性，而填充属性就可能导致循环引用，假设当前正在创建的bean是beanA，而beanA有属性beanB，populateBean就将填充beanB到beanA，
+      // 由于之前没有创建过beanB，所以填充之前将会创建一个beanB，如果beanB也有属性beanA，则存在循环引用，在创建beanB的时候将会尝试获取beanA，获取方式就是执行getBean(beanA)，调用getBean(beanA)使得
+      // getSingleton(beanA)方法被调用，该方法将会获取到之前添加到内存的匿名beanFactory并通过该beanFactory的getBean方法获取到刚创建完成正在
+      // 填充属性的beanA，在获取到beanA后beanB就能够顺利初始化了，之后返回beanB并继续beanA的创建，以上就是解决循环引用的过程
+      sharedInstance = getSingleton(beanName, () -> {
+          try {
+              /*
+              该方法创建bean，创建过程中涉及到了多个接口方法调用，顺序和用途如下:
+              1.如果当前BeanFactory存在InstantiationAwareBeanPostProcessor则调用该InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation方法，
+              如果方法返回了一个对象则以该对象作为bean返回并在返回前遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法(该方法的设计目的是在bean及其属性初始化完毕后调用，
+              由于InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation返回的对象将作为最终的bean，所以需要在返回前调用该方法)对bean进行处理，如果遍历过程中某个
+              BeanPostProcessor的postProcessAfterInitialization返回null则结束遍历，否则以返回的对象为bean并继续遍历
+              2.如果正在创建的bean有Supplier则以Supplier提供的对象为bean，否则如果存在工厂方法则以工厂方法的返回结果做为bean，否则如果存在构造函数参数则根据构造函数参数，自动解析所有构造函数，
+              或在SmartInstantiationAwareBeanPostProcessor接口的返回的构造函数列表中，获取满足构造函数参数的构造函数并创建bean，否则以默认构造函数创建bean
+              3.获取所有的MergedBeanDefinitionPostProcessor调用postProcessMergedBeanDefinition对正在创建的bean的BeanDefinition就行处理
+              4.根据创建出来的bean创建ObjectFactory并将ObjectFactory添加到singletonFactories以支持循环依赖
+              5.开始设置bean的属性，在此之前再次获取所有的InstantiationAwareBeanPostProcessor，执行postProcessAfterInstantiation方法，目的是在设置属性之前对bean做定制，
+              遍历过程中如果某个InstantiationAwareBeanPostProcessor的postProcessAfterInstantiation返回false则结束遍历
+              6.根据autowire的设置，如果是byType或byName则用相应的策略填充属性，对于循环依赖的属性解决方法在上面的注释已经说了
+              7.如果bean实现了BeanNameAware、BeanClassLoaderAware或者BeanFactoryAware则调用相应的接口方法
+              8.遍历所有的BeanPostProcessor调用postProcessBeforeInitialization方法，此时bean的依赖都注入了
+              9.如果bean实现了InitializingBean接口则调用afterPropertiesSet方法，如果bean存在init-method则调用自定义的方法
+              10.遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法
+              11.注册当前bean的DisposableBeanAdapter对象用于在销毁bean时遍历DestructionAwareBeanPostProcessor调用回调方法，如果正在销毁的bean实现了DisposableBean接口
+              则调用destroy方法
+               */
+
+              return createBean(beanName, mbd, args);
+          }
+          catch (BeansException ex) {
+              // Explicitly remove instance from singleton cache: It might have been put there
+              // eagerly by the creation process, to allow for circular reference resolution.
+              // Also remove any beans that received a temporary reference to the bean.
+              destroySingleton(beanName);
+              throw ex;
+          }
+      });
+      // 如果是FactoryBean则调用getObject方法获取bean
+      bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
+  }
+  ```
+
   
 
 [ClassPathXmlApplicationContext]: aaa
+[BeanExpressionResolver]: aaa
+[ConversionService]: aaa
+[BeanPostProcessor]: aaa
 [XmlBeanDefinitionReader]: aaa
 [BeanDefinitionRegistry]: aaa
 [DefaultListableBeanFactory]: aaa
