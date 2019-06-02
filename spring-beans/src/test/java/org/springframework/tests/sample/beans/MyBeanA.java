@@ -5,6 +5,7 @@ import org.springframework.context.Lifecycle;
 import org.springframework.context.event.ContextRefreshedEvent;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 public class MyBeanA implements ApplicationListener<ContextRefreshedEvent>, Lifecycle {
 	private String id;
@@ -77,4 +78,5 @@ public class MyBeanA implements ApplicationListener<ContextRefreshedEvent>, Life
 	public boolean isRunning() {
 		return true;
 	}
+
 }

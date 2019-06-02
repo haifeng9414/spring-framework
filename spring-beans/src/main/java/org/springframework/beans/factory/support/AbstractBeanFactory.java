@@ -238,8 +238,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	 * @return an instance of the bean
 	 * @throws BeansException if the bean could not be created
 	 */
-	// 该方法实现了从容器获取Bean的基本过程，用模版方法模式调用了几个抽象方法实现创建Bean的过程
 	@SuppressWarnings("unchecked")
+	// 该方法实现了从容器获取Bean的基本过程，用模版方法模式调用了几个抽象方法实现创建Bean的过程
 	protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredType,
 			@Nullable final Object[] args, boolean typeCheckOnly) throws BeansException {
 
@@ -350,19 +350,19 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 							如果方法返回了一个对象则以该对象作为bean返回并在返回前遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法(该方法的设计目的是在bean及其属性初始化完毕后调用，
 							由于InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation返回的对象将作为最终的bean，所以需要在返回前调用该方法)对bean进行处理，如果遍历过程中某个
 							BeanPostProcessor的postProcessAfterInitialization返回null则结束遍历，否则以返回的对象为bean并继续遍历
-							2.如果正在创建的bean有Supplier则以Supplier提供的对象为bean，否则如果存在工厂方法则以工厂方法的返回结果做为bean，否则如果存在构造函数参数则使用反射以对应的构造函数创建bean，
-							否则以默认构造函数创建bean
-							3.过去所有的MergedBeanDefinitionPostProcessor调用postProcessMergedBeanDefinition对正在创建的bean的BeanDefinition就行处理
+							2.如果正在创建的bean有Supplier则以Supplier提供的对象为bean，否则如果存在工厂方法则以工厂方法的返回结果做为bean，否则如果存在构造函数参数则根据构造函数参数，自动解析所有构造函数，
+							或在SmartInstantiationAwareBeanPostProcessor接口的返回的构造函数列表中，获取满足构造函数参数的构造函数并创建bean，否则以默认构造函数创建bean
+							3.获取所有的MergedBeanDefinitionPostProcessor调用postProcessMergedBeanDefinition对正在创建的bean的BeanDefinition就行处理
 							4.根据创建出来的bean创建ObjectFactory并将ObjectFactory添加到singletonFactories以支持循环依赖
 							5.开始设置bean的属性，在此之前再次获取所有的InstantiationAwareBeanPostProcessor，执行postProcessAfterInstantiation方法，目的是在设置属性之前对bean做定制，
 							遍历过程中如果某个InstantiationAwareBeanPostProcessor的postProcessAfterInstantiation返回false则结束遍历
 							6.根据autowire的设置，如果是byType或byName则用相应的策略填充属性，对于循环依赖的属性解决方法在上面的注释已经说了
 							7.如果bean实现了BeanNameAware、BeanClassLoaderAware或者BeanFactoryAware则调用相应的接口方法
-							8.遍历所有的BeanPostProcessor调用postProcessBeforeInitialization方法
-							9.如果bean实现了InitializingBean接口则调用afterPropertiesSet方法，否则如果bean存在init-method则调用该方法
+							8.遍历所有的BeanPostProcessor调用postProcessBeforeInitialization方法，此时bean的依赖都注入了
+							9.如果bean实现了InitializingBean接口则调用afterPropertiesSet方法，如果bean存在init-method则调用自定义的方法
 							10.遍历所有的BeanPostProcessor调用postProcessAfterInitialization方法
-							11.如果bean是DisposableBean类型的或者bean存在destroy-method方法或者存在对当前bean感兴趣的DestructionAwareBeanPostProcessor类型的bean则注册
-							当前bean的DisposableBeanAdapter对象
+							11.注册当前bean的DisposableBeanAdapter对象用于在销毁bean时遍历DestructionAwareBeanPostProcessor调用回调方法，如果正在销毁的bean实现了DisposableBean接口
+							则调用destroy方法
 							 */
 
 							return createBean(beanName, mbd, args);
