@@ -484,7 +484,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Make sure bean class is actually resolved at this point, and
 		// clone the bean definition in case of a dynamically resolved Class
 		// which cannot be stored in the shared merged bean definition.
-		// 获取bean的类型
+		/*
+		 获取bean的类型，从bean配置中的class属性解析而来，如：
+		 <bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanAFactoryBean"/>
+		  */
 		Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
 		if (resolvedClass != null && !mbd.hasBeanClass() && mbd.getBeanClassName() != null) {
 			mbdToUse = new RootBeanDefinition(mbd);
@@ -553,6 +556,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			throws BeanCreationException {
 
 		// Instantiate the bean.
+		// BeanWrapper实例用于维护正在创建中的bean和该bean的PropertyDescriptor列表，PropertyDescriptor的作用是对bean的某个属性
+		// 进行读写
 		BeanWrapper instanceWrapper = null;
 		// bean默认就是singleton
 		if (mbd.isSingleton()) {
