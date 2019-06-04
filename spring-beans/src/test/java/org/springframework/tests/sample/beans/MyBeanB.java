@@ -2,7 +2,7 @@ package org.springframework.tests.sample.beans;
 
 import java.util.Date;
 
-public class MyBeanB {
+public abstract class MyBeanB {
 	private String id;
 	private String name;
 	private Date date;
@@ -44,4 +44,6 @@ public class MyBeanB {
 	public void setMyBeanA(MyBeanA myBeanA) {
 		this.myBeanA = myBeanA;
 	}
+
+	public abstract MyBeanC getMyBeanC();
 }

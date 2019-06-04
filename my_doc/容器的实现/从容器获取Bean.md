@@ -689,7 +689,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
           // 如果当前BeanDefinition还没有被MergedBeanDefinitionPostProcessor处理过
           if (!mbd.postProcessed) {
               try {
-                  // 调用MergedBeanDefinitionPostProcessor接口的postProcessMergedBeanDefinition方法
+                  // 调用MergedBeanDefinitionPostProcessor接口的postProcessMergedBeanDefinition方，Autowired注解就是通过该接口实现的
                   applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
               }
               catch (Throwable ex) {
@@ -811,6 +811,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
               }
           }
       }
+      // 如果已经解析过构造函数则直接尝试创建
       if (resolved) {
           // 如果构造函数参数中有需要注入的类型
           if (autowireNecessary) {
@@ -828,13 +829,139 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       if (ctors != null ||
               mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_CONSTRUCTOR ||
               mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args))  {
-          // 通过构造函数参数找到匹配的构造函数并创建bean
+          // 通过构造函数参数找到匹配的构造函数并创建bean，ctors为SmartInstantiationAwareBeanPostProcessor返回的可用构造函数
+          // 数组，可能为空
           return autowireConstructor(beanName, mbd, ctors, args);
       }
 
       // No special handling: simply use no-arg constructor.
-      // 如果通过SmartInstantiationAwareBeanPostProcessor接口没找到构造函数或者没有构造函数参数，则使用无参构造函数
+      // 如果通过SmartInstantiationAwareBeanPostProcessor接口没找到构造函数或者当前bean没有构造函数参数，则使用无参构造函数
       return instantiateBean(beanName, mbd);
+  }
+  ```
+  上面的方法解析了构造函数并实例化bean，以最简单的无参构造函数实例化为例，代码：
+  ```java
+  protected BeanWrapper instantiateBean(final String beanName, final RootBeanDefinition mbd) {
+      try {
+          Object beanInstance;
+          final BeanFactory parent = this;
+          if (System.getSecurityManager() != null) {
+              beanInstance = AccessController.doPrivileged((PrivilegedAction<Object>) () ->
+                      getInstantiationStrategy().instantiate(mbd, beanName, parent),
+                      getAccessControlContext());
+          }
+          else {
+              // 默认实例化策略的实现是CglibSubclassingInstantiationStrategy，对于普通bean，该类的实现是反射，如果
+              // bean有lookup method或replace method则使用cglib实例化bean
+              beanInstance = getInstantiationStrategy().instantiate(mbd, beanName, parent);
+          }
+          BeanWrapper bw = new BeanWrapperImpl(beanInstance);
+          initBeanWrapper(bw);
+          return bw;
+      }
+      catch (Throwable ex) {
+          throw new BeanCreationException(
+                  mbd.getResourceDescription(), beanName, "Instantiation of bean failed", ex);
+      }
+  }
+  ```
+  实例化bean后将bean保存到[BeanWrapper]中，此时bean的属性还没有被填充，而[BeanWrapper]实现了[PropertyAccessor]接口，能够对bean的属性进行读写，关于属性注册可以看笔记[bean的属性填充过程](bean的属性填充过程.md)
+- 回到`doCreateBean()`方法，在创建了[BeanWrapper]后，执行`applyMergedBeanDefinitionPostProcessors()`方法，遍历所有的[MergedBeanDefinitionPostProcessor]并执行`postProcessMergedBeanDefinition()`方法，目的是在实例化bean之后，填充bean属性之前对bean的[BeanDefinition]进行操作，Autowired注解的实现就用到了[MergedBeanDefinitionPostProcessor]接口，这一部分可以看笔记[常用注解的实现](常用注解的实现.md)。执行`applyMergedBeanDefinitionPostProcessors()`方法之后代码：
+  ```java
+  protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
+          throws BeanCreationException {
+      //...省略
+
+      // Eagerly cache singletons to be able to resolve circular references
+      // even when triggered by lifecycle interfaces like BeanFactoryAware.
+      boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
+              isSingletonCurrentlyInCreation(beanName));
+      // 如果bean是单例的并且允许循环引用
+      if (earlySingletonExposure) {
+          if (logger.isDebugEnabled()) {
+              logger.debug("Eagerly caching bean '" + beanName +
+                      "' to allow for resolving potential circular references");
+          }
+          // 添加匿名的beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法遍历所有的
+          // SmartInstantiationAwareBeanPostProcessor并调用getEarlyBeanReference方法，AOP的实现就用到了SmartInstantiationAwareBeanPostProcessor
+          addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
+      }
+
+      // Initialize the bean instance.
+      Object exposedObject = bean;
+      try {
+          // 填充bean的属性
+          populateBean(beanName, mbd, instanceWrapper);
+          // 调用初始化方法，如init-method
+          exposedObject = initializeBean(beanName, exposedObject, mbd);
+      }
+      catch (Throwable ex) {
+          if (ex instanceof BeanCreationException && beanName.equals(((BeanCreationException) ex).getBeanName())) {
+              throw (BeanCreationException) ex;
+          }
+          else {
+              throw new BeanCreationException(
+                      mbd.getResourceDescription(), beanName, "Initialization of bean failed", ex);
+          }
+      }
+
+      // 检查在循环引用的情况下其他bean引入的是原始bean而原始bean又做了代理配置导致和原始的bean不一样了的情况
+      // 如果存在这种情况则报错
+      if (earlySingletonExposure) {
+          Object earlySingletonReference = getSingleton(beanName, false);
+          if (earlySingletonReference != null) {
+              // 判断是否是原始bean
+              if (exposedObject == bean) {
+                  exposedObject = earlySingletonReference;
+              }
+              // 是否允许自动注入被包装过的bean，如果不允许则当前bean是否存在依赖它的bean，如果存在说明其他bean注入了和当前bean不一样的bean，报错
+              else if (!this.allowRawInjectionDespiteWrapping && hasDependentBean(beanName)) {
+                  String[] dependentBeans = getDependentBeans(beanName);
+                  Set<String> actualDependentBeans = new LinkedHashSet<>(dependentBeans.length);
+                  for (String dependentBean : dependentBeans) {
+                      if (!removeSingletonIfCreatedForTypeCheckOnly(dependentBean)) {
+                          actualDependentBeans.add(dependentBean);
+                      }
+                  }
+                  if (!actualDependentBeans.isEmpty()) {
+                      throw new BeanCurrentlyInCreationException(beanName,
+                              "Bean with name '" + beanName + "' has been injected into other beans [" +
+                              StringUtils.collectionToCommaDelimitedString(actualDependentBeans) +
+                              "] in its raw version as part of a circular reference, but has eventually been " +
+                              "wrapped. This means that said other beans do not use the final version of the " +
+                              "bean. This is often the result of over-eager type matching - consider using " +
+                              "'getBeanNamesOfType' with the 'allowEagerInit' flag turned off, for example.");
+                  }
+              }
+          }
+      }
+
+      // Register bean as disposable.
+      try {
+          // 注册bean的DisposableBeanAdapter，用于在销毁bean时执行DestructionAwareBeanPostProcessor的回调，如果bean实现了
+          // DisposableBean接口则DisposableBeanAdapter还会执行bean的destory方法
+          registerDisposableBeanIfNecessary(beanName, bean, mbd);
+      }
+      catch (BeanDefinitionValidationException ex) {
+          throw new BeanCreationException(
+                  mbd.getResourceDescription(), beanName, "Invalid destruction signature", ex);
+      }
+
+      return exposedObject;
+  }
+  ```
+  `addSingletonFactory()`方法接收bean和[ObjectFactory]，用于支持循环引用，代码：
+  ```java
+  protected void addSingletonFactory(String beanName, ObjectFactory<?> singletonFactory) {
+      Assert.notNull(singletonFactory, "Singleton factory must not be null");
+      synchronized (this.singletonObjects) {
+          // 下面的语句为什么这么写需要结合AbstractBeanFactory的doGetBean方法来看
+          if (!this.singletonObjects.containsKey(beanName)) {
+              this.singletonFactories.put(beanName, singletonFactory);
+              this.earlySingletonObjects.remove(beanName);
+              this.registeredSingletons.add(beanName);
+          }
+      }
   }
   ```
   

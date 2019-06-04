@@ -578,7 +578,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			// 如果当前BeanDefinition还没有被MergedBeanDefinitionPostProcessor处理过
 			if (!mbd.postProcessed) {
 				try {
-					// 调用MergedBeanDefinitionPostProcessor接口的postProcessMergedBeanDefinition方法
+					// 调用MergedBeanDefinitionPostProcessor接口的postProcessMergedBeanDefinition方，Autowired注解就是通过该接口实现的
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -593,13 +593,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// even when triggered by lifecycle interfaces like BeanFactoryAware.
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
+		// 如果bean是单例的并且允许循环引用
 		if (earlySingletonExposure) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
-			// 添加匿名的beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法调用SmartInstantiationAwareBeanPostProcessor接口的
-			// getEarlyBeanReference方法对bean做某些处理
+			// 添加匿名的beanFactory到缓存中以支持循环引用，这里返回bean调用的是getEarlyBeanReference方法，该方法遍历所有的
+			// SmartInstantiationAwareBeanPostProcessor并调用getEarlyBeanReference方法，AOP的实现就用到了SmartInstantiationAwareBeanPostProcessor
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -1175,7 +1176,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (ctors != null ||
 				mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_CONSTRUCTOR ||
 				mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args))  {
-			// 通过构造函数参数找到匹配的构造函数并创建bean
+			// 通过构造函数参数找到匹配的构造函数并创建bean，ctors为SmartInstantiationAwareBeanPostProcessor返回的可用构造函数
+			// 数组，可能为空
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
 
@@ -1276,6 +1278,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						getAccessControlContext());
 			}
 			else {
+				// 默认实例化策略的实现是CglibSubclassingInstantiationStrategy，对于普通bean，该类的实现是反射，如果
+				// bean有lookup method或replace method则使用cglib实例化bean
 				beanInstance = getInstantiationStrategy().instantiate(mbd, beanName, parent);
 			}
 			BeanWrapper bw = new BeanWrapperImpl(beanInstance);

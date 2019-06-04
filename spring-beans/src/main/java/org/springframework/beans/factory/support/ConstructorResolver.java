@@ -112,7 +112,7 @@ class ConstructorResolver {
 		ArgumentsHolder argsHolderToUse = null;
 		Object[] argsToUse = null;
 
-		// 如果在调用getBean时制定了参数则直接使用
+		// 如果在调用getBean时指定了参数则直接使用
 		if (explicitArgs != null) {
 			argsToUse = explicitArgs;
 		}

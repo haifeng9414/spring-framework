@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -128,6 +129,13 @@ public class XmlBeanFactoryTests {
 //		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 //		System.out.println(applicationContext.getBean("lookupMethod", MyBeanLookupMethod.class).getMyBeanC().getName());
 		applicationContext.close();
+	}
+
+	@Test
+	public void myTest() {
+		for (Constructor<?> constructor : MyBeanB.class.getConstructors()) {
+			System.out.println(constructor.getParameterTypes());
+		}
 	}
 
 	@Test
