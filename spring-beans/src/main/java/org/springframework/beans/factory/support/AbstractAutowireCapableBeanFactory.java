@@ -1353,7 +1353,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// to support styles of field injection.
 		boolean continueWithPropertyPopulation = true;
 
-		//给InstantiationAwareBeanPostProcessors机会在设置属性之前改变bean，并且可以在必要的情况下结束后面设置bean属性的过程
+		// 给InstantiationAwareBeanPostProcessors机会在设置属性之前改变bean，并且可以在必要的情况下结束后面设置bean属性的过程
 		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof InstantiationAwareBeanPostProcessor) {
@@ -1370,12 +1370,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return;
 		}
 
-		//获取所有从XML的property元素解析到的属性
-		//可能是RuntimeBeanReference或者是TypedStringValue
+		// 获取所有从XML的property元素解析到的属性
+		// 可能是RuntimeBeanReference或者是TypedStringValue
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
 
-		//判断属性的注入方式，通过在XML配置bean时设置autowire属性指定，如果设置了autowire则尝试自动注入bean的属性(即使没有在属性上声明注解)，
-		//在找到需要注入的属性后将属性的值和属性名称封装PropertyValue添加到MutablePropertyValues，最后在下面的applyPropertyValues注入该属性
+		// 判断属性的注入方式，通过在XML配置bean时设置autowire属性指定，如果设置了autowire则尝试自动注入bean的属性(即使没有在属性上声明注解)，
+		// 在找到需要注入的属性后将属性的值和属性名称封装PropertyValue添加到MutablePropertyValues，最后在下面的applyPropertyValues注入该属性
 		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME ||
 				mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);

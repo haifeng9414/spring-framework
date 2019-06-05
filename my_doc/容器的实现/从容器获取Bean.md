@@ -955,15 +955,22 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
   protected void addSingletonFactory(String beanName, ObjectFactory<?> singletonFactory) {
       Assert.notNull(singletonFactory, "Singleton factory must not be null");
       synchronized (this.singletonObjects) {
-          // 下面的语句为什么这么写需要结合AbstractBeanFactory的doGetBean方法来看
+          // 如果单例缓存中还没有当前bean
           if (!this.singletonObjects.containsKey(beanName)) {
+              // 将singletonFactory缓存起来
               this.singletonFactories.put(beanName, singletonFactory);
+              // earlySingletonObjects的作用是缓存从singletonFactory中获取的bean
               this.earlySingletonObjects.remove(beanName);
+              // registeredSingletons按照创建顺序保存beanName
               this.registeredSingletons.add(beanName);
           }
       }
   }
   ```
+  单独看`addSingletonFactory()`方法看不出该方法的作用，需要结合后面处理单例bean的循环依赖时来看，现在只需要记住，`addSingletonFactory()`方法将`singletonFactory`保存到了`singletonFactories`
+
+  在执行`addSingletonFactory()`方法之后，执行了`populateBean(beanName, mbd, instanceWrapper)`，代码：
+  
   
 
 [ClassPathXmlApplicationContext]: aaa
