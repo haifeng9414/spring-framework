@@ -173,7 +173,6 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 			if (!this.singletonObjects.containsKey(beanName)) {
 				// 将singletonFactory缓存起来
 				this.singletonFactories.put(beanName, singletonFactory);
-				// earlySingletonObjects的作用是缓存从singletonFactory中获取的bean
 				this.earlySingletonObjects.remove(beanName);
 				// registeredSingletons按照创建顺序保存beanName
 				this.registeredSingletons.add(beanName);
@@ -198,7 +197,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
 		Object singletonObject = this.singletonObjects.get(beanName);
-		// 如果bean还没保存到单例bean集合中并且该bean正在被创建
+		// 如果bean还没保存到单例bean缓存中并且该bean正在被创建
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
 			synchronized (this.singletonObjects) {
 				// 尝试获取earlySingletonObjects中的bean，earlySingletonObjects保存的是之前已经从ObjectFactory获取过的bean

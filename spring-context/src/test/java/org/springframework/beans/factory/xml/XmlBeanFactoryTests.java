@@ -126,8 +126,9 @@ public class XmlBeanFactoryTests {
 		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
 		MyBeanB myBeanB = applicationContext.getBean("myBeanB", MyBeanB.class);
 		System.out.println(myBeanB.getMyBeanA().getId());
-//		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
-//		System.out.println(applicationContext.getBean("lookupMethod", MyBeanLookupMethod.class).getMyBeanC().getName());
+		MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
+		System.out.println(myBeanA.getMyBeanB());
+		//		System.out.println(applicationContext.getBean("lookupMethod", MyBeanLookupMethod.class).getMyBeanC().getName());
 		applicationContext.close();
 	}
 

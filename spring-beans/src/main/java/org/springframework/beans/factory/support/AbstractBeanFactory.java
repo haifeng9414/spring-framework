@@ -396,7 +396,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 					bean = getObjectForBeanInstance(prototypeInstance, name, beanName, mbd);
 				}
 
-				//如果不是原型的也不是单例的则创建scope的bean
+				// 如果不是原型的也不是单例的则创建scope的bean
 				else {
 					String scopeName = mbd.getScope();
 					final Scope scope = this.scopes.get(scopeName);
