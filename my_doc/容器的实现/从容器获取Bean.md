@@ -339,7 +339,8 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
           FactoryBean<?> factory = (FactoryBean<?>) beanInstance;
           // Caches object obtained from FactoryBean if it is a singleton.
           if (mbd == null && containsBeanDefinition(beanName)) {
-              // getMergedLocalBeanDefinition方法的作用查看该方法注释
+              // 合并当前bean和其父bean的属性，即当前bean定义在其他bean内的话，则创建父bean的BeanDefinition并用当前bean的属性覆盖或合并父bean的属性并返回
+              // 如果不存在父bean则直接根据当前bean的BeanDefinition创建RootBeanDefinition
               mbd = getMergedLocalBeanDefinition(beanName);
           }
           // synthetic表示bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring会
@@ -355,9 +356,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
   // 该类通过模版方法模式，使得用户实现FactoryBean接口时只需要关心如何创建对象
   protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 
-      // 如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中(这一操作在doGetBean时调用DefaultSingletonBeanRegistry的
-      // Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)执行的)
-      // 这里的containsSingleton方法实现在FactoryBeanRegistrySupport的父类DefaultSingletonBeanRegistry中，判断单例bean是否已经保存在singletonObjects中
+      // 如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中，即已经添加到单例bean的缓存中
       if (factory.isSingleton() && containsSingleton(beanName)) {
           synchronized (getSingletonMutex()) {
               // 尝试从FactoryBean name --> object的map中获取bean
@@ -417,7 +416,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
   }
   ```
-  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean，一般情况下bean不直接实现[FactoryBean]接口，而是实现[FactoryBean]接口的的抽象实现类[AbstractFactoryBean]，该类通过模版方法模式，使得用户实现[FactoryBean]接口时只需要关心如何创建对象。
+  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean，一般情况下bean不直接实现[FactoryBean]接口，而是实现[FactoryBean]接口的的抽象实现类[AbstractFactoryBean]，该类通过模版方法模式，使得用户实现[FactoryBean]接口时只需要关心如何创建对象，具体用法可以看笔记[FactoryBean的使用和实现原理](FactoryBean的使用和实现原理.md)
 - 以上是缓存中存在bean时的处理，如果缓存中不存在bean，即bean还没有被创建过，则执行创建逻辑，首先是创建前的前置条件检查：
   ```java
   // 对于以prototype为scope的bean，如果创建过程中发现当前bean已经处于创建过程，则抛出异常，防止scope为prototype的bean之间的循环引用
@@ -458,7 +457,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       checkMergedBeanDefinition(mbd, beanName, args);
 
       // Guarantee initialization of beans that the current bean depends on.
-      // 确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性依赖，而是用户自己声明的
+      // 确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性引用的依赖，而是用户自己声明的
       // 如BeanA可以声明dependOn BeanB，即使两个bean没有关系，dependOn用于确保创建bean之前已经创建了某些bean，
       // 并且dependOn不可以循环依赖
       String[] dependsOn = mbd.getDependsOn();
@@ -533,7 +532,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       bean = getObjectForBeanInstance(sharedInstance, name, beanName, mbd);
   }
   ```
-- `getSingleton()`方法接收beanName和一个[ObjectFactory]实例，上面用lambda定义了一个返回`createBean()`方法结果的[ObjectFactory]实例，`getSingleton()`方法代码：
+- 上面的`getSingleton()`方法接收beanName和一个[ObjectFactory]实例，上面用lambda定义了一个返回`createBean()`方法结果的[ObjectFactory]实例，`getSingleton()`方法代码：
   ```java
   public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
       Assert.notNull(beanName, "Bean name must not be null");
@@ -661,7 +660,11 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
   }
   ```
-- `createBean()`方法主要是在创建bean之前遍历实现了[InstantiationAwareBeanPostProcessor]接口的bean并逐个调用`postProcessBeforeInstantiation()`方法，如果遍历过程中返回了非空实例，则直接作为bean使用，不再执行后面创建bean的过程，[InstantiationAwareBeanPostProcessor]接口的一个使用场景是AOP中的`TargetSource`功能，文档：https://docs.spring.io/spring/docs/5.1.3.RELEASE/spring-framework-reference/core.html#aop-targetsource，如果没有从[InstantiationAwareBeanPostProcessor]接口中获取到bean，则执行`doCreateBean()`方法，代码：
+- `createBean()`方法主要是在创建bean之前遍历实现了[InstantiationAwareBeanPostProcessor]接口的bean并逐个调用`postProcessBeforeInstantiation()`方法，如果遍历过程中返回了非空实例，则直接作为bean使用，不再执行后面创建bean的过程，[InstantiationAwareBeanPostProcessor]接口的一个使用场景是AOP中的`TargetSource`功能，文档：
+  
+  https://docs.spring.io/spring/docs/5.1.3.RELEASE/spring-framework-reference/core.html#aop-targetsource
+  
+  如果没有从[InstantiationAwareBeanPostProcessor]接口中获取到bean，则执行`doCreateBean()`方法，代码：
   ```java
   protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
           throws BeanCreationException {
@@ -676,6 +679,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
       if (instanceWrapper == null) {
           // 创建bean并保存到instanceWrapper中，如果bean存在lookupMethod或replaceMethod等methodOverride属性则调用cglib实例化bean
+          // 否则默认使用反射创建bean
           instanceWrapper = createBeanInstance(beanName, mbd, args);
       }
       final Object bean = instanceWrapper.getWrappedInstance();
@@ -777,7 +781,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       return exposedObject;
   }
   ```
-  首先调用`createBeanInstance()`方法创建[BeanWrapper]，`createBeanInstance()`方法代码：
+  创建bean的过程首先调用`createBeanInstance()`方法创建[BeanWrapper]，`createBeanInstance()`方法代码：
   ```java
   protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
       // Make sure bean class is actually resolved at this point.
@@ -866,7 +870,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
   }
   ```
   实例化bean后将bean保存到[BeanWrapper]中，此时bean的属性还没有被填充，而[BeanWrapper]实现了[PropertyAccessor]接口，能够对bean的属性进行读写，关于属性注册可以看笔记[bean的属性填充过程](bean的属性填充过程.md)
-- 回到`doCreateBean()`方法，在创建了[BeanWrapper]后，执行`applyMergedBeanDefinitionPostProcessors()`方法，遍历所有的[MergedBeanDefinitionPostProcessor]并执行`postProcessMergedBeanDefinition()`方法，目的是在实例化bean之后，填充bean属性之前对bean的[BeanDefinition]进行操作，Autowired注解的实现就用到了[MergedBeanDefinitionPostProcessor]接口，这一部分可以看笔记[常用注解的实现](常用注解的实现.md)。执行`applyMergedBeanDefinitionPostProcessors()`方法之后代码：
+- 回到`doCreateBean()`方法，在创建了[BeanWrapper]后，执行`applyMergedBeanDefinitionPostProcessors()`方法，该方法遍历所有的[MergedBeanDefinitionPostProcessor]并执行`postProcessMergedBeanDefinition()`方法，目的是在实例化bean之后，填充bean属性之前对bean的[BeanDefinition]进行操作，Autowired注解的实现就用到了[MergedBeanDefinitionPostProcessor]接口，这一部分可以看笔记[常用注解的实现](常用注解的实现.md)。执行`applyMergedBeanDefinitionPostProcessors()`方法之后执行`doCreateBean()`方法，代码：
   ```java
   protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
           throws BeanCreationException {
@@ -1061,7 +1065,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
   }
   ```
-- 执行了`populateBean()`实现了bean的属性注入逻辑，注入的属性可以是其他bean，如果其他bean还没有创建则会调用`getBean()`方法创建bean，此时可能会发生单例bean的循环依赖，如beanA有属性beanB，beanB有属性beanA，假设先创建beanA，则在创建beanA时尝试创建beanB，而beanB又依赖了beanA。Spring通过[ObjectFactory]解决单例bean的循环依赖，具体实现方法是：
+- 执行了`populateBean()`实现了bean的属性注入逻辑，注入的属性可以是其他bean，如果其他bean还没有创建则会调用`getBean()`方法创建bean，此时可能会发生单例bean的循环引用，如beanA有属性beanB，beanB有属性beanA，假设先创建beanA，则在创建beanA时尝试创建beanB，而beanB又依赖了beanA。Spring通过[ObjectFactory]解决单例bean的循环依赖，具体实现方法是：
   - 调用`getBean`方法时会先执行`getSingleton(String beanName)`方法获取缓存中的单例bean，代码：
     ```java
     public Object getSingleton(String beanName) {
@@ -1090,7 +1094,8 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
         return singletonObject;
     }
     ```
-    `getSingleton()`方法在未获取到单例bean时会判断正要获取的bean是否正在被创建，如果是则从`singletonFactories`中获取该bean的[ObjectFactory]并从[ObjectFactory]获取bean。创建bean的过程涉及到了两个[ObjectFactory]，第一个是`getBean`方法中执行的`getSingleton(String beanName, ObjectFactory<?> singletonFactory)`方法，代码：
+    
+  - `getSingleton()`方法在未获取到单例bean时会判断正要获取的bean是否正在被创建，如果是则从`singletonFactories`中获取该bean的[ObjectFactory]并从[ObjectFactory]获取bean。创建bean的过程涉及到了两个[ObjectFactory]，第一个是`getBean`方法中执行的`getSingleton(String beanName, ObjectFactory<?> singletonFactory)`方法，代码：
     ```java
     sharedInstance = getSingleton(beanName, () -> {
         try {
@@ -1155,7 +1160,8 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
         }
     }
     ```
-    这第一个[ObjectFactory]的目的主要是在调用[ObjectFactory]的`getObject()`方法前将beanName添加到`singletonsCurrentlyInCreation`，这对应了一开始说的在未获取到单例bean时会判断正要获取的bean是否正在被创建；在获取到bean后将bean从`singletonsCurrentlyInCreation`移除并添加到单例缓存中，而这里的[ObjectFactory]的`getObject()`实际上就是`getBean`方法中传入`getSingleton(String beanName, ObjectFactory<?> singletonFactory)`方法的lambda表达式中的`createBean(beanName, mbd, args)`方法，代码：
+    
+  - 这第一个[ObjectFactory]的目的主要是在调用[ObjectFactory]的`getObject()`方法前将beanName添加到`singletonsCurrentlyInCreation`，这对应了一开始说的在未获取到单例bean时会判断正要获取的bean是否正在被创建；在获取到bean后将bean从`singletonsCurrentlyInCreation`移除并添加到单例缓存中，而这里的[ObjectFactory]的`getObject()`实际上就是`getBean`方法中传入`getSingleton(String beanName, ObjectFactory<?> singletonFactory)`方法的lambda表达式中的`createBean(beanName, mbd, args)`方法，代码：
     ```java
     protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args)
             throws BeanCreationException {
@@ -1207,6 +1213,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
         }
     }
 
+    // 创建bean
     protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
             throws BeanCreationException {
 
@@ -1243,7 +1250,8 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
        //...
     }
     ```
-    `createBean()`方法调用了`doCreateBean()`方法创建bean，而`doCreateBean()`方法在通过反射或cglib初始化了一个bean后执行了
+
+  - `createBean()`方法调用了`doCreateBean()`方法创建bean，而`doCreateBean()`方法在通过反射或cglib初始化了一个bean后执行了
     `addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean))`，代码：
     ```java
     protected void addSingletonFactory(String beanName, ObjectFactory<?> singletonFactory) {
@@ -1304,9 +1312,15 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
 
 
 [ClassPathXmlApplicationContext]: aaa
+[ObjectFactory]: aaa
+[AbstractFactoryBean]: aaa
 [BeanExpressionResolver]: aaa
 [ConversionService]: aaa
+[InstantiationAwareBeanPostProcessor]: aaa
+[BeanWrapper]: aaa
 [BeanPostProcessor]: aaa
+[PropertyAccessor]: aaa
+[MergedBeanDefinitionPostProcessor]: aaa
 [XmlBeanDefinitionReader]: aaa
 [BeanDefinitionRegistry]: aaa
 [DefaultListableBeanFactory]: aaa

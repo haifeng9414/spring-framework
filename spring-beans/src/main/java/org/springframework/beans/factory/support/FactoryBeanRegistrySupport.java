@@ -100,8 +100,7 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 
-		// 如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中(doGetBean调用DefaultSingletonBeanRegistry的
-		// Object getSingleton(String beanName, ObjectFactory<?> singletonFactory)时会添加bean到singletonObjects)
+		// 如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中，即已经添加到单例bean的缓存中
 		if (factory.isSingleton() && containsSingleton(beanName)) {
 			synchronized (getSingletonMutex()) {
 				// 尝试从FactoryBean name --> object的map中获取bean

@@ -565,6 +565,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		if (instanceWrapper == null) {
 			// 创建bean并保存到instanceWrapper中，如果bean存在lookupMethod或replaceMethod等methodOverride属性则调用cglib实例化bean
+			// 否则默认使用反射创建bean
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		final Object bean = instanceWrapper.getWrappedInstance();

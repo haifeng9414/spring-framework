@@ -305,7 +305,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
-				// 确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性依赖，而是用户自己声明的
+				// 确保当前bean声明的dependOn的bean已经被初始化了，这里的dependOn不同于bean的属性引用的依赖，而是用户自己声明的
 				// 如BeanA可以声明dependOn BeanB，即使两个bean没有关系，dependOn用于确保创建bean之前已经创建了某些bean，
 				// 并且dependOn不可以循环依赖
 				String[] dependsOn = mbd.getDependsOn();
@@ -1711,7 +1711,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			FactoryBean<?> factory = (FactoryBean<?>) beanInstance;
 			// Caches object obtained from FactoryBean if it is a singleton.
 			if (mbd == null && containsBeanDefinition(beanName)) {
-				// getMergedLocalBeanDefinition方法的作用查看该方法注释
+				// 合并当前bean和其父bean的属性，即当前bean定义在其他bean内的话，则创建父bean的BeanDefinition并用当前bean的属性覆盖或合并父bean的属性并返回
+				// 如果不存在父bean则直接根据当前bean的BeanDefinition创建RootBeanDefinition
 				mbd = getMergedLocalBeanDefinition(beanName);
 			}
 			// synthetic表示bean是否是用户定义的，如果不是则不需要调用postProcessAfterInitialization，如为了支持<aop:config>spring会
