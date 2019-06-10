@@ -416,7 +416,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
   }
   ```
-  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean，一般情况下bean不直接实现[FactoryBean]接口，而是实现[FactoryBean]接口的的抽象实现类[AbstractFactoryBean]，该类通过模版方法模式，使得用户实现[FactoryBean]接口时只需要关心如何创建对象，具体用法可以看笔记[FactoryBean的使用和实现原理](FactoryBean的使用和实现原理.md)
+  `getObjectForBeanInstance()`方法处理了bean为[FactoryBean]时的逻辑，当beanName不是&开头并且bean实现了[FactoryBean]接口，则调用该接口的`getObject()`方法获取实际的bean，一般情况下bean不直接实现[FactoryBean]接口，而是实现[FactoryBean]接口的的抽象实现类[AbstractFactoryBean]，该类通过模版方法模式，使得用户实现[FactoryBean]接口时只需要关心如何创建对象，具体用法可以看笔记[FactoryBean的使用和实现原理](../容器的使用/FactoryBean的使用和实现原理.md)
 - 以上是缓存中存在bean时的处理，如果缓存中不存在bean，即bean还没有被创建过，则执行创建逻辑，首先是创建前的前置条件检查：
   ```java
   // 对于以prototype为scope的bean，如果创建过程中发现当前bean已经处于创建过程，则抛出异常，防止scope为prototype的bean之间的循环引用

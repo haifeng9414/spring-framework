@@ -134,9 +134,12 @@ public class XmlBeanFactoryTests {
 
 	@Test
 	public void myTest() {
-		for (Constructor<?> constructor : MyBeanB.class.getConstructors()) {
-			System.out.println(constructor.getParameterTypes());
-		}
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+		MyBean myBean1 = applicationContext.getBean("myBean", MyBean.class);
+		System.out.println(myBean1.getId());
+		System.out.println(myBean1.getClass());
+		MyBean myBean2 = applicationContext.getBean("myBean", MyBean.class);
+		System.out.println(myBean1.getClass().equals(myBean2.getClass()));
 	}
 
 	@Test

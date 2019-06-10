@@ -6,7 +6,12 @@
 	   http://www.springframework.org/schema/beans/spring-beans.xsd
 	   http://www.springframework.org/schema/aop
 	   http://www.springframework.org/schema/aop/spring-aop.xsd">
-	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanAFactoryBean"/>
+	<bean id="myBean" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>
+
+	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
+		<constructor-arg name="id" value="test"/>
+		<constructor-arg name="name" value="v"/>
+	</bean>
 
 	<bean id="myBeanB" class="org.springframework.tests.sample.beans.MyBeanB">
 		<constructor-arg value="3"/>
