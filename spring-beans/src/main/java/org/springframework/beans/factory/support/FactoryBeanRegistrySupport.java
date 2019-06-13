@@ -99,7 +99,6 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 * @see org.springframework.beans.factory.FactoryBean#getObject()
 	 */
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
-
 		/*
 		如果FactoryBean是单例的并且FactoryBean对象已经保存到singletonObjects中，即已经添加到单例bean的缓存中
 		什么情况下会导致这里的containsSingleton返回false呢，可以看笔记FactoryBean的使用和实现原理，主要是当FactoryBean之间存在循环引用时出现

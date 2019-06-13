@@ -9,7 +9,7 @@ public interface MyBeanForFactoryBeanBInterface {
 
 	public void setName(String name);
 
-	public MyBeanForFactoryBeanA getMyBeanForFactoryBeanA();
+	public MyBeanForFactoryBeanAInterface getMyBeanForFactoryBeanA();
 
-	public void setMyBeanForFactoryBeanA(MyBeanForFactoryBeanA myBeanForFactoryBeanA);
+	public void setMyBeanForFactoryBeanA(MyBeanForFactoryBeanAInterface myBeanForFactoryBeanA);
 }

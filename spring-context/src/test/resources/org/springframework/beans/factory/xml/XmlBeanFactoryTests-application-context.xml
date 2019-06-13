@@ -6,12 +6,12 @@
 	   http://www.springframework.org/schema/beans/spring-beans.xsd
 	   http://www.springframework.org/schema/aop
 	   http://www.springframework.org/schema/aop/spring-aop.xsd">
-	<bean id="myBeanForFactoryBeanA" class="org.springframework.tests.sample.beans.MyFactoryBeanForFactoryBeanA">
-		<property name="myBeanForFactoryBeanB" ref="myBeanForFactoryBeanB"/>
+	<bean id="beanA" class="org.springframework.tests.sample.beans.FactoryBeanA">
+		<property name="beanB" ref="beanB"/>
 	</bean>
 
-	<bean id="myBeanForFactoryBeanB" class="org.springframework.tests.sample.beans.MyFactoryBeanForFactoryBeanB">
-		<property name="myBeanForFactoryBeanA" ref="myBeanForFactoryBeanA"/>
+	<bean id="beanB" class="org.springframework.tests.sample.beans.FactoryBeanB">
+		<property name="beanA" ref="beanA"/>
 	</bean>
 
 	<bean id="myBean" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>

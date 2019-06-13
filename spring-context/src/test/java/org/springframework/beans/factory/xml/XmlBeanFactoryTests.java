@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -135,10 +134,25 @@ public class XmlBeanFactoryTests {
 	@Test
 	public void myTest() {
 		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
-		MyBeanForFactoryBeanA myBeanForFactoryBeanA = applicationContext.getBean("myBeanForFactoryBeanA", MyBeanForFactoryBeanA.class);
-		System.out.println(myBeanForFactoryBeanA.getMyBeanForFactoryBeanB().getId());
-		MyBeanForFactoryBeanB myBeanForFactoryBeanB = applicationContext.getBean("myBeanForFactoryBeanB", MyBeanForFactoryBeanB.class);
-		System.out.println(myBeanForFactoryBeanB.getMyBeanForFactoryBeanA().getId());
+		BeanA beanA = applicationContext.getBean("beanA", BeanA.class);
+		System.out.println(beanA.getBeanB().getId());
+		BeanB beanB = applicationContext.getBean("beanB", BeanB.class);
+		System.out.println(beanB.getBeanA().getId());
+		System.out.println(beanA.hashCode());
+		System.out.println(beanA.getClass());
+		System.out.println(beanB.getBeanA().hashCode());
+		System.out.println(beanB.getBeanA().getClass());
+	}
+
+	@Test
+	public void myTest1() {
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+		MyBean myBean1 = applicationContext.getBean("myBean", MyBean.class);
+		System.out.println(myBean1.getId());
+		System.out.println(myBean1.getClass());
+		MyBean myBean2 = applicationContext.getBean("myBean", MyBean.class);
+		System.out.println(myBean1.getClass().equals(myBean2.getClass()));
+		System.out.println(applicationContext.getBean("&myBean").getClass());
 	}
 
 	@Test
