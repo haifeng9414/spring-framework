@@ -59,7 +59,7 @@ import org.springframework.util.ReflectionUtils;
  * @see #setSingleton
  * @see #createInstance()
  */
-// 通过模版方法模式，使得用户在实现FactoryBean类型的bean时只需要关心如果创建bean
+// 通过模版方法模式，使得用户在实现FactoryBean类型的bean时只需要关心如果创建bean，并且能够解决FactoryBean的循环引用问题
 public abstract class AbstractFactoryBean<T>
 		implements FactoryBean<T>, BeanClassLoaderAware, BeanFactoryAware, InitializingBean, DisposableBean {
 
@@ -77,12 +77,15 @@ public abstract class AbstractFactoryBean<T>
 	@Nullable
 	private BeanFactory beanFactory;
 
+	// 表示是否已经调用过createInstance方法创建bean
 	private boolean initialized = false;
 
 	@Nullable
+	// 通过createInstance方法获取到的单例bean
 	private T singletonInstance;
 
 	@Nullable
+	// 用于解决循环引用问题，FactoryBean还在创建过程中时，从容器中获取FactoryBean会返回该变量
 	private T earlySingletonInstance;
 
 
@@ -139,7 +142,9 @@ public abstract class AbstractFactoryBean<T>
 	 * Eagerly create the singleton instance, if necessary.
 	 */
 	@Override
+	// afterPropertiesSet方法在注入所有属性，调用完所有的BeanPostProcessor的postProcessBeforeInitialization方法后执行
 	public void afterPropertiesSet() throws Exception {
+		// 如果是单例的则提前初始化
 		if (isSingleton()) {
 			this.initialized = true;
 			this.singletonInstance = createInstance();
@@ -156,6 +161,7 @@ public abstract class AbstractFactoryBean<T>
 	@Override
 	public final T getObject() throws Exception {
 		if (isSingleton()) {
+			// 如果已经初始化过则直接返回即可，否则调用getEarlySingletonInstance返回代理类
 			return (this.initialized ? this.singletonInstance : getEarlySingletonInstance());
 		}
 		else {
@@ -169,12 +175,14 @@ public abstract class AbstractFactoryBean<T>
 	 */
 	@SuppressWarnings("unchecked")
 	private T getEarlySingletonInstance() throws Exception {
+		// 使用的是JDK的动态代理，这里获取需要代理的接口
 		Class<?>[] ifcs = getEarlySingletonInterfaces();
 		if (ifcs == null) {
 			throw new FactoryBeanNotInitializedException(
 					getClass().getName() + " does not support circular references");
 		}
 		if (this.earlySingletonInstance == null) {
+			// 创建代理
 			this.earlySingletonInstance = (T) Proxy.newProxyInstance(
 					this.beanClassLoader, ifcs, new EarlySingletonInvocationHandler());
 		}
@@ -188,6 +196,7 @@ public abstract class AbstractFactoryBean<T>
 	 */
 	@Nullable
 	private T getSingletonInstance() throws IllegalStateException {
+		// getSingletonInstance在代理类中用于获取单例bean以执行方法，在初始化之前singletonInstance此时还是null，这里用assert防止发生空指针
 		Assert.state(this.initialized, "Singleton instance not initialized yet");
 		return this.singletonInstance;
 	}
@@ -262,7 +271,7 @@ public abstract class AbstractFactoryBean<T>
 
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-			if (ReflectionUtils.isEqualsMethod(method)) {
+			if (ReflectionUtils.isEqualsMethod(method)) { // equals直接判断参数和当前代理类是否相等即可
 				// Only consider equal when proxies are identical.
 				return (proxy == args[0]);
 			}
@@ -270,11 +279,13 @@ public abstract class AbstractFactoryBean<T>
 				// Use hashCode of reference proxy.
 				return System.identityHashCode(proxy);
 			}
-			else if (!initialized && ReflectionUtils.isToStringMethod(method)) {
+			else if (!initialized && ReflectionUtils.isToStringMethod(method)) { // toString方法不代理
 				return "Early singleton proxy for interfaces " +
 						ObjectUtils.nullSafeToString(getEarlySingletonInterfaces());
 			}
 			try {
+				// 剩下的所有方法直接调用单例bean的方法，由于afterPropertiesSet方法在bean创建完成后会调用createInstance方法
+				// 创建bean，所以这里的getSingletonInstance能够直接返回已经创建好的单例bean
 				return method.invoke(getSingletonInstance(), args);
 			}
 			catch (InvocationTargetException ex) {

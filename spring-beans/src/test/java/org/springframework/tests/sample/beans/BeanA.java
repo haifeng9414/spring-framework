@@ -6,7 +6,7 @@ public class BeanA {
 	private BeanB beanB;
 
 	public BeanA(String id, String name) {
-		System.out.println("new BeanA");
+//		System.out.println("new BeanA");
 		this.id = id;
 		this.name = name;
 	}

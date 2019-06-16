@@ -385,13 +385,13 @@ public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
 		// 先尝试从缓存中获取单例bean
 		Object singletonObject = this.singletonObjects.get(beanName);
 		if (singletonObject == null) {
-			//...
+			//忽略
 			try {
 				// 创建单例bean，包括所有的属性注入和init-method都在这一步执行
 				singletonObject = singletonFactory.getObject();
 				newSingleton = true;
 			}
-			//忽略catch
+			// 忽略catch
 			// 将bean保存到singletonObjects中缓存下来
 			if (newSingleton) {
 				addSingleton(beanName, singletonObject);
@@ -515,6 +515,427 @@ protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanNam
 
 针对上面的问题，spring提供了解决方法，实现[FactoryBean]接口时，直接继承抽象类[AbstractFactoryBean]，下面分析[AbstractFactoryBean]的功能和它是如何解决上述单例bean重复创建的问题的。
 
+首先是使用[AbstractFactoryBean]实现[FactoryBean]功能的例子：
+```java
+// 如果需要循环引用，则需要为bean定义接口
+public interface DemoBeanAInterface {
+	public String getId();
+
+	public void setId(String id);
+
+	public String getName();
+
+	public void setName(String name);
+
+	public DemoBeanBInterface getDemoBeanB();
+
+	public void setDemoBeanB(DemoBeanBInterface demoBeanB);
+}
+
+// 单例bean
+public class DemoBeanA implements DemoBeanAInterface {
+	private String id;
+	private String name;
+	private DemoBeanBInterface demoBeanB;
+
+	public DemoBeanA(String id, String name) {
+		System.out.println("new DemoBeanA");
+		this.id = id;
+		this.name = name;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	@Override
+	public DemoBeanBInterface getDemoBeanB() {
+		return demoBeanB;
+	}
+
+	@Override
+	public void setDemoBeanB(DemoBeanBInterface demoBeanB) {
+		this.demoBeanB = demoBeanB;
+	}
+}
+
+// FactoryBean
+public class DemoBeanAFactoryBean extends AbstractFactoryBean<DemoBeanAInterface> {
+	private DemoBeanBInterface demoBeanBFactoryBean;
+
+	public DemoBeanBInterface getDemoBeanBFactoryBean() {
+		return demoBeanBFactoryBean;
+	}
+
+	public void setDemoBeanBFactoryBean(DemoBeanBInterface demoBeanBFactoryBean) {
+		this.demoBeanBFactoryBean = demoBeanBFactoryBean;
+	}
+
+	@Override
+	public Class<?> getObjectType() {
+		return DemoBeanAInterface.class;
+	}
+
+	@Override
+	protected DemoBeanAInterface createInstance() throws Exception {
+		DemoBeanA demoBeanA = new DemoBeanA("1", "demoBeanA");
+		demoBeanA.setDemoBeanB(demoBeanBFactoryBean);
+		return demoBeanA;
+	}
+}
+
+public interface DemoBeanBInterface {
+	public String getId();
+
+	public void setId(String id);
+
+	public String getName();
+
+	public void setName(String name);
+
+	public DemoBeanAInterface getDemoBeanA();
+
+	public void setDemoBeanA(DemoBeanAInterface demoBeanA);
+}
+
+public class DemoBeanB implements DemoBeanBInterface {
+	private String id;
+	private String name;
+	private DemoBeanAInterface demoBeanA;
+
+	public DemoBeanB(String id, String name) {
+		System.out.println("new DemoBeanB");
+		this.id = id;
+		this.name = name;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public DemoBeanAInterface getDemoBeanA() {
+		return demoBeanA;
+	}
+
+	public void setDemoBeanA(DemoBeanAInterface demoBeanA) {
+		this.demoBeanA = demoBeanA;
+	}
+}
+
+public class DemoBeanBFactoryBean extends AbstractFactoryBean<DemoBeanBInterface> {
+	private DemoBeanAInterface demoBeanAFactoryBean;
+
+	public DemoBeanAInterface getDemoBeanAFactoryBean() {
+		return demoBeanAFactoryBean;
+	}
+
+	public void setDemoBeanAFactoryBean(DemoBeanAInterface demoBeanAFactoryBean) {
+		this.demoBeanAFactoryBean = demoBeanAFactoryBean;
+	}
+
+	@Override
+	public Class<?> getObjectType() {
+		return DemoBeanAInterface.class;
+	}
+
+	@Override
+	protected DemoBeanBInterface createInstance() throws Exception {
+		DemoBeanB demoBeanB = new DemoBeanB("2", "demoBeanB");
+		demoBeanB.setDemoBeanA(demoBeanAFactoryBean);
+		return demoBeanB;
+	}
+}
+```
+上面定义了两个接口，两个普通bean和两个继承自[AbstractFactoryBean]抽象类的[FactoryBean]，测试代码：
+```java
+ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+DemoBeanA beanA = applicationContext.getBean("demoBeanA", DemoBeanA.class);
+System.out.println(beanA.getDemoBeanB().getName());
+DemoBeanB beanB = applicationContext.getBean("demoBeanB", DemoBeanB.class);
+System.out.println(beanB.getDemoBeanA().getName());
+System.out.println(beanA.getDemoBeanB().getClass().getName());
+System.out.println(beanB.getDemoBeanA().getClass().getName());
+
+/*
+输出：
+new DemoBeanB
+new DemoBeanA
+demoBeanB
+demoBeanA
+org.springframework.tests.sample.beans.DemoBeanB
+com.sun.proxy.$Proxy28
+*/
+```
+可以看到DemoBeanB和DemoBeanA都只创建了一次，不同的地方在于，beanB的demoBeanA指向的是个代理类，这个代理类是[AbstractFactoryBean]中创建的，也是解决循环引用的关键点，[AbstractFactoryBean]代码：
+```java
+public abstract class AbstractFactoryBean<T>
+		implements FactoryBean<T>, BeanClassLoaderAware, BeanFactoryAware, InitializingBean, DisposableBean {
+
+	/** Logger available to subclasses */
+	protected final Log logger = LogFactory.getLog(getClass());
+
+	// 默认是单例的，这样bean只会被创建一次，如果不是单例的则每次调用getBean时都会创建一个新的bean
+	private boolean singleton = true;
+
+	// 通过BeanClassLoaderAware接口实现自动注入
+	@Nullable
+	private ClassLoader beanClassLoader = ClassUtils.getDefaultClassLoader();
+
+	// 通过BeanFactoryAware接口实现自动注入
+	@Nullable
+	private BeanFactory beanFactory;
+
+	// 表示是否已经调用过createInstance方法创建bean
+	private boolean initialized = false;
+	
+	@Nullable
+	// 通过createInstance方法获取到的单例bean
+	private T singletonInstance;
+
+	@Nullable
+	// 用于解决循环引用问题，FactoryBean还在创建过程中时，从容器中获取FactoryBean会返回该变量
+	private T earlySingletonInstance;
+
+
+	/**
+	 * Set if a singleton should be created, or a new object on each request
+	 * otherwise. Default is {@code true} (a singleton).
+	 */
+	public void setSingleton(boolean singleton) {
+		this.singleton = singleton;
+	}
+
+	@Override
+	public boolean isSingleton() {
+		return this.singleton;
+	}
+
+	@Override
+	public void setBeanClassLoader(ClassLoader classLoader) {
+		this.beanClassLoader = classLoader;
+	}
+
+	@Override
+	public void setBeanFactory(@Nullable BeanFactory beanFactory) {
+		this.beanFactory = beanFactory;
+	}
+
+	/**
+	 * Return the BeanFactory that this bean runs in.
+	 */
+	@Nullable
+	protected BeanFactory getBeanFactory() {
+		return this.beanFactory;
+	}
+
+	/**
+	 * Obtain a bean type converter from the BeanFactory that this bean
+	 * runs in. This is typically a fresh instance for each call,
+	 * since TypeConverters are usually <i>not</i> thread-safe.
+	 * <p>Falls back to a SimpleTypeConverter when not running in a BeanFactory.
+	 * @see ConfigurableBeanFactory#getTypeConverter()
+	 * @see org.springframework.beans.SimpleTypeConverter
+	 */
+	protected TypeConverter getBeanTypeConverter() {
+		BeanFactory beanFactory = getBeanFactory();
+		if (beanFactory instanceof ConfigurableBeanFactory) {
+			return ((ConfigurableBeanFactory) beanFactory).getTypeConverter();
+		}
+		else {
+			return new SimpleTypeConverter();
+		}
+	}
+
+	/**
+	 * Eagerly create the singleton instance, if necessary.
+	 */
+	@Override
+	// afterPropertiesSet方法在注入所有属性，调用完所有的BeanPostProcessor的postProcessBeforeInitialization方法后执行
+	public void afterPropertiesSet() throws Exception {
+		// 如果是单例的则提前初始化
+		if (isSingleton()) {
+			this.initialized = true;
+			this.singletonInstance = createInstance();
+			this.earlySingletonInstance = null;
+		}
+	}
+
+
+	/**
+	 * Expose the singleton instance or create a new prototype instance.
+	 * @see #createInstance()
+	 * @see #getEarlySingletonInterfaces()
+	 */
+	@Override
+	public final T getObject() throws Exception {
+		if (isSingleton()) {
+			// 如果已经初始化过则直接返回即可，否则调用getEarlySingletonInstance返回代理类
+			return (this.initialized ? this.singletonInstance : getEarlySingletonInstance());
+		}
+		else {
+			return createInstance();
+		}
+	}
+
+	/**
+	 * Determine an 'eager singleton' instance, exposed in case of a
+	 * circular reference. Not called in a non-circular scenario.
+	 */
+	@SuppressWarnings("unchecked")
+	private T getEarlySingletonInstance() throws Exception {
+		// 使用的是JDK的动态代理，这里获取需要代理的接口
+		Class<?>[] ifcs = getEarlySingletonInterfaces();
+		// 如果无法获取到接口则不能创建代理，就无法支持循环引用
+		if (ifcs == null) {
+			throw new FactoryBeanNotInitializedException(
+					getClass().getName() + " does not support circular references");
+		}
+		if (this.earlySingletonInstance == null) {
+			// 创建代理
+			this.earlySingletonInstance = (T) Proxy.newProxyInstance(
+					this.beanClassLoader, ifcs, new EarlySingletonInvocationHandler());
+		}
+		return this.earlySingletonInstance;
+	}
+
+	/**
+	 * Expose the singleton instance (for access through the 'early singleton' proxy).
+	 * @return the singleton instance that this FactoryBean holds
+	 * @throws IllegalStateException if the singleton instance is not initialized
+	 */
+	@Nullable
+	private T getSingletonInstance() throws IllegalStateException {
+		// getSingletonInstance在代理类中用于获取单例bean以执行方法，在初始化之前singletonInstance此时还是null，这里用assert防止发生空指针
+		Assert.state(this.initialized, "Singleton instance not initialized yet");
+		return this.singletonInstance;
+	}
+
+	/**
+	 * Destroy the singleton instance, if any.
+	 * @see #destroyInstance(Object)
+	 */
+	@Override
+	public void destroy() throws Exception {
+		if (isSingleton()) {
+			destroyInstance(this.singletonInstance);
+		}
+	}
+
+
+	/**
+	 * This abstract method declaration mirrors the method in the FactoryBean
+	 * interface, for a consistent offering of abstract template methods.
+	 * @see org.springframework.beans.factory.FactoryBean#getObjectType()
+	 */
+	@Override
+	@Nullable
+	public abstract Class<?> getObjectType();
+
+	/**
+	 * Template method that subclasses must override to construct
+	 * the object returned by this factory.
+	 * <p>Invoked on initialization of this FactoryBean in case of
+	 * a singleton; else, on each {@link #getObject()} call.
+	 * @return the object returned by this factory
+	 * @throws Exception if an exception occurred during object creation
+	 * @see #getObject()
+	 */
+	protected abstract T createInstance() throws Exception;
+
+	/**
+	 * Return an array of interfaces that a singleton object exposed by this
+	 * FactoryBean is supposed to implement, for use with an 'early singleton
+	 * proxy' that will be exposed in case of a circular reference.
+	 * <p>The default implementation returns this FactoryBean's object type,
+	 * provided that it is an interface, or {@code null} else. The latter
+	 * indicates that early singleton access is not supported by this FactoryBean.
+	 * This will lead to a FactoryBeanNotInitializedException getting thrown.
+	 * @return the interfaces to use for 'early singletons',
+	 * or {@code null} to indicate a FactoryBeanNotInitializedException
+	 * @see org.springframework.beans.factory.FactoryBeanNotInitializedException
+	 */
+	@Nullable
+	protected Class<?>[] getEarlySingletonInterfaces() {
+		Class<?> type = getObjectType();
+		return (type != null && type.isInterface() ? new Class<?>[] {type} : null);
+	}
+
+	/**
+	 * Callback for destroying a singleton instance. Subclasses may
+	 * override this to destroy the previously created instance.
+	 * <p>The default implementation is empty.
+	 * @param instance the singleton instance, as returned by
+	 * {@link #createInstance()}
+	 * @throws Exception in case of shutdown errors
+	 * @see #createInstance()
+	 */
+	protected void destroyInstance(@Nullable T instance) throws Exception {
+	}
+
+
+	/**
+	 * Reflective InvocationHandler for lazy access to the actual singleton object.
+	 */
+	private class EarlySingletonInvocationHandler implements InvocationHandler {
+
+		@Override
+		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+			if (ReflectionUtils.isEqualsMethod(method)) { // equals直接判断参数和当前代理类是否相等即可
+				// Only consider equal when proxies are identical.
+				return (proxy == args[0]);
+			}
+			else if (ReflectionUtils.isHashCodeMethod(method)) { 
+				// Use hashCode of reference proxy.
+				return System.identityHashCode(proxy);
+			}
+			else if (!initialized && ReflectionUtils.isToStringMethod(method)) { // toString方法不代理
+				return "Early singleton proxy for interfaces " +
+						ObjectUtils.nullSafeToString(getEarlySingletonInterfaces());
+			}
+			try {
+				// 剩下的所有方法直接调用单例bean的方法，由于afterPropertiesSet方法在bean创建完成后会调用createInstance方法
+				// 创建bean，所以这里的getSingletonInstance能够直接返回已经创建好的单例bean
+				return method.invoke(getSingletonInstance(), args); 
+			}
+			catch (InvocationTargetException ex) {
+				throw ex.getTargetException();
+			}
+		}
+	}
+
+}
+```
+[AbstractFactoryBean]所做的主要工作是在`getObject()`方法中判断是否需要返回代理类，对于循环引用的情况，`getObject()`方法会在`afterPropertiesSet()`方法之前被调用，此时`this.initialized`为false，`getObject()`方法将通过`getEarlySingletonInstance()`方法返回代理类注入到其他bean中，使用的是JDK的动态代理实现的代理，这也是为什么上面的例子中需要创建接口的原因，如果没有循环引用，那么接口就没必要了。
+
+综上所属，[AbstractFactoryBean]解决循环引用的原理就是注入代理类到其他bean，使得[FactoryBean]的循环引用能够像普通bean之间的循环引用一样工作。
+
+
 [FactoryBean]: aaa
+[AbstractBeanFactory]: aaa
+[ObjectFactory]: aaa
 [SmartFactoryBean]: aaa
 [AbstractFactoryBean]: aaa

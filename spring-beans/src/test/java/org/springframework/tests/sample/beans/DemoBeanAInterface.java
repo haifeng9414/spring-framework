@@ -1,6 +1,6 @@
 package org.springframework.tests.sample.beans;
 
-public interface MyBeanForFactoryBeanAInterface {
+public interface DemoBeanAInterface {
 	public String getId();
 
 	public void setId(String id);
@@ -9,6 +9,7 @@ public interface MyBeanForFactoryBeanAInterface {
 
 	public void setName(String name);
 
-	public MyBeanForFactoryBeanBInterface getMyBeanForFactoryBeanB();
+	public DemoBeanBInterface getDemoBeanB();
 
+	public void setDemoBeanB(DemoBeanBInterface demoBeanB);
 }

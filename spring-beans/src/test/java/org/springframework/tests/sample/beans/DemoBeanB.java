@@ -1,12 +1,12 @@
 package org.springframework.tests.sample.beans;
 
-public class BeanB {
+public class DemoBeanB implements DemoBeanBInterface {
 	private String id;
 	private String name;
-	private BeanA beanA;
+	private DemoBeanAInterface demoBeanA;
 
-	public BeanB(String id, String name) {
-//		System.out.println("new BeanB");
+	public DemoBeanB(String id, String name) {
+		System.out.println("new DemoBeanB");
 		this.id = id;
 		this.name = name;
 	}
@@ -27,11 +27,11 @@ public class BeanB {
 		this.name = name;
 	}
 
-	public BeanA getBeanA() {
-		return beanA;
+	public DemoBeanAInterface getDemoBeanA() {
+		return demoBeanA;
 	}
 
-	public void setBeanA(BeanA beanA) {
-		this.beanA = beanA;
+	public void setDemoBeanA(DemoBeanAInterface demoBeanA) {
+		this.demoBeanA = demoBeanA;
 	}
 }

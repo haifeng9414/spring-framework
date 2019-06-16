@@ -14,6 +14,14 @@
 		<property name="beanA" ref="beanA"/>
 	</bean>
 
+	<bean id="demoBeanA" class="org.springframework.tests.sample.beans.DemoBeanAFactoryBean">
+		<property name="demoBeanBFactoryBean" ref="demoBeanB"/>
+	</bean>
+
+	<bean id="demoBeanB" class="org.springframework.tests.sample.beans.DemoBeanBFactoryBean">
+		<property name="demoBeanAFactoryBean" ref="demoBeanA"/>
+	</bean>
+
 	<bean id="myBean" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>
 
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
