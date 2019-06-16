@@ -45,17 +45,22 @@ public class PropertyValue extends BeanMetadataAttributeAccessor implements Seri
 	private final String name;
 
 	@Nullable
+	// 保存未转换的值
 	private final Object value;
 
+	// 属性是否是Optional类型的
 	private boolean optional = false;
 
+	// 是否已经转换过
 	private boolean converted = false;
 
 	@Nullable
+	// 保存转换后值
 	private Object convertedValue;
 
 	/** Package-visible field that indicates whether conversion is necessary */
 	@Nullable
+	// 是否需要转换
 	volatile Boolean conversionNecessary;
 
 	/** Package-visible field for caching the resolved property path tokens */

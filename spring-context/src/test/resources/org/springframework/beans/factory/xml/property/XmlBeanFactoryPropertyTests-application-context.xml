@@ -4,11 +4,10 @@
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans
 	   http://www.springframework.org/schema/beans/spring-beans.xsd">
 	<bean id="testPropertyPopulateBean"
-		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean">
+		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean" autowire="byType">
 		<constructor-arg name="name" value="test"/>
 		<constructor-arg name="myBeanA" ref="myBeanA"/>
 		<property name="num" value="20"/>
-		<property name="myBeanB" ref="myBeanB"/>
 		<property name="time" value="2019-06-16"/>
 	</bean>
 

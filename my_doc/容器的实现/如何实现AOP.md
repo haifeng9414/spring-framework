@@ -25,7 +25,7 @@ registerBeanDefinitionParser("spring-configured", new SpringConfiguredBeanDefini
 ```
 所以上面的`<aop:aspectj-autoproxy/>`将交由[AspectJAutoProxyBeanDefinitionParser]进行解析，[AspectJAutoProxyBeanDefinitionParser]在解析时添加一个[AnnotationAwareAspectJAutoProxyCreator]
 的[BeanDefinition]到[BeanFactory]，[AnnotationAwareAspectJAutoProxyCreator]类图如下:
-![AnnotationAwareAspectJAutoProxyCreator继承结构图](img/AnnotationAwareAspectJAutoProxyCreator.png)
+![AnnotationAwareAspectJAutoProxyCreator继承结构图](../img/AnnotationAwareAspectJAutoProxyCreator.png)
 [ProxyConfig]类定义了具有创建代理功能的类的通用配置，如`proxyTargetClass`，`exposeProxy`等属性。[ProxyProcessorSupport]类添加`evaluateProxyInterfaces`方法用于判断指定的`bean`是否应该使用`cglib`代理，
 [AbstractAutoProxyCreator]实现了基本的创建bean代理的逻辑，获取切面的过程由子类实现，[AbstractAutoProxyCreator]实现了[SmartInstantiationAwareBeanPostProcessor]接口，根据[AbstractAutowireCapableBeanFactory]创建`bean`的过程可知，在创建`bean`时，
 [AbstractAutowireCapableBeanFactory]的`createBean`方法会首先遍历[BeanFactory]中的[InstantiationAwareBeanPostProcessor]的`postProcessBeforeInstantiation`方法，如果该方法返回了非空对象则[BeanFactory]将会以该对象作为`bean`返回给客户端，

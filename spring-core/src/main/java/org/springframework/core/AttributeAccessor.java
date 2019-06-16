@@ -25,6 +25,7 @@ import org.springframework.lang.Nullable;
  * @author Rob Harrop
  * @since 2.0
  */
+// 定义了属性的访问方法
 public interface AttributeAccessor {
 
 	/**

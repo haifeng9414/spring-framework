@@ -38,7 +38,7 @@ MyBeanA myBeanA = applicationContext.getBean("myBeanA", MyBeanA.class);
 ```
 
 [ClassPathXmlApplicationContext]继承结构如下:
-![ClassPathXmlApplicationContext继承结构图](../../img/ClassPathXmlApplicationContext.png)
+![ClassPathXmlApplicationContext继承结构图](../img/ClassPathXmlApplicationContext.png)
 
 下面分析解析XML文件并加载Bean的配置信息到容器的过程：
 

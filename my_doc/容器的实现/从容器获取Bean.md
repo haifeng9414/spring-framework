@@ -1,7 +1,7 @@
 ## 从容器获取Bean
 
 在初始化完容器后，[BeanFactory]也就初始化完了，容器中Bean都是从[BeanFactory]中获取的，同样以[ClassPathXmlApplicationContext]为例，[ClassPathXmlApplicationContext]的[BeanFactory]实现是[DefaultListableBeanFactory]，[DefaultListableBeanFactory]继承结构图如下：
-![DefaultListableBeanFactory继承结构图](../../img/DefaultListableBeanFactory.png)
+![DefaultListableBeanFactory继承结构图](../img/DefaultListableBeanFactory.png)
 
 获取Bean：
 ```java

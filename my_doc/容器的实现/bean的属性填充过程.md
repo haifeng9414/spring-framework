@@ -96,11 +96,10 @@ XML配置：
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans
 	   http://www.springframework.org/schema/beans/spring-beans.xsd">
 	<bean id="testPropertyPopulateBean"
-		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean">
+			class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean" autowire="byType">
 		<constructor-arg name="name" value="test"/>
 		<constructor-arg name="myBeanA" ref="myBeanA"/>
 		<property name="num" value="20"/>
-		<property name="myBeanB" ref="myBeanB"/>
 		<property name="time" value="2019-06-16"/>
 	</bean>
 
@@ -144,11 +143,453 @@ myBeanB
 ```
 上述的例子有构造函数的属性注入和普通成员变量的属性注入，注入的属性有普通的字符串和数字、无法直接转换的Date类型属性和引用其他bean的属性。下面分析spring是如何设置上这些属性的，以下内容假设已经看过笔记[容器的初始化过程](../容器的实现/容器的初始化过程.md)和[从容器获取Bean](../容器的实现/从容器获取Bean.md)
 
+bean的属性注入发生在初始化bean时执行的`populateBean()`方法中，代码：
+```java
+protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable BeanWrapper bw) {
+	if (bw == null) {
+		if (mbd.hasPropertyValues()) {
+			throw new BeanCreationException(
+					mbd.getResourceDescription(), beanName, "Cannot apply property values to null instance");
+		}
+		else {
+			// Skip property population phase for null instance.
+			return;
+		}
+	}
+
+	// Give any InstantiationAwareBeanPostProcessors the opportunity to modify the
+	// state of the bean before properties are set. This can be used, for example,
+	// to support styles of field injection.
+	boolean continueWithPropertyPopulation = true;
+
+	// 给InstantiationAwareBeanPostProcessors机会在设置属性之前改变bean
+	if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+		for (BeanPostProcessor bp : getBeanPostProcessors()) {
+			if (bp instanceof InstantiationAwareBeanPostProcessor) {
+				InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+				if (!ibp.postProcessAfterInstantiation(bw.getWrappedInstance(), beanName)) {
+					continueWithPropertyPopulation = false;
+					break;
+				}
+			}
+		}
+	}
+
+	// 如果postProcessAfterInstantiation返回false则停止自动注入属性的过程
+	if (!continueWithPropertyPopulation) {
+		return;
+	}
+
+	// 获取所有从XML的property元素解析到的属性
+	// 可能是RuntimeBeanReference或者是TypedStringValue
+	PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
+
+	// 判断属性的注入方式，通过在XML配置bean时设置autowire属性指定，如果设置了autowire则尝试自动注入bean的属性(即使没有在属性上声明注解)
+	if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME ||
+			mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
+		MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
+
+		// Add property values based on autowire by name if applicable.
+		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME) {
+			// 根据属性名称获取bean，获取到的bean保存在newPvs中
+			autowireByName(beanName, mbd, bw, newPvs);
+		}
+
+		// Add property values based on autowire by type if applicable.
+		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
+			// 根据属性类型获取bean，获取到的bean保存在newPvs中
+			autowireByType(beanName, mbd, bw, newPvs);
+		}
+
+		pvs = newPvs;
+	}
+
+	boolean hasInstAwareBpps = hasInstantiationAwareBeanPostProcessors();
+	boolean needsDepCheck = (mbd.getDependencyCheck() != RootBeanDefinition.DEPENDENCY_CHECK_NONE);
+
+	// 如果存在InstantiationAwareBeanPostProcessors并且当前bean没有禁用依赖检查，则执行postProcessPropertyValues方法
+	if (hasInstAwareBpps || needsDepCheck) {
+		if (pvs == null) {
+			pvs = mbd.getPropertyValues();
+		}
+		PropertyDescriptor[] filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
+		if (hasInstAwareBpps) {
+			for (BeanPostProcessor bp : getBeanPostProcessors()) {
+				if (bp instanceof InstantiationAwareBeanPostProcessor) {
+					InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+					pvs = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(), beanName);
+					if (pvs == null) {
+						return;
+					}
+				}
+			}
+		}
+		if (needsDepCheck) {
+			checkDependencies(beanName, mbd, filteredPds, pvs);
+		}
+	}
+
+	// 设置属性到bean中
+	if (pvs != null) {
+		applyPropertyValues(beanName, mbd, bw, pvs);
+	}
+}
+```
+
+`populateBean()`方法将属性注入分为两步，一步是获取所有的属性，也就是`PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null)`和该语句下面的`autowireByName()`与`autowireByType`，一步是`applyPropertyValues()`方法，将属性设置到bean中，所以首先需要分析的是获取到的[PropertyValues]有什么用，和[PropertyValues]如何获取的。下面是[PropertyValues]的定义：
+```java
+public interface PropertyValues {
+	PropertyValue[] getPropertyValues();
+
+	@Nullable
+	PropertyValue getPropertyValue(String propertyName);
+
+	PropertyValues changesSince(PropertyValues old);
+
+	boolean contains(String propertyName);
+
+	boolean isEmpty();
+
+}
+```
+[PropertyValues]作用只是维护一组[PropertyValue]，而[PropertyValue]继承结构为：
+![PropertyValue继承结构](../img/PropertyValue.png)
+
+[AttributeAccessor]接口定义了属性的访问方法
+```java
+public interface AttributeAccessor {
+	void setAttribute(String name, @Nullable Object value);
+
+	@Nullable
+	Object getAttribute(String name);
+
+	@Nullable
+	Object removeAttribute(String name);
+
+	boolean hasAttribute(String name);
+
+	String[] attributeNames();
+}
+```
+
+[AttributeAccessorSupport]抽象类实现了[AttributeAccessor]接口的方法，用map保存属性和属性值
+```java
+@SuppressWarnings("serial")
+public abstract class AttributeAccessorSupport implements AttributeAccessor, Serializable {
+	private final Map<String, Object> attributes = new LinkedHashMap<>(0);
+
+	@Override
+	public void setAttribute(String name, @Nullable Object value) {
+		Assert.notNull(name, "Name must not be null");
+		if (value != null) {
+			this.attributes.put(name, value);
+		}
+		else {
+			removeAttribute(name);
+		}
+	}
+
+	@Override
+	@Nullable
+	public Object getAttribute(String name) {
+		Assert.notNull(name, "Name must not be null");
+		return this.attributes.get(name);
+	}
+
+	@Override
+	@Nullable
+	public Object removeAttribute(String name) {
+		Assert.notNull(name, "Name must not be null");
+		return this.attributes.remove(name);
+	}
+
+	@Override
+	public boolean hasAttribute(String name) {
+		Assert.notNull(name, "Name must not be null");
+		return this.attributes.containsKey(name);
+	}
+
+	@Override
+	public String[] attributeNames() {
+		return StringUtils.toStringArray(this.attributes.keySet());
+	}
+
+	// 从另一个AttributeAccessor复制属性
+	protected void copyAttributesFrom(AttributeAccessor source) {
+		Assert.notNull(source, "Source must not be null");
+		String[] attributeNames = source.attributeNames();
+		for (String attributeName : attributeNames) {
+			setAttribute(attributeName, source.getAttribute(attributeName));
+		}
+	}
 
 
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (!(other instanceof AttributeAccessorSupport)) {
+			return false;
+		}
+		AttributeAccessorSupport that = (AttributeAccessorSupport) other;
+		return this.attributes.equals(that.attributes);
+	}
+
+	@Override
+	public int hashCode() {
+		return this.attributes.hashCode();
+	}
+}
+```
+
+[BeanMetadataElement]接口定义了获取配置源的方法，如对于XML配置，元素的配置源就是其在XML中的配置元素对应的[Element]对象，可以返回null
+```java
+public interface BeanMetadataElement {
+	@Nullable
+	Object getSource();
+}
+```
+
+[BeanMetadataAttributeAccessor]类主要是利用[AttributeAccessorSupport]保存属性，并将属性值定义为[BeanMetadataAttribute]保存在[AttributeAccessorSupport]的map中，[BeanMetadataAttribute]类的作用是维护属性名和属性值还有属性的配置源
+```java
+public class BeanMetadataAttribute implements BeanMetadataElement {
+
+	private final String name;
+
+	@Nullable
+	private final Object value;
+
+	@Nullable
+	private Object source;
+
+	public BeanMetadataAttribute(String name, @Nullable Object value) {
+		Assert.notNull(name, "Name must not be null");
+		this.name = name;
+		this.value = value;
+	}
 
 
+	public String getName() {
+		return this.name;
+	}
 
+	@Nullable
+	public Object getValue() {
+		return this.value;
+	}
+
+	public void setSource(@Nullable Object source) {
+		this.source = source;
+	}
+
+	@Override
+	@Nullable
+	public Object getSource() {
+		return this.source;
+	}
+
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (!(other instanceof BeanMetadataAttribute)) {
+			return false;
+		}
+		BeanMetadataAttribute otherMa = (BeanMetadataAttribute) other;
+		return (this.name.equals(otherMa.name) &&
+				ObjectUtils.nullSafeEquals(this.value, otherMa.value) &&
+				ObjectUtils.nullSafeEquals(this.source, otherMa.source));
+	}
+
+	@Override
+	public int hashCode() {
+		return this.name.hashCode() * 29 + ObjectUtils.nullSafeHashCode(this.value);
+	}
+
+	@Override
+	public String toString() {
+		return "metadata attribute '" + this.name + "'";
+	}
+}
+
+@SuppressWarnings("serial")
+public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport implements BeanMetadataElement {
+
+	@Nullable
+	private Object source;
+
+	public void setSource(@Nullable Object source) {
+		this.source = source;
+	}
+
+	@Override
+	@Nullable
+	public Object getSource() {
+		return this.source;
+	}
+
+
+	public void addMetadataAttribute(BeanMetadataAttribute attribute) {
+		super.setAttribute(attribute.getName(), attribute);
+	}
+
+	@Nullable
+	public BeanMetadataAttribute getMetadataAttribute(String name) {
+		return (BeanMetadataAttribute) super.getAttribute(name);
+	}
+
+	@Override
+	public void setAttribute(String name, @Nullable Object value) {
+		super.setAttribute(name, new BeanMetadataAttribute(name, value));
+	}
+
+	@Override
+	@Nullable
+	public Object getAttribute(String name) {
+		BeanMetadataAttribute attribute = (BeanMetadataAttribute) super.getAttribute(name);
+		return (attribute != null ? attribute.getValue() : null);
+	}
+
+	@Override
+	@Nullable
+	public Object removeAttribute(String name) {
+		BeanMetadataAttribute attribute = (BeanMetadataAttribute) super.removeAttribute(name);
+		return (attribute != null ? attribute.getValue() : null);
+	}
+}
+```
+
+[PropertyValue]主要是用于维护单个bean的属性值，[BeanMetadataAttributeAccessor]是有保存多个属性的能力的，之所以没有维护所有的属性，是因为单个属性的实现使用起来更灵活，以及能够以优化的方式处理索引属性。
+```java
+@SuppressWarnings("serial")
+public class PropertyValue extends BeanMetadataAttributeAccessor implements Serializable {
+
+	private final String name;
+
+	@Nullable
+	// 保存未转换的值
+	private final Object value;
+
+	// 属性是否是Optional类型的
+	private boolean optional = false;
+
+	// 是否已经转换过
+	private boolean converted = false;
+
+	@Nullable
+	// 保存转换后值
+	private Object convertedValue;
+
+	/** Package-visible field that indicates whether conversion is necessary */
+	@Nullable
+	// 是否需要转换
+	volatile Boolean conversionNecessary;
+
+	/** Package-visible field for caching the resolved property path tokens */
+	@Nullable
+	transient volatile Object resolvedTokens;
+
+
+	public PropertyValue(String name, @Nullable Object value) {
+		Assert.notNull(name, "Name must not be null");
+		this.name = name;
+		this.value = value;
+	}
+
+	public PropertyValue(PropertyValue original) {
+		Assert.notNull(original, "Original must not be null");
+		this.name = original.getName();
+		this.value = original.getValue();
+		this.optional = original.isOptional();
+		this.converted = original.converted;
+		this.convertedValue = original.convertedValue;
+		this.conversionNecessary = original.conversionNecessary;
+		this.resolvedTokens = original.resolvedTokens;
+		setSource(original.getSource());
+		copyAttributesFrom(original);
+	}
+
+	public PropertyValue(PropertyValue original, @Nullable Object newValue) {
+		Assert.notNull(original, "Original must not be null");
+		this.name = original.getName();
+		this.value = newValue;
+		this.optional = original.isOptional();
+		this.conversionNecessary = original.conversionNecessary;
+		this.resolvedTokens = original.resolvedTokens;
+		setSource(original);
+		copyAttributesFrom(original);
+	}
+
+	public String getName() {
+		return this.name;
+	}
+
+	@Nullable
+	public Object getValue() {
+		return this.value;
+	}
+
+	public PropertyValue getOriginalPropertyValue() {
+		PropertyValue original = this;
+		Object source = getSource();
+		while (source instanceof PropertyValue && source != original) {
+			original = (PropertyValue) source;
+			source = original.getSource();
+		}
+		return original;
+	}
+
+	public void setOptional(boolean optional) {
+		this.optional = optional;
+	}
+
+	public boolean isOptional() {
+		return this.optional;
+	}
+
+	public synchronized boolean isConverted() {
+		return this.converted;
+	}
+
+	public synchronized void setConvertedValue(@Nullable Object value) {
+		this.converted = true;
+		this.convertedValue = value;
+	}
+
+	@Nullable
+	public synchronized Object getConvertedValue() {
+		return this.convertedValue;
+	}
+
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (!(other instanceof PropertyValue)) {
+			return false;
+		}
+		PropertyValue otherPv = (PropertyValue) other;
+		return (this.name.equals(otherPv.name) &&
+				ObjectUtils.nullSafeEquals(this.value, otherPv.value) &&
+				ObjectUtils.nullSafeEquals(getSource(), otherPv.getSource()));
+	}
+
+	@Override
+	public int hashCode() {
+		return this.name.hashCode() * 29 + ObjectUtils.nullSafeHashCode(this.value);
+	}
+
+	@Override
+	public String toString() {
+		return "bean property '" + this.name + "'";
+	}
+}
+```
 
 
 
@@ -215,7 +656,7 @@ public class UUIDEditor extends PropertyEditorSupport {
 添加[PropertyEditorRegistrar]接口的实现类到`propertyEditorRegistrars`，[CustomEditorConfigurer]会通过`postProcessBeanFactory`方法添加[PropertyEditorRegistrar]到[BeanFactory]中，
 容器在启动时执行`prepareBeanFactory`方法时会默认添加[ResourceEditorRegistrar]到[BeanFactory]，使用`customEditors`注册[PropertyEditor]和使用[propertyEditorRegistrars]注册[PropertyEditorRegistrar]区别不大，[PropertyEditor]是直接添加到[BeanFactory]的`customEditors`属性中，
 而[PropertyEditorRegistrar]是添加到[BeanFactory]的`propertyEditorRegistrars`属性中，在初始化一个bean时，Spring会创建一个[BeanWrapper]，默认实现是[BeanWrapperImpl]，类图如下:
-![BeanWrapperImpl继承结构图](img/BeanWrapperImpl.png)
+![BeanWrapperImpl继承结构图](../img/BeanWrapperImpl.png)
 [PropertyEditorRegistry]接口定义了关联Class和[PropertyEditor]的方法，[PropertyEditorRegistrySupport]实现了[PropertyEditorRegistry]接口并添加了`getDefaultEditor`方法，默认添加了多个[PropertyEditor]到其`defaultEditors`属性中(`defaultEditors`不同于`customEditors`，获取`customEditors`时不会获取`defaultEditors`)。
 [TypeConverter]接口定义了将Object转化为指定的类的方法，[TypeConverterSupport]使用[TypeConverterDelegate]类作为代理实现了[TypeConverter]接口，[PropertyAccessor]接口定义了访问bean的属性的若干方法，如判断属性是否可读/写，获取属性值、属性类型和属性的[TypeDescriptor]，设置属性值等。
 [ConfigurablePropertyAccessor]接口添加了设置[ConversionService]、`extractOldValueForEditor`和`autoGrowNestedPaths`的方法，[AbstractPropertyAccessor]抽象类实现了其实现的接口的getter/setter方法，并处理了set属性时属性值为[PropertyValues]的情况(获取[PropertyValue]列表并依次执行set)，具体的设置属性的方法为抽象方法。
@@ -320,6 +761,8 @@ private Object convertIfNecessary(@Nullable String propertyName, @Nullable Objec
 实际的转换由[TypeConverterDelegate]实现，[TypeConverterDelegate]会先获取[BeanWrapperImpl]的`customEditors`，如果不存在指定类型的[PropertyEditor]则获取`defaultEditors`，如果最终的转换结果为String并且和期望的返回值类型不符则保存。
 
 [PropertyEditorRegistrar]: aaa
+[BeanMetadataAttribute]: aaa
+[Element]: aaa
 [PropertyEditor]: aaa
 [PropertyEditorSupport]: aaa
 [CustomEditorConfigurer]: aaa
