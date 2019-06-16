@@ -1,5 +1,169 @@
 ## 如何设置XML中的字符串值到Bean的属性上
 
+属性填充分两步，一步是获取属性值，一步是转换属性值为期望值，对于XML配置文件，属性值一般直接定义在XML中，如：
+```java
+public class TestPropertyPopulateBean {
+	private String name;
+	private Integer num;
+	private Date time;
+	private MyBeanA myBeanA;
+	private MyBeanB myBeanB;
+
+	public TestPropertyPopulateBean(String name, MyBeanA myBeanA) {
+		this.name = name;
+		this.myBeanA = myBeanA;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public Integer getNum() {
+		return num;
+	}
+
+	public void setNum(Integer num) {
+		this.num = num;
+	}
+
+	public Date getTime() {
+		return time;
+	}
+
+	public void setTime(Date time) {
+		this.time = time;
+	}
+
+	public MyBeanA getMyBeanA() {
+		return myBeanA;
+	}
+
+	public void setMyBeanA(MyBeanA myBeanA) {
+		this.myBeanA = myBeanA;
+	}
+
+	public MyBeanB getMyBeanB() {
+		return myBeanB;
+	}
+
+	public void setMyBeanB(MyBeanB myBeanB) {
+		this.myBeanB = myBeanB;
+	}
+}
+
+public class MyBeanA {
+	private String name;
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+}
+
+public class MyBeanB {
+	private String name;
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+}
+
+import org.springframework.beans.propertyeditors.CustomDateEditor;
+public class CustomDateEditorRegistrar implements PropertyEditorRegistrar {
+	@Override
+	public void registerCustomEditors(PropertyEditorRegistry registry) {
+		registry.registerCustomEditor(Date.class, new CustomDateEditor(new SimpleDateFormat("yyyy-MM-dd"), true));
+	}
+}
+```
+
+XML配置：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   http://www.springframework.org/schema/beans/spring-beans.xsd">
+	<bean id="testPropertyPopulateBean"
+		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean">
+		<constructor-arg name="name" value="test"/>
+		<constructor-arg name="myBeanA" ref="myBeanA"/>
+		<property name="num" value="20"/>
+		<property name="myBeanB" ref="myBeanB"/>
+		<property name="time" value="2019-06-16"/>
+	</bean>
+
+	<bean id="myBeanA" class="org.springframework.tests.sample.beans.property.MyBeanA">
+		<property name="name" value="myBeanA"/>
+	</bean>
+
+	<bean id="myBeanB" class="org.springframework.tests.sample.beans.property.MyBeanB">
+		<property name="name" value="myBeanB"/>
+	</bean>
+
+	<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+		<property name="propertyEditorRegistrars">
+			<bean class="org.springframework.tests.sample.beans.property.CustomDateEditorRegistrar"/>
+		</property>
+	</bean>
+</beans>
+```
+
+测试代码：
+```java
+@Test
+public void testPropertyPopulate() {
+	ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+	TestPropertyPopulateBean testPropertyPopulateBean = applicationContext.getBean("testPropertyPopulateBean", TestPropertyPopulateBean.class);
+	System.out.println(testPropertyPopulateBean.getName());
+	System.out.println(testPropertyPopulateBean.getNum());
+	System.out.println(testPropertyPopulateBean.getTime());
+	System.out.println(testPropertyPopulateBean.getMyBeanA().getName());
+	System.out.println(testPropertyPopulateBean.getMyBeanB().getName());
+}
+
+/*
+输出：
+test
+20
+Sun Jun 16 00:00:00 CST 2019
+myBeanA
+myBeanB
+*/
+```
+上述的例子有构造函数的属性注入和普通成员变量的属性注入，注入的属性有普通的字符串和数字、无法直接转换的Date类型属性和引用其他bean的属性。下面分析spring是如何设置上这些属性的，以下内容假设已经看过笔记[容器的初始化过程](../容器的实现/容器的初始化过程.md)和[从容器获取Bean](../容器的实现/从容器获取Bean.md)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Spring中的属性转换是通过[PropertyEditor]实现的，[PropertyEditor]是`java.beans`包下的，该接口主要方法如下:
 1.`Object getValue()`: 返回属性的当前值。基本类型被封装成对应的封装类实例。
 1.`void setValue(Object newValue)`: 设置属性的值，基本类型以封装类传入。
@@ -155,6 +319,7 @@ private Object convertIfNecessary(@Nullable String propertyName, @Nullable Objec
 ```
 实际的转换由[TypeConverterDelegate]实现，[TypeConverterDelegate]会先获取[BeanWrapperImpl]的`customEditors`，如果不存在指定类型的[PropertyEditor]则获取`defaultEditors`，如果最终的转换结果为String并且和期望的返回值类型不符则保存。
 
+[PropertyEditorRegistrar]: aaa
 [PropertyEditor]: aaa
 [PropertyEditorSupport]: aaa
 [CustomEditorConfigurer]: aaa

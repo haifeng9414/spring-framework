@@ -59,19 +59,19 @@ public class MyBeanFactoryBean implements FactoryBean<MyBean> {
 ```
 使用xml定义bean：
 ```xml
-<bean id="myBean" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>
+<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>
 ```
 测试：
 ```java
 public void myTest() {
     ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
-    MyBean myBean1 = applicationContext.getBean("myBean", MyBean.class);
+    MyBean myBean1 = applicationContext.getBean("myBeanA", MyBean.class);
     System.out.println(myBean1.getId());
     System.out.println(myBean1.getClass());
-    MyBean myBean2 = applicationContext.getBean("myBean", MyBean.class);
+    MyBean myBean2 = applicationContext.getBean("myBeanA", MyBean.class);
 	System.out.println(myBean1.getClass().equals(myBean2.getClass()));
 	// 如果想要获取的bean就是FactoryBean而不是其创建的bean，则在beanName前加&
-	System.out.println(applicationContext.getBean("&myBean").getClass());
+	System.out.println(applicationContext.getBean("&myBeanA").getClass());
 }
 
 /* 

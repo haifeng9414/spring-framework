@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   http://www.springframework.org/schema/beans/spring-beans.xsd">
+	<bean id="testPropertyPopulateBean"
+		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean">
+		<constructor-arg name="name" value="test"/>
+		<constructor-arg name="myBeanA" ref="myBeanA"/>
+		<property name="num" value="20"/>
+		<property name="myBeanB" ref="myBeanB"/>
+		<property name="time" value="2019-06-16"/>
+	</bean>
+
+	<bean id="myBeanA" class="org.springframework.tests.sample.beans.property.MyBeanA">
+		<property name="name" value="myBeanA"/>
+	</bean>
+
+	<bean id="myBeanB" class="org.springframework.tests.sample.beans.property.MyBeanB">
+		<property name="name" value="myBeanB"/>
+	</bean>
+
+	<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">
+		<property name="propertyEditorRegistrars">
+			<bean class="org.springframework.tests.sample.beans.property.CustomDateEditorRegistrar"/>
+		</property>
+	</bean>
+</beans>
