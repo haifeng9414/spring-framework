@@ -9,6 +9,27 @@
 		<constructor-arg name="myBeanA" ref="myBeanA"/>
 		<property name="num" value="20"/>
 		<property name="time" value="2019-06-16"/>
+		<property name="stringList">
+			<list>
+				<value>A</value>
+				<value>B</value>
+				<value>C</value>
+			</list>
+		</property>
+		<property name="stringArray">
+			<array>
+				<value>A</value>
+				<value>B</value>
+				<value>C</value>
+			</array>
+		</property>
+		<property name="stringMap">
+			<map>
+				<entry key="keyA" value="valueA"/>
+				<entry key="keyB" value="valueB"/>
+				<entry key="keyC" value="valueC"/>
+			</map>
+		</property>
 	</bean>
 
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.property.MyBeanA">

@@ -911,15 +911,15 @@ public class BeanDefinitionParserDelegate {
 				error("Multiple 'property' definitions for property '" + propertyName + "'", ele);
 				return;
 			}
-			//返回property对应的值，如果是ref的属性则返回RuntimeBeanReference，其他返回TypedStringValue
+			// 返回property对应的值，如果是ref的属性则返回RuntimeBeanReference，其他返回TypedStringValue
 			Object val = parsePropertyValue(ele, bd, propertyName);
 			PropertyValue pv = new PropertyValue(propertyName, val);
 			parseMetaElements(ele, pv);
-			//提取source，默认直接返回null(NullSourceExtractor)，另一个实现类PassThroughSourceExtractor返回
-			//传入的Element即这里的ele
+			// 提取source，默认直接返回null(NullSourceExtractor)，另一个实现类PassThroughSourceExtractor返回
+			// 传入的Element即这里的ele
 			pv.setSource(extractSource(ele));
-			//getPropertyValues由AbstractBeanDefinition实现，判断当前BeanDefinition的propertyValues是否为空，
-			//为空则创建一个MutablePropertyValues并返回
+			// getPropertyValues由AbstractBeanDefinition实现，判断当前BeanDefinition的propertyValues是否为空，
+			// 为空则创建一个MutablePropertyValues并返回
 			bd.getPropertyValues().addPropertyValue(pv);
 		}
 		finally {
@@ -980,6 +980,20 @@ public class BeanDefinitionParserDelegate {
 						"<constructor-arg> element";
 
 		// Should only have one child element: ref, value, list, etc.
+		/*
+		对于
+		<property name="stringList">
+			<list>
+				<value>A</value>
+				<value>B</value>
+				<value>C</value>
+			</list>
+		</property>
+		这种配置，getChildNodes方法返回的就是<property>元素，假设解析的就是上面的配置，这里首先获取<property>元素，之后
+		在for循环中获取<property>元素的所有子元素，正常情况下，只会有一个元素，如ref, value, list等
+
+		对于<property name="num" value="20"/>这种配置，getChildNodes方法直接返回<property>元素，并且nl.getLength()等于0
+		 */
 		NodeList nl = ele.getChildNodes();
 		Element subElement = null;
 		for (int i = 0; i < nl.getLength(); i++) {
@@ -987,6 +1001,7 @@ public class BeanDefinitionParserDelegate {
 			if (node instanceof Element && !nodeNameEquals(node, DESCRIPTION_ELEMENT) &&
 					!nodeNameEquals(node, META_ELEMENT)) {
 				// Child element is what we're looking for.
+				// 如果存在多个子元素则报错
 				if (subElement != null) {
 					error(elementName + " must not contain more than one sub-element", ele);
 				}
@@ -996,6 +1011,7 @@ public class BeanDefinitionParserDelegate {
 			}
 		}
 
+		// ref和value至少存在一个，或者存在子元素，如果ref、value或子元素存在其中多余一个，则报错
 		boolean hasRefAttribute = ele.hasAttribute(REF_ATTRIBUTE);
 		boolean hasValueAttribute = ele.hasAttribute(VALUE_ATTRIBUTE);
 		if ((hasRefAttribute && hasValueAttribute) ||
@@ -1004,7 +1020,7 @@ public class BeanDefinitionParserDelegate {
 					" is only allowed to contain either 'ref' attribute OR 'value' attribute OR sub-element", ele);
 		}
 
-		//如果是rel则使用RuntimeBeanReference代表value，在创建bean的时候通过传入的refName查找bean
+		// 如果是rel则使用RuntimeBeanReference代表value，在创建bean的时候通过传入的refName查找bean
 		if (hasRefAttribute) {
 			String refName = ele.getAttribute(REF_ATTRIBUTE);
 			if (!StringUtils.hasText(refName)) {
@@ -1014,12 +1030,13 @@ public class BeanDefinitionParserDelegate {
 			ref.setSource(extractSource(ele));
 			return ref;
 		}
-		//如果是字符串则使用TypedStringValue封装
+		// 如果是字符串则使用TypedStringValue封装
 		else if (hasValueAttribute) {
 			TypedStringValue valueHolder = new TypedStringValue(ele.getAttribute(VALUE_ATTRIBUTE));
 			valueHolder.setSource(extractSource(ele));
 			return valueHolder;
 		}
+		// 如果存在子元素则解析子元素
 		else if (subElement != null) {
 			return parsePropertySubElement(subElement, bd);
 		}
@@ -1043,10 +1060,12 @@ public class BeanDefinitionParserDelegate {
 	 * {@code <value>} tag that might be created
 	 */
 	@Nullable
+	// 解析<property>元素的子元素
 	public Object parsePropertySubElement(Element ele, @Nullable BeanDefinition bd, @Nullable String defaultValueType) {
 		if (!isDefaultNamespace(ele)) {
 			return parseNestedCustomElement(ele, bd);
 		}
+		// 如果是元素名为bean则按照BeanDefinition
 		else if (nodeNameEquals(ele, BEAN_ELEMENT)) {
 			BeanDefinitionHolder nestedBd = parseBeanDefinitionElement(ele, bd);
 			if (nestedBd != null) {
@@ -1054,6 +1073,7 @@ public class BeanDefinitionParserDelegate {
 			}
 			return nestedBd;
 		}
+		// 如果是ref则用RuntimeBeanReference表示
 		else if (nodeNameEquals(ele, REF_ELEMENT)) {
 			// A generic reference to any name of any bean.
 			String refName = ele.getAttribute(BEAN_REF_ATTRIBUTE);
@@ -1075,9 +1095,11 @@ public class BeanDefinitionParserDelegate {
 			ref.setSource(extractSource(ele));
 			return ref;
 		}
+		// idref和ref一样，也用RuntimeBeanNameReference表示
 		else if (nodeNameEquals(ele, IDREF_ELEMENT)) {
 			return parseIdRefElement(ele);
 		}
+		// value元素用TypedStringValue表示
 		else if (nodeNameEquals(ele, VALUE_ELEMENT)) {
 			return parseValueElement(ele, defaultValueType);
 		}
@@ -1088,18 +1110,23 @@ public class BeanDefinitionParserDelegate {
 			nullHolder.setSource(extractSource(ele));
 			return nullHolder;
 		}
+		// array元素用ManagedArray表示
 		else if (nodeNameEquals(ele, ARRAY_ELEMENT)) {
 			return parseArrayElement(ele, bd);
 		}
+		// list元素用ManagedList表示
 		else if (nodeNameEquals(ele, LIST_ELEMENT)) {
 			return parseListElement(ele, bd);
 		}
+		// set元素用ManagedSet表示
 		else if (nodeNameEquals(ele, SET_ELEMENT)) {
 			return parseSetElement(ele, bd);
 		}
+		// map元素用ManagedMap表示
 		else if (nodeNameEquals(ele, MAP_ELEMENT)) {
 			return parseMapElement(ele, bd);
 		}
+		// props元素用ManagedProperties表示
 		else if (nodeNameEquals(ele, PROPS_ELEMENT)) {
 			return parsePropsElement(ele);
 		}
@@ -1178,11 +1205,13 @@ public class BeanDefinitionParserDelegate {
 	 * Parse an array element.
 	 */
 	public Object parseArrayElement(Element arrayEle, @Nullable BeanDefinition bd) {
+		// 从value-type属性获取元素值的类型，可以为空
 		String elementType = arrayEle.getAttribute(VALUE_TYPE_ATTRIBUTE);
 		NodeList nl = arrayEle.getChildNodes();
 		ManagedArray target = new ManagedArray(elementType, nl.getLength());
 		target.setSource(extractSource(arrayEle));
 		target.setElementTypeName(elementType);
+		// merge属性表示如果存在parent beanDefinition，则parent beanDefinition的同名的array元素是否需要合并到当前array元素中
 		target.setMergeEnabled(parseMergeAttribute(arrayEle));
 		parseCollectionElements(nl, target, bd, elementType);
 		return target;
@@ -1212,6 +1241,7 @@ public class BeanDefinitionParserDelegate {
 		target.setSource(extractSource(collectionEle));
 		target.setElementTypeName(defaultElementType);
 		target.setMergeEnabled(parseMergeAttribute(collectionEle));
+		// 解析集合子元素
 		parseCollectionElements(nl, target, bd, defaultElementType);
 		return target;
 	}
@@ -1219,6 +1249,7 @@ public class BeanDefinitionParserDelegate {
 	protected void parseCollectionElements(
 			NodeList elementNodes, Collection<Object> target, @Nullable BeanDefinition bd, String defaultElementType) {
 
+		// 遍历子元素并递归调用parsePropertySubElement方法解析
 		for (int i = 0; i < elementNodes.getLength(); i++) {
 			Node node = elementNodes.item(i);
 			if (node instanceof Element && !nodeNameEquals(node, DESCRIPTION_ELEMENT)) {

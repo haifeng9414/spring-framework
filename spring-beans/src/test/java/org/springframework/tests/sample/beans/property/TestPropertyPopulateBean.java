@@ -1,6 +1,8 @@
 package org.springframework.tests.sample.beans.property;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 public class TestPropertyPopulateBean {
 	private String name;
@@ -8,6 +10,9 @@ public class TestPropertyPopulateBean {
 	private Date time;
 	private MyBeanA myBeanA;
 	private MyBeanB myBeanB;
+	private List<String> stringList;
+	private String[] stringArray;
+	private Map<String, String> stringMap;
 
 	public TestPropertyPopulateBean(String name, MyBeanA myBeanA) {
 		this.name = name;
@@ -52,5 +57,29 @@ public class TestPropertyPopulateBean {
 
 	public void setMyBeanB(MyBeanB myBeanB) {
 		this.myBeanB = myBeanB;
+	}
+
+	public List<String> getStringList() {
+		return stringList;
+	}
+
+	public void setStringList(List<String> stringList) {
+		this.stringList = stringList;
+	}
+
+	public String[] getStringArray() {
+		return stringArray;
+	}
+
+	public void setStringArray(String[] stringArray) {
+		this.stringArray = stringArray;
+	}
+
+	public Map<String, String> getStringMap() {
+		return stringMap;
+	}
+
+	public void setStringMap(Map<String, String> stringMap) {
+		this.stringMap = stringMap;
 	}
 }

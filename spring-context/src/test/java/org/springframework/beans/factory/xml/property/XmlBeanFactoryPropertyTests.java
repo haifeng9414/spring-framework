@@ -21,6 +21,8 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.tests.sample.beans.property.TestPropertyPopulateBean;
 
+import java.util.Arrays;
+
 public class XmlBeanFactoryPropertyTests {
 
 	private static final Class<?> CLASS = XmlBeanFactoryPropertyTests.class;
@@ -39,5 +41,8 @@ public class XmlBeanFactoryPropertyTests {
 		System.out.println(testPropertyPopulateBean.getTime());
 		System.out.println(testPropertyPopulateBean.getMyBeanA().getName());
 		System.out.println(testPropertyPopulateBean.getMyBeanB().getName());
+		System.out.println(testPropertyPopulateBean.getStringList());
+		System.out.println(Arrays.toString(testPropertyPopulateBean.getStringArray()));
+		System.out.println(testPropertyPopulateBean.getStringMap());
 	}
 }
