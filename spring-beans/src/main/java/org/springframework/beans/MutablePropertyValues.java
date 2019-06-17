@@ -39,6 +39,7 @@ import org.springframework.util.StringUtils;
 @SuppressWarnings("serial")
 public class MutablePropertyValues implements PropertyValues, Serializable {
 
+	// PropertyValue被作为当个属性使用
 	private final List<PropertyValue> propertyValueList;
 
 	@Nullable
@@ -133,6 +134,7 @@ public class MutablePropertyValues implements PropertyValues, Serializable {
 	 * @param other the PropertyValues to copy
 	 * @return this in order to allow for adding multiple property values in a chain
 	 */
+	// 从其他PropertyValues添加PropertyValue
 	public MutablePropertyValues addPropertyValues(@Nullable PropertyValues other) {
 		if (other != null) {
 			PropertyValue[] pvs = other.getPropertyValues();
@@ -163,10 +165,12 @@ public class MutablePropertyValues implements PropertyValues, Serializable {
 	 * @param pv PropertyValue object to add
 	 * @return this in order to allow for adding multiple property values in a chain
 	 */
+	// 添加单个PropertyValue
 	public MutablePropertyValues addPropertyValue(PropertyValue pv) {
 		for (int i = 0; i < this.propertyValueList.size(); i++) {
 			PropertyValue currentPv = this.propertyValueList.get(i);
 			if (currentPv.getName().equals(pv.getName())) {
+				// 如果pv是可merge的并且开启了merge则合并两个PropertyValue的值
 				pv = mergeIfRequired(pv, currentPv);
 				setPropertyValueAt(pv, i);
 				return this;
@@ -216,6 +220,7 @@ public class MutablePropertyValues implements PropertyValues, Serializable {
 	 */
 	private PropertyValue mergeIfRequired(PropertyValue newPv, PropertyValue currentPv) {
 		Object value = newPv.getValue();
+		// 如果newPv是可merge的则合并两个PropertyValue的值
 		if (value instanceof Mergeable) {
 			Mergeable mergeable = (Mergeable) value;
 			if (mergeable.isMergeEnabled()) {
@@ -275,6 +280,7 @@ public class MutablePropertyValues implements PropertyValues, Serializable {
 	}
 
 	@Override
+	// 将当前PropertyValues的PropertyValue中不存在于传入的PropertyValues的添加到返回值返回
 	public PropertyValues changesSince(PropertyValues old) {
 		MutablePropertyValues changes = new MutablePropertyValues();
 		if (old == this) {

@@ -306,6 +306,261 @@ public interface PropertyValues {
 
 }
 ```
+
+[PropertyValues]的一个重要实现是[MutablePropertyValues]，作用是维护[PropertyValue]列表，即保存某个bean的所有属性，代码：
+```java
+@SuppressWarnings("serial")
+public class MutablePropertyValues implements PropertyValues, Serializable {
+
+	// PropertyValue被作为当个属性使用
+	private final List<PropertyValue> propertyValueList;
+
+	@Nullable
+	private Set<String> processedProperties;
+
+	private volatile boolean converted = false;
+
+
+	public MutablePropertyValues() {
+		this.propertyValueList = new ArrayList<>(0);
+	}
+
+	public MutablePropertyValues(@Nullable PropertyValues original) {
+		// We can optimize this because it's all new:
+		// There is no replacement of existing property values.
+		if (original != null) {
+			PropertyValue[] pvs = original.getPropertyValues();
+			this.propertyValueList = new ArrayList<>(pvs.length);
+			for (PropertyValue pv : pvs) {
+				this.propertyValueList.add(new PropertyValue(pv));
+			}
+		}
+		else {
+			this.propertyValueList = new ArrayList<>(0);
+		}
+	}
+
+	public MutablePropertyValues(@Nullable Map<?, ?> original) {
+		// We can optimize this because it's all new:
+		// There is no replacement of existing property values.
+		if (original != null) {
+			this.propertyValueList = new ArrayList<>(original.size());
+			original.forEach((attrName, attrValue) -> this.propertyValueList.add(
+					new PropertyValue(attrName.toString(), attrValue)));
+		}
+		else {
+			this.propertyValueList = new ArrayList<>(0);
+		}
+	}
+
+	public MutablePropertyValues(@Nullable List<PropertyValue> propertyValueList) {
+		this.propertyValueList =
+				(propertyValueList != null ? propertyValueList : new ArrayList<>());
+	}
+
+
+	public List<PropertyValue> getPropertyValueList() {
+		return this.propertyValueList;
+	}
+
+	public int size() {
+		return this.propertyValueList.size();
+	}
+
+	// 从其他PropertyValues添加PropertyValue
+	public MutablePropertyValues addPropertyValues(@Nullable PropertyValues other) {
+		if (other != null) {
+			PropertyValue[] pvs = other.getPropertyValues();
+			for (PropertyValue pv : pvs) {
+				addPropertyValue(new PropertyValue(pv));
+			}
+		}
+		return this;
+	}
+
+	public MutablePropertyValues addPropertyValues(@Nullable Map<?, ?> other) {
+		if (other != null) {
+			other.forEach((attrName, attrValue) -> addPropertyValue(
+					new PropertyValue(attrName.toString(), attrValue)));
+		}
+		return this;
+	}
+
+	// 添加单个PropertyValue
+	public MutablePropertyValues addPropertyValue(PropertyValue pv) {
+		for (int i = 0; i < this.propertyValueList.size(); i++) {
+			PropertyValue currentPv = this.propertyValueList.get(i);
+			if (currentPv.getName().equals(pv.getName())) {
+				// 如果pv是可merge的并且开启了merge则合并两个PropertyValue的值
+				pv = mergeIfRequired(pv, currentPv);
+				setPropertyValueAt(pv, i);
+				return this;
+			}
+		}
+		this.propertyValueList.add(pv);
+		return this;
+	}
+
+	public void addPropertyValue(String propertyName, Object propertyValue) {
+		addPropertyValue(new PropertyValue(propertyName, propertyValue));
+	}
+
+	public MutablePropertyValues add(String propertyName, @Nullable Object propertyValue) {
+		addPropertyValue(new PropertyValue(propertyName, propertyValue));
+		return this;
+	}
+
+	public void setPropertyValueAt(PropertyValue pv, int i) {
+		this.propertyValueList.set(i, pv);
+	}
+
+	private PropertyValue mergeIfRequired(PropertyValue newPv, PropertyValue currentPv) {
+		Object value = newPv.getValue();
+		// 如果newPv是可merge的则合并两个PropertyValue的值
+		if (value instanceof Mergeable) {
+			Mergeable mergeable = (Mergeable) value;
+			if (mergeable.isMergeEnabled()) {
+				Object merged = mergeable.merge(currentPv.getValue());
+				return new PropertyValue(newPv.getName(), merged);
+			}
+		}
+		return newPv;
+	}
+
+	public void removePropertyValue(PropertyValue pv) {
+		this.propertyValueList.remove(pv);
+	}
+
+	public void removePropertyValue(String propertyName) {
+		this.propertyValueList.remove(getPropertyValue(propertyName));
+	}
+
+
+	@Override
+	public PropertyValue[] getPropertyValues() {
+		return this.propertyValueList.toArray(new PropertyValue[0]);
+	}
+
+	@Override
+	@Nullable
+	public PropertyValue getPropertyValue(String propertyName) {
+		for (PropertyValue pv : this.propertyValueList) {
+			if (pv.getName().equals(propertyName)) {
+				return pv;
+			}
+		}
+		return null;
+	}
+
+	@Nullable
+	public Object get(String propertyName) {
+		PropertyValue pv = getPropertyValue(propertyName);
+		return (pv != null ? pv.getValue() : null);
+	}
+	
+	@Override
+	// 将当前PropertyValues的PropertyValue中不存在于传入的PropertyValues的添加到返回值返回
+	public PropertyValues changesSince(PropertyValues old) {
+		MutablePropertyValues changes = new MutablePropertyValues();
+		if (old == this) {
+			return changes;
+		}
+
+		// for each property value in the new set
+		for (PropertyValue newPv : this.propertyValueList) {
+			// if there wasn't an old one, add it
+			PropertyValue pvOld = old.getPropertyValue(newPv.getName());
+			if (pvOld == null || !pvOld.equals(newPv)) {
+				changes.addPropertyValue(newPv);
+			}
+		}
+		return changes;
+	}
+
+	@Override
+	public boolean contains(String propertyName) {
+		return (getPropertyValue(propertyName) != null ||
+				(this.processedProperties != null && this.processedProperties.contains(propertyName)));
+	}
+
+	@Override
+	public boolean isEmpty() {
+		return this.propertyValueList.isEmpty();
+	}
+
+
+	/**
+	 * Register the specified property as "processed" in the sense
+	 * of some processor calling the corresponding setter method
+	 * outside of the PropertyValue(s) mechanism.
+	 * <p>This will lead to {@code true} being returned from
+	 * a {@link #contains} call for the specified property.
+	 * @param propertyName the name of the property.
+	 */
+	public void registerProcessedProperty(String propertyName) {
+		if (this.processedProperties == null) {
+			this.processedProperties = new HashSet<>(4);
+		}
+		this.processedProperties.add(propertyName);
+	}
+
+	/**
+	 * Clear the "processed" registration of the given property, if any.
+	 * @since 3.2.13
+	 */
+	public void clearProcessedProperty(String propertyName) {
+		if (this.processedProperties != null) {
+			this.processedProperties.remove(propertyName);
+		}
+	}
+
+	/**
+	 * Mark this holder as containing converted values only
+	 * (i.e. no runtime resolution needed anymore).
+	 */
+	public void setConverted() {
+		this.converted = true;
+	}
+
+	/**
+	 * Return whether this holder contains converted values only ({@code true}),
+	 * or whether the values still need to be converted ({@code false}).
+	 */
+	public boolean isConverted() {
+		return this.converted;
+	}
+
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (!(other instanceof MutablePropertyValues)) {
+			return false;
+		}
+		MutablePropertyValues that = (MutablePropertyValues) other;
+		return this.propertyValueList.equals(that.propertyValueList);
+	}
+
+	@Override
+	public int hashCode() {
+		return this.propertyValueList.hashCode();
+	}
+
+	@Override
+	public String toString() {
+		PropertyValue[] pvs = getPropertyValues();
+		StringBuilder sb = new StringBuilder("PropertyValues: length=").append(pvs.length);
+		if (pvs.length > 0) {
+			sb.append("; ").append(StringUtils.arrayToDelimitedString(pvs, "; "));
+		}
+		return sb.toString();
+	}
+
+}
+```
+
 [PropertyValues]作用只是维护一组[PropertyValue]，[PropertyValue]是bean的某个属性的具体实例，将bean的属性和bean解耦，使得属性可以单独存在，[PropertyValue]继承结构为：
 ![PropertyValue继承结构](../img/PropertyValue.png)
 
@@ -851,7 +1106,17 @@ public void parsePropertyElement(Element ele, BeanDefinition bd) {
 }
 ```
 
-解析属性值的方法为`parsePropertyValue()`，代码：
+`parsePropertyElement`方法遍历`<property>`元素，创建对应的[PropertyValue]并添加到[BeanDefinition]的[PropertyValues]中，而[BeanDefinition]的[PropertyValues]默认实现是[MutablePropertyValues]，[BeanDefinition]的`getPropertyValues()`方法代码：
+```java
+public MutablePropertyValues getPropertyValues() {
+	if (this.propertyValues == null) {
+		this.propertyValues = new MutablePropertyValues();
+	}
+	return this.propertyValues;
+}
+```
+
+上面解析属性值的方法为`parsePropertyValue()`，代码：
 ```java
 @Nullable
 public Object parsePropertyValue(Element ele, BeanDefinition bd, @Nullable String propertyName) {
@@ -1015,15 +1280,18 @@ public Object parsePropertySubElement(Element ele, @Nullable BeanDefinition bd, 
 
 解析array、list等元素的过程是一样的，以array元素的解析过程为例，代码：
 ```java
-public Set<Object> parseSetElement(Element collectionEle, @Nullable BeanDefinition bd) {
-	String defaultElementType = collectionEle.getAttribute(VALUE_TYPE_ATTRIBUTE);
-	NodeList nl = collectionEle.getChildNodes();
-	ManagedSet<Object> target = new ManagedSet<>(nl.getLength());
-	target.setSource(extractSource(collectionEle));
-	target.setElementTypeName(defaultElementType);
-	target.setMergeEnabled(parseMergeAttribute(collectionEle));
+public Object parseArrayElement(Element arrayEle, @Nullable BeanDefinition bd) {
+	// 从value-type属性获取元素值的类型，可以为空
+	String elementType = arrayEle.getAttribute(VALUE_TYPE_ATTRIBUTE);
+	NodeList nl = arrayEle.getChildNodes();
+	// 以ManagedArray保存数组类型的属性
+	ManagedArray target = new ManagedArray(elementType, nl.getLength());
+	target.setSource(extractSource(arrayEle));
+	target.setElementTypeName(elementType);
+	// merge属性表示如果存在parent beanDefinition，则parent beanDefinition的同名的array元素是否需要合并到当前array元素中
+	target.setMergeEnabled(parseMergeAttribute(arrayEle));
 	// 解析集合子元素
-	parseCollectionElements(nl, target, bd, defaultElementType);
+	parseCollectionElements(nl, target, bd, elementType);
 	return target;
 }
 
@@ -1040,15 +1308,90 @@ protected void parseCollectionElements(
 }
 ```
 
-`parsePropertyElement`方法遍历`<property>`元素，创建对应的[PropertyValue]并添加到[BeanDefinition]的[PropertyValues]中，而[BeanDefinition]的[PropertyValues]默认实现是[MutablePropertyValues]，[BeanDefinition]的`getPropertyValues()`方法代码：
+以上是[BeanDefinition]的[PropertyValues]的由来，现在回到`populateBean()`方法继续bean的属性填充过程，获取到[PropertyValues]后，执行的是autowire逻辑，代码：
 ```java
-public MutablePropertyValues getPropertyValues() {
-	if (this.propertyValues == null) {
-		this.propertyValues = new MutablePropertyValues();
+protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable BeanWrapper bw) {
+	//...
+
+	// 获取所有从XML的property元素解析到的属性
+	// 可能是RuntimeBeanReference或者是TypedStringValue
+	PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
+
+	// 判断属性的注入方式，通过在XML配置bean时设置autowire属性指定，如果设置了autowire则尝试自动注入bean的属性(即使没有在属性上声明注解)
+	if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME ||
+			mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
+		MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
+
+		// Add property values based on autowire by name if applicable.
+		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_NAME) {
+			// 根据属性名称获取bean，获取到的bean保存在newPvs中
+			autowireByName(beanName, mbd, bw, newPvs);
+		}
+
+		// Add property values based on autowire by type if applicable.
+		if (mbd.getResolvedAutowireMode() == RootBeanDefinition.AUTOWIRE_BY_TYPE) {
+			// 根据属性类型获取bean，获取到的bean保存在newPvs中
+			autowireByType(beanName, mbd, bw, newPvs);
+		}
+
+		pvs = newPvs;
 	}
-	return this.propertyValues;
+
+	//...
 }
 ```
+
+如果在bean上声明了autowire属性，则根据配置执行不同的注入逻辑，如根据autowire="byName"，则根据beanName注入，代码：
+```java
+protected void autowireByName(
+		String beanName, AbstractBeanDefinition mbd, BeanWrapper bw, MutablePropertyValues pvs) {
+
+	// 获取满足自动注入条件的属性名称
+	String[] propertyNames = unsatisfiedNonSimpleProperties(mbd, bw);
+	for (String propertyName : propertyNames) {
+		// 如果存在该属性名称的bean则自动注入
+		if (containsBean(propertyName)) {
+			Object bean = getBean(propertyName);
+			// 将自动注入的bean暂时保存在pvs，后面再set到当前创建的bean中
+			pvs.add(propertyName, bean);
+			// 注册当前bean依赖自动注入的bean的依赖关系
+			registerDependentBean(propertyName, beanName);
+			if (logger.isDebugEnabled()) {
+				logger.debug("Added autowiring by name from bean name '" + beanName +
+						"' via property '" + propertyName + "' to bean named '" + propertyName + "'");
+			}
+		}
+		else {
+			if (logger.isTraceEnabled()) {
+				logger.trace("Not autowiring property '" + propertyName + "' of bean '" + beanName +
+						"' by name: no matching bean found");
+			}
+		}
+	}
+}
+```
+
+`unsatisfiedNonSimpleProperties()`方法用于获取需要自动注入的属性，代码：
+```java
+// 获取满足自动注入条件的属性名称
+protected String[] unsatisfiedNonSimpleProperties(AbstractBeanDefinition mbd, BeanWrapper bw) {
+	Set<String> result = new TreeSet<>();
+	PropertyValues pvs = mbd.getPropertyValues();
+	PropertyDescriptor[] pds = bw.getPropertyDescriptors();
+	for (PropertyDescriptor pd : pds) {
+		// 满足自动注入的属性需要的条件：存在setter方法、不包含在ignoredDependencyInterfaces和ignoredDependencyTypes中、没有配置在XML的property元素中、不是基础属性如String、Array等
+		// ignoredDependencyInterfaces和ignoredDependencyTypes配置在BeanFactory中，AbstractApplicationContext在启动时就为其BeanFactory
+		// 添加了多个ignoredDependencyInterface
+		if (pd.getWriteMethod() != null && !isExcludedFromDependencyCheck(pd) && !pvs.contains(pd.getName()) &&
+				!BeanUtils.isSimpleProperty(pd.getPropertyType())) {
+			result.add(pd.getName());
+		}
+	}
+	return StringUtils.toStringArray(result);
+}
+```
+
+`autowireByName()`方法的逻辑很简单，获取需要注入的属性列表，遍历并根据属性名获取bean，再添加到[MutablePropertyValues]中待后面设置到bean上
 
 
 

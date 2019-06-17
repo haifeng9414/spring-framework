@@ -1208,11 +1208,13 @@ public class BeanDefinitionParserDelegate {
 		// 从value-type属性获取元素值的类型，可以为空
 		String elementType = arrayEle.getAttribute(VALUE_TYPE_ATTRIBUTE);
 		NodeList nl = arrayEle.getChildNodes();
+		// 以ManagedArray保存数组类型的属性
 		ManagedArray target = new ManagedArray(elementType, nl.getLength());
 		target.setSource(extractSource(arrayEle));
 		target.setElementTypeName(elementType);
 		// merge属性表示如果存在parent beanDefinition，则parent beanDefinition的同名的array元素是否需要合并到当前array元素中
 		target.setMergeEnabled(parseMergeAttribute(arrayEle));
+		// 解析集合子元素
 		parseCollectionElements(nl, target, bd, elementType);
 		return target;
 	}
@@ -1241,7 +1243,6 @@ public class BeanDefinitionParserDelegate {
 		target.setSource(extractSource(collectionEle));
 		target.setElementTypeName(defaultElementType);
 		target.setMergeEnabled(parseMergeAttribute(collectionEle));
-		// 解析集合子元素
 		parseCollectionElements(nl, target, bd, defaultElementType);
 		return target;
 	}
