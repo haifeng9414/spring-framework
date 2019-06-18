@@ -1391,7 +1391,10 @@ protected String[] unsatisfiedNonSimpleProperties(AbstractBeanDefinition mbd, Be
 }
 ```
 
-`autowireByName()`方法的逻辑很简单，获取需要注入的属性列表，遍历并根据属性名获取bean，再添加到[MutablePropertyValues]中待后面设置到bean上
+`autowireByName()`方法的逻辑很简单，获取需要注入的属性列表，遍历并根据属性名获取bean，再添加到[MutablePropertyValues]中待后面设置到bean上，`autowireByType()`方法则更复杂点，代码：
+```java
+
+```
 
 
 

@@ -1483,9 +1483,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		Set<String> autowiredBeanNames = new LinkedHashSet<>(4);
+		// 获取满足自动注入条件的属性名称
 		String[] propertyNames = unsatisfiedNonSimpleProperties(mbd, bw);
 		for (String propertyName : propertyNames) {
 			try {
+				/*
+				 PropertyDescriptor是JDK中的类，通过该类可以读写一个JavaBean的某个属性，常用的构造函数：
+				 public PropertyDescriptor(String propertyName, Class<?> beanClass)
+				 public PropertyDescriptor(String propertyName, Class<?> beanClass, String readMethodName, String writeMethodName)
+				 public PropertyDescriptor(String propertyName, Method readMethod, Method writeMethod)
+				 */
 				PropertyDescriptor pd = bw.getPropertyDescriptor(propertyName);
 				// Don't try autowiring by type for type Object: never makes sense,
 				// even if it technically is a unsatisfied, non-simple property.

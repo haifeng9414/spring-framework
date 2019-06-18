@@ -808,16 +808,23 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	 * @return a property accessor for the target bean
 	 */
 	@SuppressWarnings("unchecked")  // avoid nested generic
+	// propertyPath可能为a.b.c这种格式，这里用递归返回a.b.c这种格式的属性的AbstractNestablePropertyAccessor
 	protected AbstractNestablePropertyAccessor getPropertyAccessorForPropertyPath(String propertyPath) {
+		// 获取嵌套属性的第一个点的位置，如abc.def返回3
 		int pos = PropertyAccessorUtils.getFirstNestedPropertySeparatorIndex(propertyPath);
 		// Handle nested properties recursively.
 		if (pos > -1) {
+			// 获取属性名
 			String nestedProperty = propertyPath.substring(0, pos);
+			// 保存剩余的属性名
 			String nestedPath = propertyPath.substring(pos + 1);
+			// 更新属性名创建AbstractNestablePropertyAccessor
 			AbstractNestablePropertyAccessor nestedPa = getNestedPropertyAccessor(nestedProperty);
+			// 递归获取剩余属性的AbstractNestablePropertyAccessor
 			return nestedPa.getPropertyAccessorForPropertyPath(nestedPath);
 		}
 		else {
+			// 如果不存在嵌套属性直接返回当前的AbstractNestablePropertyAccessor即可
 			return this;
 		}
 	}
