@@ -30,6 +30,7 @@
 				<entry key="keyC" value="valueC"/>
 			</map>
 		</property>
+		<property name="myBeanA.name" value="tttt"/>
 	</bean>
 
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.property.MyBeanA">

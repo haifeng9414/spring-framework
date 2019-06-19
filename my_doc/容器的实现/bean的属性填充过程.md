@@ -149,6 +149,7 @@ XML配置：
 				<entry key="keyC" value="valueC"/>
 			</map>
 		</property>
+		<property name="myBeanA.name" value="tttt"/>
 	</bean>
 
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.property.MyBeanA">
@@ -188,7 +189,7 @@ public void testPropertyPopulate() {
 test
 20
 Sun Jun 16 00:00:00 CST 2019
-myBeanA
+tttt
 myBeanB
 [A, B, C]
 [A, B, C]

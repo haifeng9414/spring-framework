@@ -177,14 +177,18 @@ public class CachedIntrospectionResults {
 		results = new CachedIntrospectionResults(beanClass);
 		ConcurrentMap<Class<?>, CachedIntrospectionResults> classCacheToUse;
 
+		// 判断beanClass的CachedIntrospectionResults是否是可安全缓存的，依据是CachedIntrospectionResults的ClassLoader
+		// 和beanClass的ClassLoader是否相等
 		if (ClassUtils.isCacheSafe(beanClass, CachedIntrospectionResults.class.getClassLoader()) ||
 				isClassLoaderAccepted(beanClass.getClassLoader())) {
+			// 如果可安全缓存则用强引用缓存
 			classCacheToUse = strongClassCache;
 		}
 		else {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Not strongly caching class [" + beanClass.getName() + "] because it is not cache-safe");
 			}
+			// 否则用弱引用
 			classCacheToUse = softClassCache;
 		}
 
@@ -331,11 +335,14 @@ public class CachedIntrospectionResults {
 
 	@Nullable
 	PropertyDescriptor getPropertyDescriptor(String name) {
+		// 判断缓存中是否存在当前属性的PropertyDescriptor
 		PropertyDescriptor pd = this.propertyDescriptorCache.get(name);
 		if (pd == null && StringUtils.hasLength(name)) {
 			// Same lenient fallback checking as in Property...
+			// 第一个字母小写再尝试获取一次缓存
 			pd = this.propertyDescriptorCache.get(StringUtils.uncapitalize(name));
 			if (pd == null) {
+				// 第一个字母大写再尝试获取一次缓存
 				pd = this.propertyDescriptorCache.get(StringUtils.capitalize(name));
 			}
 		}

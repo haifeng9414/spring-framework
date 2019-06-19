@@ -723,6 +723,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	protected PropertyHandler getPropertyHandler(String propertyName) throws BeansException {
 		Assert.notNull(propertyName, "Property name must not be null");
 		AbstractNestablePropertyAccessor nestedPa = getPropertyAccessorForPropertyPath(propertyName);
+		//
 		return nestedPa.getLocalPropertyHandler(getFinalPath(nestedPa, propertyName));
 	}
 
@@ -842,6 +843,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 			this.nestedPropertyAccessors = new HashMap<>();
 		}
 		// Get value of bean property.
+		// token维护了属性名，如果属性带有[]，如map[my.key]，则token将分别保存map为actualName属性，[my.key]为canonicalName
 		PropertyTokenHolder tokens = getPropertyNameTokens(nestedProperty);
 		String canonicalName = tokens.canonicalName;
 		Object value = getPropertyValue(tokens);
@@ -937,6 +939,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 		String actualName = null;
 		List<String> keys = new ArrayList<>(2);
 		int searchIndex = 0;
+		// 处理map[my.key]这种带[]的属性名的情况，将my.key作为可以添加到keys中，map作为actualName
 		while (searchIndex != -1) {
 			int keyStart = propertyName.indexOf(PROPERTY_KEY_PREFIX, searchIndex);
 			searchIndex = -1;
