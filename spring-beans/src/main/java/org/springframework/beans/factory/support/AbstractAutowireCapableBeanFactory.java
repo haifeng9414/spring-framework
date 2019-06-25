@@ -1674,9 +1674,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		TypeConverter converter = getCustomTypeConverter();
 		if (converter == null) {
+			// BeanWrapperImpl本身就是个TypeConverter
 			converter = bw;
 		}
-		// 辅助类，用于解析保存在BeanDefinition中的PropertyValue，如RuntimeBeanReference或TypedStringValue
+		// BeanDefinitionValueResolver解析保存在BeanDefinition中的PropertyValue，如RuntimeBeanReference、TypedStringValue或ManagedArray等
 		BeanDefinitionValueResolver valueResolver = new BeanDefinitionValueResolver(this, beanName, mbd, converter);
 
 		// Create a deep copy, resolving any references for values.

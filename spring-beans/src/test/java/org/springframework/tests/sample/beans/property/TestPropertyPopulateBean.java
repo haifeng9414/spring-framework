@@ -14,6 +14,9 @@ public class TestPropertyPopulateBean {
 	private String[] stringArray;
 	private Map<String, String> stringMap;
 
+	public TestPropertyPopulateBean() {
+	}
+
 	public TestPropertyPopulateBean(String name, MyBeanA myBeanA) {
 		this.name = name;
 		this.myBeanA = myBeanA;

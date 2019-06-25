@@ -4,33 +4,33 @@
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans
 	   http://www.springframework.org/schema/beans/spring-beans.xsd">
 	<bean id="testPropertyPopulateBean"
-		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean" autowire="byType">
-		<constructor-arg name="name" value="test"/>
-		<constructor-arg name="myBeanA" ref="myBeanA"/>
+		  class="org.springframework.tests.sample.beans.property.TestPropertyPopulateBean">
+<!--		<constructor-arg name="name" value="test"/>-->
+<!--		<constructor-arg name="myBeanA" ref="myBeanA"/>-->
 		<property name="num" value="20"/>
-		<property name="time" value="2019-06-16"/>
-		<property name="stringList">
-			<list>
-				<value>A</value>
-				<value>B</value>
-				<value>C</value>
-			</list>
-		</property>
-		<property name="stringArray">
-			<array>
-				<value>A</value>
-				<value>B</value>
-				<value>C</value>
-			</array>
-		</property>
-		<property name="stringMap">
-			<map>
-				<entry key="keyA" value="valueA"/>
-				<entry key="keyB" value="valueB"/>
-				<entry key="keyC" value="valueC"/>
-			</map>
-		</property>
-		<property name="myBeanA.name" value="tttt"/>
+<!--		<property name="time" value="2019-06-16"/>-->
+<!--		<property name="stringList">-->
+<!--			<list>-->
+<!--				<value>A</value>-->
+<!--				<value>B</value>-->
+<!--				<value>C</value>-->
+<!--			</list>-->
+<!--		</property>-->
+<!--		<property name="stringArray">-->
+<!--			<array>-->
+<!--				<value>A</value>-->
+<!--				<value>B</value>-->
+<!--				<value>C</value>-->
+<!--			</array>-->
+<!--		</property>-->
+<!--		<property name="stringMap">-->
+<!--			<map>-->
+<!--				<entry key="keyA" value="valueA"/>-->
+<!--				<entry key="keyB" value="valueB"/>-->
+<!--				<entry key="keyC" value="valueC"/>-->
+<!--			</map>-->
+<!--		</property>-->
+<!--		<property name="myBeanA.name" value="tttt"/>-->
 	</bean>
 
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.property.MyBeanA">
@@ -41,9 +41,9 @@
 		<property name="name" value="myBeanB"/>
 	</bean>
 
-	<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">
-		<property name="propertyEditorRegistrars">
-			<bean class="org.springframework.tests.sample.beans.property.CustomDateEditorRegistrar"/>
-		</property>
-	</bean>
+<!--	<bean class="org.springframework.beans.factory.config.CustomEditorConfigurer">-->
+<!--		<property name="propertyEditorRegistrars">-->
+<!--			<bean class="org.springframework.tests.sample.beans.property.CustomDateEditorRegistrar"/>-->
+<!--		</property>-->
+<!--	</bean>-->
 </beans>
