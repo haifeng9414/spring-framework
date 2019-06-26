@@ -237,12 +237,14 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	public void setPropertyValue(String propertyName, @Nullable Object value) throws BeansException {
 		AbstractNestablePropertyAccessor nestedPa;
 		try {
+			// 获取属性的AbstractNestablePropertyAccessor，如果是a.b.c这种个数的属性，则返回的是
 			nestedPa = getPropertyAccessorForPropertyPath(propertyName);
 		}
 		catch (NotReadablePropertyException ex) {
 			throw new NotWritablePropertyException(getRootClass(), this.nestedPath + propertyName,
 					"Nested property in path '" + propertyName + "' does not exist", ex);
 		}
+		// getFinalPath(nestedPa, propertyName)方法返回a.b.c中的c
 		PropertyTokenHolder tokens = getPropertyNameTokens(getFinalPath(nestedPa, propertyName));
 		nestedPa.setPropertyValue(tokens, new PropertyValue(propertyName, value));
 	}
@@ -281,7 +283,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	}
 
 	@SuppressWarnings("unchecked")
-	// 对于map[m.key]这种属性进行赋值操作
+	// 对于map[key]这种属性进行赋值操作
 	private void processKeyedProperty(PropertyTokenHolder tokens, PropertyValue pv) {
 		Object propValue = getPropertyHoldingValue(tokens);
 		PropertyHandler ph = getLocalPropertyHandler(tokens.actualName);
@@ -383,8 +385,13 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	private Object getPropertyHoldingValue(PropertyTokenHolder tokens) {
 		// Apply indexes and map keys: fetch value for all keys but the last one.
 		Assert.state(tokens.keys != null, "No token keys");
+		// 赋值传入的tokens的属性
 		PropertyTokenHolder getterTokens = new PropertyTokenHolder(tokens.actualName);
 		getterTokens.canonicalName = tokens.canonicalName;
+		// 复制除了最后一个key外的其他key，如果属性类型是List<List<Map<String, String>>> listOfMaps，则可以通过listOfMaps[0][0]['luckyNumber']
+		// 来设置listOfMaps的第0个元素的第0个元素的luckyNumber的值，传入的tokens的keys属性对于listOfMaps[0][0]['luckyNumber']这个属性名解析的结果是
+		// 0，0，luckyNumber，这里舍弃最后一个key，使得getPropertyHoldingValue方法返回的是listOfMaps[0][0]的值，而luckyNumber的设置交由processKeyedProperty
+		// 处理
 		getterTokens.keys = new String[tokens.keys.length - 1];
 		System.arraycopy(tokens.keys, 0, getterTokens.keys, 0, tokens.keys.length - 1);
 
@@ -627,9 +634,12 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 			throw new NotReadablePropertyException(getRootClass(), this.nestedPath + propertyName);
 		}
 		try {
+			// 获取当前属性的值
 			Object value = ph.getValue();
 			if (tokens.keys != null) {
+				// 如果获取到的属性为空
 				if (value == null) {
+					// 判断是否自动创建内嵌属性，如List类型的属性，直接用LinkedHashMap作为默认值
 					if (isAutoGrowNestedPaths()) {
 						value = setDefaultValue(new PropertyTokenHolder(tokens.actualName));
 					}
@@ -849,7 +859,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 			this.nestedPropertyAccessors = new HashMap<>();
 		}
 		// Get value of bean property.
-		// token维护了属性名，如果属性带有[]，如map[my.key]，则token将分别保存map为actualName属性，[my.key]为canonicalName
+		// token维护了属性名，如果属性带有[]，如map[key]，则token将分别保存map为actualName属性，map[key]为canonicalName
 		PropertyTokenHolder tokens = getPropertyNameTokens(nestedProperty);
 		String canonicalName = tokens.canonicalName;
 		// 获取bean的指定属性
@@ -884,6 +894,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 		return nestedPa;
 	}
 
+	// 根据默认构造函数创建对象作为默认值，如Map类型的属性则设置为LinkedHashMap
 	private Object setDefaultValue(PropertyTokenHolder tokens) {
 		PropertyValue pv = createDefaultPropertyValue(tokens);
 		setPropertyValue(tokens, pv);
@@ -945,11 +956,14 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	 * @param propertyName the property name to parse
 	 * @return representation of the parsed property tokens
 	 */
+	// 处理listOfMaps[0]['luckyNumber']这种类型的属性，将处理listOfMaps保存到PropertyTokenHolder的actualName中，
+	// 0和luckyNumber保存到keys中，listOfMaps[0][luckyNumber]保存到canonicalName中，
+	// 如果是普通属性则保存属性名到actualName和canonicalName中
 	private PropertyTokenHolder getPropertyNameTokens(String propertyName) {
 		String actualName = null;
 		List<String> keys = new ArrayList<>(2);
 		int searchIndex = 0;
-		// 处理map[my.key]这种带[]的属性名的情况，将my.key作为key添加到keys中，map作为actualName
+		// 处理map[key]这种带[]的属性名的情况，将key添加到keys中，map作为actualName
 		while (searchIndex != -1) {
 			int keyStart = propertyName.indexOf(PROPERTY_KEY_PREFIX, searchIndex);
 			searchIndex = -1;
