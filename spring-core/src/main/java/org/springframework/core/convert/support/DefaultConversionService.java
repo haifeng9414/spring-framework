@@ -64,6 +64,7 @@ public class DefaultConversionService extends GenericConversionService {
 	 * @return the shared {@code ConversionService} instance (never {@code null})
 	 * @since 4.3.5
 	 */
+	// 类似单例，返回一个公共的DefaultConversionService实例
 	public static ConversionService getSharedInstance() {
 		DefaultConversionService cs = sharedInstance;
 		if (cs == null) {
