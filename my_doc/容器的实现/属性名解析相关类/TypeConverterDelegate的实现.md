@@ -1,4 +1,4 @@
-[TypeConverterDelegate]的作用是将指定值转换为需要的类型，辅助[BeanWrapperImpl]进行属性注入，而实现原理就是利用[PropertyEditorRegistrySupport]中的[PropertyEditor]，或[PropertyEditorRegistrySupport]中的[ConversionService]，进行类型转换，对于[PropertyEditor]可以看笔记[PropertyEditor的实现](PropertyEditor的实现.md)，[ConversionService]可以看笔记[ConversionService的实现](ConversionService的实现.md)
+[TypeConverterDelegate]的作用是将指定值转换为需要的类型，辅助[BeanWrapperImpl]实现[TypeConverter]接口进行属性注入，而实现原理就是利用[PropertyEditorRegistrySupport]中的[PropertyEditor]，或[PropertyEditorRegistrySupport]中的[ConversionService]，进行类型转换，对于[PropertyEditor]可以看笔记[PropertyEditor的实现](PropertyEditor的实现.md)，[ConversionService]可以看笔记[ConversionService的实现](ConversionService的实现.md)
 
 ```java
 class TypeConverterDelegate {
