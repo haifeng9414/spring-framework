@@ -1061,9 +1061,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// ParameterNameDiscoverer用于获取参数名
 		descriptor.initParameterNameDiscovery(getParameterNameDiscoverer());
+		// 如果返回值是Optional类型的则用Optional包装返回值
 		if (Optional.class == descriptor.getDependencyType()) {
 			return createOptionalDependency(descriptor, requestingBeanName);
 		}
+		// ObjectProvider或ObjectFactory可用于延迟获取bean
 		else if (ObjectFactory.class == descriptor.getDependencyType() ||
 				ObjectProvider.class == descriptor.getDependencyType()) {
 			return new DependencyObjectProvider(descriptor, requestingBeanName);
@@ -1072,8 +1074,10 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			return new Jsr330ProviderFactory().createDependencyProvider(descriptor, requestingBeanName);
 		}
 		else {
+			// 先尝试获取代理
 			Object result = getAutowireCandidateResolver().getLazyResolutionProxyIfNecessary(
 					descriptor, requestingBeanName);
+			// 如果没有代理则解析可用的bean并返回
 			if (result == null) {
 				// 解析可注入的bean并返回
 				result = doResolveDependency(descriptor, requestingBeanName, autowiredBeanNames, typeConverter);
