@@ -569,10 +569,235 @@ public Object doResolveDependency(DependencyDescriptor descriptor, @Nullable Str
 
 在获取到bean之后回到`autowireByType()`方法，`autowireByType()`方法将`resolveDependency()`方法的返回结果添加到[MutablePropertyValues]中返回，待后面注入到bean中。
 
+获取到所有[PropertyValue]后，回到`populateBean()`方法，执行`applyPropertyValues()`方法注入属性，代码：
+```java
+protected void applyPropertyValues(String beanName, BeanDefinition mbd, BeanWrapper bw, PropertyValues pvs) {
+	if (pvs.isEmpty()) {
+		return;
+	}
 
+	if (System.getSecurityManager() != null && bw instanceof BeanWrapperImpl) {
+		((BeanWrapperImpl) bw).setSecurityContext(getAccessControlContext());
+	}
 
+	MutablePropertyValues mpvs = null;
+	List<PropertyValue> original;
 
+	if (pvs instanceof MutablePropertyValues) {
+		mpvs = (MutablePropertyValues) pvs;
+		// 如果属性已经转换过了就直接设置
+		if (mpvs.isConverted()) {
+			// Shortcut: use the pre-converted values as-is.
+			try {
+				bw.setPropertyValues(mpvs);
+				return;
+			}
+			catch (BeansException ex) {
+				throw new BeanCreationException(
+						mbd.getResourceDescription(), beanName, "Error setting property values", ex);
+			}
+		}
+		// 获取所有属性列表
+		original = mpvs.getPropertyValueList();
+	}
+	else {
+		original = Arrays.asList(pvs.getPropertyValues());
+	}
 
+	TypeConverter converter = getCustomTypeConverter();
+	if (converter == null) {
+		// BeanWrapperImpl本身就是个TypeConverter
+		converter = bw;
+	}
+	// BeanDefinitionValueResolver用于解析保存在BeanDefinition中的PropertyValue，如RuntimeBeanReference、TypedStringValue或ManagedArray等
+	BeanDefinitionValueResolver valueResolver = new BeanDefinitionValueResolver(this, beanName, mbd, converter);
+
+	// Create a deep copy, resolving any references for values.
+	List<PropertyValue> deepCopy = new ArrayList<>(original.size());
+	boolean resolveNecessary = false;
+	for (PropertyValue pv : original) {
+		// 如果已经转换过了就直接使用
+		if (pv.isConverted()) {
+			deepCopy.add(pv);
+		}
+		else {
+			// 获取属性名
+			String propertyName = pv.getName();
+			// 获取属性值
+			Object originalValue = pv.getValue();
+			// 解析属性对应的值，如指定ref则返回对应的bean
+			Object resolvedValue = valueResolver.resolveValueIfNecessary(pv, originalValue);
+			Object convertedValue = resolvedValue;
+			boolean convertible = bw.isWritableProperty(propertyName) &&
+					!PropertyAccessorUtils.isNestedOrIndexedProperty(propertyName);
+			if (convertible) {
+				// 将获取到的值转换成需要的属性类型
+				convertedValue = convertForProperty(resolvedValue, propertyName, bw, converter);
+			}
+			// Possibly store converted value in merged bean definition,
+			// in order to avoid re-conversion for every created bean instance.
+			// 如果转换后的值和原始的值相等则保存到convertedValue中，下次再注入时不用再解析了
+			if (resolvedValue == originalValue) {
+				if (convertible) {
+					pv.setConvertedValue(convertedValue);
+				}
+				deepCopy.add(pv);
+			}
+			// 如果原始值是字符串并且不是动态的，并且转换后的值不是集合或者数组，则保存转换后的值，因为这种值解析多次结果都是一样的
+			else if (convertible && originalValue instanceof TypedStringValue &&
+					!((TypedStringValue) originalValue).isDynamic() &&
+					!(convertedValue instanceof Collection || ObjectUtils.isArray(convertedValue))) {
+				pv.setConvertedValue(convertedValue);
+				deepCopy.add(pv);
+			}
+			else {
+				resolveNecessary = true;
+				deepCopy.add(new PropertyValue(pv, convertedValue));
+			}
+		}
+	}
+	if (mpvs != null && !resolveNecessary) {
+		mpvs.setConverted();
+	}
+
+	// Set our (possibly massaged) deep copy.
+	try {
+		// 设置属性值，即调用setter方法
+		bw.setPropertyValues(new MutablePropertyValues(deepCopy));
+	}
+	catch (BeansException ex) {
+		throw new BeanCreationException(
+				mbd.getResourceDescription(), beanName, "Error setting property values", ex);
+	}
+}
+```
+
+解析属性的方法`resolveValueIfNecessary()`代码：
+```java
+@Nullable
+public Object resolveValueIfNecessary(Object argName, @Nullable Object value) {
+	// We must check each value to see whether it requires a runtime reference
+	// to another bean to be resolved.
+	// ref类型的属性将包含在RuntimeBeanReference对象中，这里就直接使用ref的值作为beanName调用getBean返回结果
+	if (value instanceof RuntimeBeanReference) {
+		RuntimeBeanReference ref = (RuntimeBeanReference) value;
+		// 该方法直接调用beanFactory.getBean获取bean
+		return resolveReference(argName, ref);
+	}
+	// RuntimeBeanNameReference是beanName的引用
+	else if (value instanceof RuntimeBeanNameReference) {
+		String refName = ((RuntimeBeanNameReference) value).getBeanName();
+		// doEvaluate方法调用beanExpressionResolver解析refName并返回
+		refName = String.valueOf(doEvaluate(refName));
+		if (!this.beanFactory.containsBean(refName)) {
+			throw new BeanDefinitionStoreException(
+					"Invalid bean name '" + refName + "' in bean reference for " + argName);
+		}
+		// 直接返回解析后的beanName
+		return refName;
+	}
+	// BeanDefinitionHolder表示的是内部bean
+	else if (value instanceof BeanDefinitionHolder) {
+		// Resolve BeanDefinitionHolder: contains BeanDefinition with name and aliases.
+		BeanDefinitionHolder bdHolder = (BeanDefinitionHolder) value;
+		// 该方法调用beanFactory的createBean方法创建内部bean
+		return resolveInnerBean(argName, bdHolder.getBeanName(), bdHolder.getBeanDefinition());
+	}
+	// 同上，创建内部bean
+	else if (value instanceof BeanDefinition) {
+		// Resolve plain BeanDefinition, without contained name: use dummy name.
+		BeanDefinition bd = (BeanDefinition) value;
+		String innerBeanName = "(inner bean)" + BeanFactoryUtils.GENERATED_BEAN_NAME_SEPARATOR +
+				ObjectUtils.getIdentityHexString(bd);
+		return resolveInnerBean(argName, innerBeanName, bd);
+	}
+	// 解析数组类型的属性
+	else if (value instanceof ManagedArray) {
+		// May need to resolve contained runtime references.
+		ManagedArray array = (ManagedArray) value;
+		Class<?> elementType = array.resolvedElementType;
+		if (elementType == null) {
+			// 获取数组元素类型
+			String elementTypeName = array.getElementTypeName();
+			if (StringUtils.hasText(elementTypeName)) {
+				try {
+					elementType = ClassUtils.forName(elementTypeName, this.beanFactory.getBeanClassLoader());
+					array.resolvedElementType = elementType;
+				}
+				catch (Throwable ex) {
+					// Improve the message by showing the context.
+					throw new BeanCreationException(
+							this.beanDefinition.getResourceDescription(), this.beanName,
+							"Error resolving array type for " + argName, ex);
+				}
+			}
+			else {
+				elementType = Object.class;
+			}
+		}
+		// 遍历数组元素并设置到结果集中
+		return resolveManagedArray(argName, (List<?>) value, elementType);
+	}
+	else if (value instanceof ManagedList) {
+		// May need to resolve contained runtime references.
+		return resolveManagedList(argName, (List<?>) value);
+	}
+	else if (value instanceof ManagedSet) {
+		// May need to resolve contained runtime references.
+		return resolveManagedSet(argName, (Set<?>) value);
+	}
+	else if (value instanceof ManagedMap) {
+		// May need to resolve contained runtime references.
+		return resolveManagedMap(argName, (Map<?, ?>) value);
+	}
+	else if (value instanceof ManagedProperties) {
+		Properties original = (Properties) value;
+		Properties copy = new Properties();
+		original.forEach((propKey, propValue) -> {
+			if (propKey instanceof TypedStringValue) {
+				propKey = evaluate((TypedStringValue) propKey);
+			}
+			if (propValue instanceof TypedStringValue) {
+				propValue = evaluate((TypedStringValue) propValue);
+			}
+			if (propKey == null || propValue == null) {
+				throw new BeanCreationException(
+						this.beanDefinition.getResourceDescription(), this.beanName,
+						"Error converting Properties key/value pair for " + argName + ": resolved to null");
+			}
+			copy.put(propKey, propValue);
+		});
+		return copy;
+	}
+	// 普通字符串则根据属性类型调用typeConverter转换结果
+	else if (value instanceof TypedStringValue) {
+		// Convert value to target type here.
+		TypedStringValue typedStringValue = (TypedStringValue) value;
+		Object valueObject = evaluate(typedStringValue);
+		try {
+			Class<?> resolvedTargetType = resolveTargetType(typedStringValue);
+			if (resolvedTargetType != null) {
+				return this.typeConverter.convertIfNecessary(valueObject, resolvedTargetType);
+			}
+			else {
+				return valueObject;
+			}
+		}
+		catch (Throwable ex) {
+			// Improve the message by showing the context.
+			throw new BeanCreationException(
+					this.beanDefinition.getResourceDescription(), this.beanName,
+					"Error converting typed String value for " + argName, ex);
+		}
+	}
+	else if (value instanceof NullBean) {
+		return null;
+	}
+	else {
+		return evaluate(value);
+	}
+}
+```
 
 
 

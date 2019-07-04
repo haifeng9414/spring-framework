@@ -1680,7 +1680,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			// BeanWrapperImpl本身就是个TypeConverter
 			converter = bw;
 		}
-		// BeanDefinitionValueResolver解析保存在BeanDefinition中的PropertyValue，如RuntimeBeanReference、TypedStringValue或ManagedArray等
+		// BeanDefinitionValueResolver用于解析保存在BeanDefinition中的PropertyValue，如RuntimeBeanReference、TypedStringValue或ManagedArray等
 		BeanDefinitionValueResolver valueResolver = new BeanDefinitionValueResolver(this, beanName, mbd, converter);
 
 		// Create a deep copy, resolving any references for values.
@@ -1692,7 +1692,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				deepCopy.add(pv);
 			}
 			else {
+				// 获取属性名
 				String propertyName = pv.getName();
+				// 获取属性值
 				Object originalValue = pv.getValue();
 				// 解析属性对应的值，如指定ref则返回对应的bean
 				Object resolvedValue = valueResolver.resolveValueIfNecessary(pv, originalValue);
@@ -1705,12 +1707,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 				// Possibly store converted value in merged bean definition,
 				// in order to avoid re-conversion for every created bean instance.
+				// 如果转换后的值和原始的值相等则保存到convertedValue中，下次再注入时不用再解析了
 				if (resolvedValue == originalValue) {
 					if (convertible) {
 						pv.setConvertedValue(convertedValue);
 					}
 					deepCopy.add(pv);
 				}
+				// 如果原始值是字符串并且不是动态的，并且转换后的值不是集合或者数组，则保存转换后的值，因为这种值解析多次结果都是一样的
 				else if (convertible && originalValue instanceof TypedStringValue &&
 						!((TypedStringValue) originalValue).isDynamic() &&
 						!(convertedValue instanceof Collection || ObjectUtils.isArray(convertedValue))) {
