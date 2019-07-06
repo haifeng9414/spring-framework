@@ -1,52 +1,114 @@
-/*
- * Copyright 2002-2018 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+注入bean的属性过程中，有一步解析字符串值的过程，这一过程发生在[BeanDefinitionValueResolver]的`resolveValueIfNecessary()`方法解析[TypedStringValue]或其他值为字符串类型的属性时发生，解析这种值时`resolveValueIfNecessary()`方法在返回值之前会调用`evaluate()`方法对字符串进行解析，代码：
+```java
+@Nullable
+protected Object evaluate(TypedStringValue value) {
+    Object result = doEvaluate(value.getValue());
+    // 如果解析出来的值和原值不一样表示原值是个表达式，则在这里标记成动态类型的值
+    if (!ObjectUtils.nullSafeEquals(result, value.getValue())) {
+        value.setDynamic();
+    }
+    return result;
+}
 
-package org.springframework.context.expression;
+@Nullable
+private Object doEvaluate(@Nullable String value) {
+    return this.beanFactory.evaluateBeanDefinitionString(value, this.beanDefinition);
+}
+```
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+解析最终交由[BeanFactory]的`evaluateBeanDefinitionString()`方法完成，代码：
+```java
+@Nullable
+protected Object evaluateBeanDefinitionString(@Nullable String value, @Nullable BeanDefinition beanDefinition) {
+    if (this.beanExpressionResolver == null) {
+        return value;
+    }
 
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.BeanExpressionException;
-import org.springframework.beans.factory.config.BeanExpressionContext;
-import org.springframework.beans.factory.config.BeanExpressionResolver;
-import org.springframework.core.convert.ConversionService;
-import org.springframework.expression.Expression;
-import org.springframework.expression.ExpressionParser;
-import org.springframework.expression.ParserContext;
-import org.springframework.expression.spel.SpelParserConfiguration;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.expression.spel.support.StandardTypeConverter;
-import org.springframework.expression.spel.support.StandardTypeLocator;
-import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
+    Scope scope = null;
+    if (beanDefinition != null) {
+        String scopeName = beanDefinition.getScope();
+        if (scopeName != null) {
+            scope = getRegisteredScope(scopeName);
+        }
+    }
+    return this.beanExpressionResolver.evaluate(value, new BeanExpressionContext(this, scope));
+}
+```
 
-/**
- * Standard implementation of the
- * {@link org.springframework.beans.factory.config.BeanExpressionResolver}
- * interface, parsing and evaluating Spring EL using Spring's expression module.
- *
- * @author Juergen Hoeller
- * @since 3.0
- * @see org.springframework.expression.ExpressionParser
- * @see org.springframework.expression.spel.standard.SpelExpressionParser
- * @see org.springframework.expression.spel.support.StandardEvaluationContext
- */
+[BeanFactory]中字符串的解析有委托给了[BeanExpressionResolver]，而默认情况下容器启动时会注册[StandardBeanExpressionResolver]作为[BeanExpressionResolver]的实现，先看[BeanExpressionResolver]接口的定义，代码：
+```java
+public interface BeanExpressionResolver {
+	@Nullable
+	Object evaluate(@Nullable String value, BeanExpressionContext evalContext) throws BeansException;
+}
+```
+
+[BeanExpressionContext]保存了解析时的上下文信息，代码：
+```java
+public class BeanExpressionContext {
+
+	private final ConfigurableBeanFactory beanFactory;
+
+	@Nullable
+	private final Scope scope;
+
+
+	public BeanExpressionContext(ConfigurableBeanFactory beanFactory, @Nullable Scope scope) {
+		Assert.notNull(beanFactory, "BeanFactory must not be null");
+		this.beanFactory = beanFactory;
+		this.scope = scope;
+	}
+
+	public final ConfigurableBeanFactory getBeanFactory() {
+		return this.beanFactory;
+	}
+
+	@Nullable
+	public final Scope getScope() {
+		return this.scope;
+	}
+
+
+	public boolean containsObject(String key) {
+		return (this.beanFactory.containsBean(key) ||
+				(this.scope != null && this.scope.resolveContextualObject(key) != null));
+	}
+
+	@Nullable
+	public Object getObject(String key) {
+		if (this.beanFactory.containsBean(key)) {
+			return this.beanFactory.getBean(key);
+		}
+		else if (this.scope != null){
+			return this.scope.resolveContextualObject(key);
+		}
+		else {
+			return null;
+		}
+	}
+
+
+	@Override
+	public boolean equals(Object other) {
+		if (this == other) {
+			return true;
+		}
+		if (!(other instanceof BeanExpressionContext)) {
+			return false;
+		}
+		BeanExpressionContext otherContext = (BeanExpressionContext) other;
+		return (this.beanFactory == otherContext.beanFactory && this.scope == otherContext.scope);
+	}
+
+	@Override
+	public int hashCode() {
+		return this.beanFactory.hashCode();
+	}
+}
+```
+
+最后是[StandardBeanExpressionResolver]的代码：
+```java
 public class StandardBeanExpressionResolver implements BeanExpressionResolver {
 
 	/** Default expression prefix: "#{" */
@@ -197,3 +259,11 @@ public class StandardBeanExpressionResolver implements BeanExpressionResolver {
 	}
 
 }
+```
+
+[BeanDefinitionValueResolver]: aaa
+[TypedStringValue]: aaa
+[BeanExpressionResolver]: aaa
+[BeanFactory]: aaa
+[StandardBeanExpressionResolver]: aaa
+[BeanExpressionContext]: aaa

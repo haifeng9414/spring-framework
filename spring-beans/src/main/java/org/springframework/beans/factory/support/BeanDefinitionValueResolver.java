@@ -233,6 +233,7 @@ class BeanDefinitionValueResolver {
 	@Nullable
 	protected Object evaluate(TypedStringValue value) {
 		Object result = doEvaluate(value.getValue());
+		// 如果解析出来的值和原值不一样表示原值是个表达式，则在这里标记成动态类型的值
 		if (!ObjectUtils.nullSafeEquals(result, value.getValue())) {
 			value.setDynamic();
 		}
