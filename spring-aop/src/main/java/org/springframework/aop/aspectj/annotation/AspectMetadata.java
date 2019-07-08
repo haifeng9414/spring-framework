@@ -83,10 +83,11 @@ public class AspectMetadata implements Serializable {
 
 		Class<?> currClass = aspectClass;
 		AjType<?> ajType = null;
-		//从aspectClass或其父类获取AjType
+		// 从aspectClass或其父类获取AjType
 		while (currClass != Object.class) {
-			//AjTypeSystem是AspectJ包里的类，用于获取指定类的AjType
+			// AjTypeSystem是AspectJ包里的类，用于获取指定类的AjType
 			AjType<?> ajTypeToCheck = AjTypeSystem.getAjType(currClass);
+			// 判断类上是否有Aspect注解
 			if (ajTypeToCheck.isAspect()) {
 				ajType = ajTypeToCheck;
 				break;
@@ -102,6 +103,7 @@ public class AspectMetadata implements Serializable {
 		this.aspectClass = ajType.getJavaClass();
 		this.ajType = ajType;
 
+		// 根据Aspect的注解的value获取PerClause类型，默认是SINGLETON
 		switch (this.ajType.getPerClause().getKind()) {
 			case SINGLETON:
 				this.perClausePointcut = Pointcut.TRUE;

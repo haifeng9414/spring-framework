@@ -1,4 +1,12 @@
 ## 如何实现AOP
+学习AOP之前需要先理解Spring AOP中涉及到的概念：
+- Aspect（切面）：对哪些方法进行拦截，拦截后怎么处理，这些关注点称之为横切关注点，类是对物体特征的抽象，切面就是对横切关注点的抽象
+- Advisor：Advice和Pointcut组成的独立的单元，可以认为是v切面的具体实现
+- Joint point（连接点）：表示在程序中明确定义的点，典型的包括方法调用，对类成员的访问以及异常处理程序块的执行等等，是个单纯的定义，如所有的方法调用都是Joint point
+- Pointcut（切点）：用于描述Joint point，如通过逻辑关系组合，或是通过通配、正则表达式等方式组合一组Joint point，也就是对Advice将要作用的Joint point进行筛选的条件
+- Advice（增强）：Advice定义了在通过Pointcut筛选后的Joint point上具体要做的操作，它通过before、after和around来区别是在每个Joint point之前、之后还是代替执行的代码
+- Target（目标对象）：织入Advice的目标对象
+- Weaving（织入）：将Aspect和其他对象连接起来, 并创建Adviced object的过程
 
 以AspectJ注解风格的AOP配置为例，XML中添加如下配置:
 ```

@@ -217,7 +217,7 @@ public class AspectJExpressionPointcut extends AbstractExpressionPointcut
 	/**
 	 * Build the underlying AspectJ pointcut expression.
 	 */
-	//利用AspectJ包解析表达式
+	// 利用AspectJ包解析表达式
 	private PointcutExpression buildPointcutExpression(@Nullable ClassLoader classLoader) {
 		PointcutParser parser = initializePointcutParser(classLoader);
 		PointcutParameter[] pointcutParameters = new PointcutParameter[this.pointcutParameterNames.length];

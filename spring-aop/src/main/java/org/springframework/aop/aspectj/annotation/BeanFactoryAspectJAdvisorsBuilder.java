@@ -92,7 +92,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 					aspectNames = new LinkedList<>();
 					String[] beanNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 							this.beanFactory, Object.class, true, false);
-					//遍历beanFactory中的所有bean
+					// 遍历beanFactory中的所有bean
 					for (String beanName : beanNames) {
 						if (!isEligibleBean(beanName)) {
 							continue;
@@ -103,25 +103,26 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 						if (beanType == null) {
 							continue;
 						}
-						//如果存在Aspect注解
+						// 如果存在Aspect注解
 						if (this.advisorFactory.isAspect(beanType)) {
 							aspectNames.add(beanName);
-							//AspectMetadata在构造函数中解析了beanType的AjType，对于没有value的AspectJ注解的类，PerClauseKind是SINGLETON
+							// AspectMetadata在构造函数中解析了beanType的AjType，对于没有value的AspectJ注解的类，PerClauseKind是SINGLETON
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
+							// PerClause用于设置实例化切面使得策略，从Aspect注解的value而来，默认情况下为singleton
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {
-								//MetadataAwareAspectInstanceFactory接口只有两个方法，一个返回刚刚创建的AspectMetadata，一个返回
-								//锁对象，该锁对象从beanFactory获取
+								// MetadataAwareAspectInstanceFactory接口只有两个方法，一个返回刚刚创建的AspectMetadata，一个返回
+								// 锁对象，该锁对象从beanFactory获取
 								MetadataAwareAspectInstanceFactory factory =
 										new BeanFactoryAspectInstanceFactory(this.beanFactory, beanName);
-								//advisorFactory是AnnotationAwareAspectJAutoProxyCreator设置beanFactory是创建的，默认为ReflectiveAspectJAdvisorFactory，
-								//这里用advisorFactory获取指定了Aspect注解的bean的切面
+								// advisorFactory是AnnotationAwareAspectJAutoProxyCreator设置beanFactory是创建的，默认为ReflectiveAspectJAdvisorFactory，
+								// 这里用advisorFactory获取指定了Aspect注解的bean的切面
 								List<Advisor> classAdvisors = this.advisorFactory.getAdvisors(factory);
 								if (this.beanFactory.isSingleton(beanName)) {
-									//添加到缓存中下次不用再获取
+									// 添加到缓存中下次不用再获取
 									this.advisorsCache.put(beanName, classAdvisors);
 								}
 								else {
-									//非单例bean不保存切面缓存，只保存工厂，下次获取时使用工厂重新获取
+									// 非单例bean不保存切面缓存，只保存工厂，下次获取时使用工厂重新获取
 									this.aspectFactoryCache.put(beanName, factory);
 								}
 								advisors.addAll(classAdvisors);
@@ -149,6 +150,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 			return Collections.emptyList();
 		}
 		List<Advisor> advisors = new LinkedList<>();
+		// 从缓存中获取所有Advisor
 		for (String aspectName : aspectNames) {
 			List<Advisor> cachedAdvisors = this.advisorsCache.get(aspectName);
 			if (cachedAdvisors != null) {

@@ -243,6 +243,7 @@ public abstract class AopUtils {
 		}
 		classes.addAll(ClassUtils.getAllInterfacesForClassAsSet(targetClass));
 
+		// 遍历bean的类即其实现的接口，再遍历类的方法，判断是否存在能够匹配当前Pointcut的方法
 		for (Class<?> clazz : classes) {
 			Method[] methods = ReflectionUtils.getAllDeclaredMethods(clazz);
 			for (Method method : methods) {
@@ -307,12 +308,14 @@ public abstract class AopUtils {
 		}
 		List<Advisor> eligibleAdvisors = new LinkedList<>();
 		for (Advisor candidate : candidateAdvisors) {
+			// 如果是IntroductionAdvisor类型的则调用getClassFilter方法直接通过类进行过滤
 			if (candidate instanceof IntroductionAdvisor && canApply(candidate, clazz)) {
 				eligibleAdvisors.add(candidate);
 			}
 		}
 		boolean hasIntroductions = !eligibleAdvisors.isEmpty();
 		for (Advisor candidate : candidateAdvisors) {
+			// IntroductionAdvisor类型已经处理过了
 			if (candidate instanceof IntroductionAdvisor) {
 				// already processed
 				continue;

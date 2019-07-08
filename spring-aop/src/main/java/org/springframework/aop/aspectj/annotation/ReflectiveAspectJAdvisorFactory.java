@@ -102,22 +102,34 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 	@Override
 	public List<Advisor> getAdvisors(MetadataAwareAspectInstanceFactory aspectInstanceFactory) {
-		//返回bean的类型
+		// 返回bean的类型
 		Class<?> aspectClass = aspectInstanceFactory.getAspectMetadata().getAspectClass();
-		//返回beanName
+		// 返回beanName
 		String aspectName = aspectInstanceFactory.getAspectMetadata().getAspectName();
 		validate(aspectClass);
 
 		// We need to wrap the MetadataAwareAspectInstanceFactory with a decorator
 		// so that it will only instantiate once.
-		//LazySingletonAspectInstanceFactoryDecorator代理了对象的获取，缓存获取到的对象以保证对象只被初始化一次
+		// LazySingletonAspectInstanceFactoryDecorator代理了对象的获取，缓存获取到的对象以保证对象只被初始化一次
 		MetadataAwareAspectInstanceFactory lazySingletonAspectInstanceFactory =
 				new LazySingletonAspectInstanceFactoryDecorator(aspectInstanceFactory);
 
 		List<Advisor> advisors = new LinkedList<>();
-		//获取除了含有Pointcut注解外的其他方法，排序后返回
+		/* getAdvisorMethods获取除了含有Pointcut注解外的其他方法，排序后返回，之所以排除Pointcut注解是因为Pointcut注解的作用是定义Pointcut的表达式，如：
+
+		@Pointcut("execution(* *.sleep())")
+    	public void sleepPoint(){}
+
+    	其他方法只需要在注解中指向sleepPoint方法即可，如
+    	@Before("sleepPoint()")
+    	public void beforeSleep(){
+    	    System.out.println("睡觉前要脱衣服!");
+    	}
+
+    	即可定义一个完整的Pointcut
+		 */
 		for (Method method : getAdvisorMethods(aspectClass)) {
-			//创建当前方法的切面
+			// 创建当前方法的切面
 			Advisor advisor = getAdvisor(method, lazySingletonAspectInstanceFactory, advisors.size(), aspectName);
 			if (advisor != null) {
 				advisors.add(advisor);
@@ -132,7 +144,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 		// Find introduction fields.
 		/*
-		获取属性上的DeclareParent注解，DeclareParent注解的作用是为某些带新增实现的接口，如
+		获取属性上的DeclareParent注解，DeclareParent注解的作用是为某些类新增实现的接口，如
 		@DeclareParents(value = "com.lzj.spring.annotation.Person+", defaultImpl = FemaleAnimal.class)
     	public Animal animal;
 
@@ -192,15 +204,15 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 		validate(aspectInstanceFactory.getAspectMetadata().getAspectClass());
 
-		//创建AspectJExpressionPointcut并设置candidateAdviceMethod上的AspectJ注解的value到AspectJExpressionPointcut，如
-		//@Before("test()")的test()
+		// 创建AspectJExpressionPointcut并设置传入的candidateAdviceMethod方法上的AspectJ注解的value到AspectJExpressionPointcut，如
+		// @Before("test()")的test()
 		AspectJExpressionPointcut expressionPointcut = getPointcut(
 				candidateAdviceMethod, aspectInstanceFactory.getAspectMetadata().getAspectClass());
 		if (expressionPointcut == null) {
 			return null;
 		}
 
-		//InstantiationModelAwarePointcutAdvisorImpl在构造函数中初始化了Advice(增强、通知)
+		// 这里传入了上面创建的expressionPointcut，InstantiationModelAwarePointcutAdvisorImpl还在构造函数中初始化了Advice(增强、通知)
 		return new InstantiationModelAwarePointcutAdvisorImpl(expressionPointcut, candidateAdviceMethod,
 				this, aspectInstanceFactory, declarationOrderInAspect, aspectName);
 	}

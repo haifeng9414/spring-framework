@@ -164,7 +164,7 @@ class InstantiationModelAwarePointcutAdvisorImpl
 
 
 	private Advice instantiateAdvice(AspectJExpressionPointcut pointcut) {
-		//根据方法上的注解创建不同类型的增强，如Before对应AspectJMethodBeforeAdvice
+		// 根据方法上的注解创建不同类型的增强，如Before对应AspectJMethodBeforeAdvice
 		Advice advice = this.aspectJAdvisorFactory.getAdvice(this.aspectJAdviceMethod, pointcut,
 				this.aspectInstanceFactory, this.declarationOrder, this.aspectName);
 		return (advice != null ? advice : EMPTY_ADVICE);

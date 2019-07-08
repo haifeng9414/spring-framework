@@ -82,6 +82,7 @@ public abstract class AopNamespaceUtils {
 		beanDefinition.getPropertyValues().add("order", Ordered.HIGHEST_PRECEDENCE);
 		beanDefinition.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
 		registry.registerBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME, beanDefinition);
+		即手动注册一个bean到beanFactory，bean的类是传入RootBeanDefinition构造函数的cls，即AnnotationAwareAspectJAutoProxyCreator
 		 */
 		BeanDefinition beanDefinition = AopConfigUtils.registerAspectJAnnotationAutoProxyCreatorIfNecessary(
 				parserContext.getRegistry(), parserContext.extractSource(sourceElement));
@@ -110,8 +111,7 @@ public abstract class AopNamespaceUtils {
 
 	private static void registerComponentIfNecessary(@Nullable BeanDefinition beanDefinition, ParserContext parserContext) {
 		if (beanDefinition != null) {
-			//BeanComponentDefinition继承自BeanDefinitionHolder和ComponentDefinition，用于处理beanDefinition的PropertyValue中
-			//BeanDefinitionHolder、BeanDefinition或BeanReference类型的则保存到innerBeanDefinitions中
+			//BeanComponentDefinition继承自BeanDefinitionHolder和ComponentDefinition，这里调用registerComponent发起BeanDefinition的注册事件
 			BeanComponentDefinition componentDefinition =
 					new BeanComponentDefinition(beanDefinition, AopConfigUtils.AUTO_PROXY_CREATOR_BEAN_NAME);
 			parserContext.registerComponent(componentDefinition);
