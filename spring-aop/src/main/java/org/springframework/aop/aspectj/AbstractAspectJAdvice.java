@@ -77,6 +77,9 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 	 * Spring AOP invocation.
 	 */
 	public static JoinPoint currentJoinPoint() {
+		// 获取当前的MethodInvocation，实际上就是JdkDynamicAopProxy在invoke方法中创建的ReflectiveMethodInvocation，AspectJAwareAdvisorAutoProxyCreator在
+		// extendAdvisors方法中将ExposeInvocationInterceptor添加到了bean的advisor列表的首位，使得可以通过ExposeInvocationInterceptor.currentInvocation()获取
+		// 当前的MethodInvocation
 		MethodInvocation mi = ExposeInvocationInterceptor.currentInvocation();
 		if (!(mi instanceof ProxyMethodInvocation)) {
 			throw new IllegalStateException("MethodInvocation is not a Spring ProxyMethodInvocation: " + mi);
@@ -84,23 +87,30 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 		ProxyMethodInvocation pmi = (ProxyMethodInvocation) mi;
 		JoinPoint jp = (JoinPoint) pmi.getUserAttribute(JOIN_POINT_KEY);
 		if (jp == null) {
+			// MethodInvocationProceedingJoinPoint可以理解为封装了ProxyMethodInvocation，能够执行ProxyMethodInvocation对应的advice，即
+			// 执行MethodInvocationProceedingJoinPoint的proceed方法就是执行AOP中插入的代码
 			jp = new MethodInvocationProceedingJoinPoint(pmi);
 			pmi.setUserAttribute(JOIN_POINT_KEY, jp);
 		}
 		return jp;
 	}
 
-
+	// 保存定义advice对应的方法的类
 	private final Class<?> declaringClass;
 
+	// 保存advice对应的方法名
 	private final String methodName;
 
+	// 保存advice对应的方法名
 	private final Class<?>[] parameterTypes;
 
+	// 保存advice对应的方法
 	protected transient Method aspectJAdviceMethod;
 
+	// AspectJ表达式的实现，如execution(* *.sleep())
 	private final AspectJExpressionPointcut pointcut;
 
+	// AspectInstanceFactory的getAspectInstance方法能够返回bean
 	private final AspectInstanceFactory aspectInstanceFactory;
 
 	/**
@@ -379,12 +389,15 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 	 */
 	public final synchronized void calculateArgumentBindings() {
 		// The simple case... nothing to bind.
+		// 如果advice的方法参数为空，直接返回
 		if (this.argumentsIntrospected || this.parameterTypes.length == 0) {
 			return;
 		}
 
 		int numUnboundArgs = this.parameterTypes.length;
 		Class<?>[] parameterTypes = this.aspectJAdviceMethod.getParameterTypes();
+		// 如果advice方法的第一个参数是JoinPoint类型的，则判断supportsProceedingJoinPoint方法是否返回true，如果为false，则报错
+		// 只有环绕通知重写了supportsProceedingJoinPoint方法返回true，其他的都默认为false，所以只有环绕通过第一个参数可以为ProceedingJoinPoint
 		if (maybeBindJoinPoint(parameterTypes[0]) || maybeBindProceedingJoinPoint(parameterTypes[0]) ||
 				maybeBindJoinPointStaticPart(parameterTypes[0])) {
 			numUnboundArgs--;
@@ -437,6 +450,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 
 	private void bindArgumentsByName(int numArgumentsExpectingToBind) {
 		if (this.argumentNames == null) {
+			// 获取advice方法的参数名
 			this.argumentNames = createParameterNameDiscoverer().getParameterNames(this.aspectJAdviceMethod);
 		}
 		if (this.argumentNames != null) {
@@ -488,6 +502,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 
 		// Check that returning and throwing were in the argument names list if
 		// specified, and find the discovered argument types.
+		// returningName和throwingName不为空则必须包含在advice的参数名列表中
 		if (this.returningName != null) {
 			if (!this.argumentBindings.containsKey(this.returningName)) {
 				throw new IllegalStateException("Returning argument name '" + this.returningName +
@@ -545,6 +560,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 			index++;
 		}
 
+		// 保存剩下的普通参数的名称和类型，下标一一对应
 		this.pointcut.setParameterNames(pointcutParameterNames);
 		this.pointcut.setParameterTypes(pointcutParameterTypes);
 	}
@@ -567,18 +583,24 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 		Object[] adviceInvocationArgs = new Object[this.parameterTypes.length];
 		int numBound = 0;
 
+		// joinPointArgumentIndex表示的是advice中JoinPoint参数的位置
 		if (this.joinPointArgumentIndex != -1) {
 			adviceInvocationArgs[this.joinPointArgumentIndex] = jp;
 			numBound++;
 		}
+		// 同上
 		else if (this.joinPointStaticPartArgumentIndex != -1) {
 			adviceInvocationArgs[this.joinPointStaticPartArgumentIndex] = jp.getStaticPart();
 			numBound++;
 		}
 
+		// argumentBindings保存了advice中参数名称和参数的位置
 		if (!CollectionUtils.isEmpty(this.argumentBindings)) {
 			// binding from pointcut match
 			if (jpMatch != null) {
+				// AspectJ支持传入被代理的方法的参数到advice中，下面的getParameterBindings获取到的就是被代理的方法的参数，这里将这些参数
+				// 传入advice中，用参数名进行匹配
+				// 例子：https://stackoverflow.com/a/16624766/6298407
 				PointcutParameter[] parameterBindings = jpMatch.getParameterBindings();
 				for (PointcutParameter parameter : parameterBindings) {
 					String name = parameter.getName();
@@ -588,12 +610,15 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 				}
 			}
 			// binding from returning clause
+			// 如果advice需要被代理方法的执行结果，则returningName保存的就是advice中接收这个返回值的参数的名称，argumentBindings
+			// 保存了所有advice的参数和参数位置的对应关系，这里将被代理方法的执行结果设置到对应位置
 			if (this.returningName != null) {
 				Integer index = this.argumentBindings.get(this.returningName);
 				adviceInvocationArgs[index] = returnValue;
 				numBound++;
 			}
 			// binding from thrown exception
+			// 同上
 			if (this.throwingName != null) {
 				Integer index = this.argumentBindings.get(this.throwingName);
 				adviceInvocationArgs[index] = ex;
@@ -634,6 +659,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 	}
 
 	protected Object invokeAdviceMethodWithGivenArgs(Object[] args) throws Throwable {
+		// args保存的是advice所需的参数
 		Object[] actualArgs = args;
 		if (this.aspectJAdviceMethod.getParameterCount() == 0) {
 			actualArgs = null;
@@ -641,6 +667,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 		try {
 			ReflectionUtils.makeAccessible(this.aspectJAdviceMethod);
 			// TODO AopUtils.invokeJoinpointUsingReflection
+			// 反射执行advice方法
 			return this.aspectJAdviceMethod.invoke(this.aspectInstanceFactory.getAspectInstance(), actualArgs);
 		}
 		catch (IllegalArgumentException ex) {
@@ -681,6 +708,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 	@Nullable
 	protected JoinPointMatch getJoinPointMatch(ProxyMethodInvocation pmi) {
 		String expression = this.pointcut.getExpression();
+		// expression这个attribute是在AspectJExpressionPointcut的matches中设置的，是AspectJ包下的类，能够获取被代理方法的参数
 		return (expression != null ? (JoinPointMatch) pmi.getUserAttribute(expression) : null);
 	}
 

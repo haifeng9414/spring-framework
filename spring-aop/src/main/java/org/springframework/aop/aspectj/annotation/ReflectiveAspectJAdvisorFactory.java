@@ -275,6 +275,18 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 				springAdvice = new AspectJAfterReturningAdvice(
 						candidateAdviceMethod, expressionPointcut, aspectInstanceFactory);
 				AfterReturning afterReturningAnnotation = (AfterReturning) aspectJAnnotation.getAnnotation();
+				/*
+				如果定义了AfterReturning注解的returning值，则表示AspectJAfterReturningAdvice在执行时需要获取被代理方法执行完成后的返回值
+				returning值表示的是被代理方法执行完成后的返回值的名称，advice可以在方法参数中声明一个名字为该值的参数，以此来访问被代理方法执行完成后的返回值，如：
+
+				@AfterReturning(pointcut="execution(* *.Student.*(..))", returning="retVal")
+   				public void afterReturningAdvice(JoinPoint jp, Object retVal){
+   				   System.out.println("[afterReturningAdvice] Method Signature: "  + jp.getSignature());
+   				   System.out.println("[afterReturningAdvice] Returning: " + retVal.toString() );
+   				}
+
+				下面将returning保存到AspectJAfterReturningAdvice中
+				 */
 				if (StringUtils.hasText(afterReturningAnnotation.returning())) {
 					springAdvice.setReturningName(afterReturningAnnotation.returning());
 				}
@@ -283,6 +295,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 				springAdvice = new AspectJAfterThrowingAdvice(
 						candidateAdviceMethod, expressionPointcut, aspectInstanceFactory);
 				AfterThrowing afterThrowingAnnotation = (AfterThrowing) aspectJAnnotation.getAnnotation();
+				// 同上
 				if (StringUtils.hasText(afterThrowingAnnotation.throwing())) {
 					springAdvice.setThrowingName(afterThrowingAnnotation.throwing());
 				}
