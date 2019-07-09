@@ -55,6 +55,7 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 		// but we need to preserve order in the ultimate list.
 		List<Object> interceptorList = new ArrayList<>(config.getAdvisors().length);
 		Class<?> actualClass = (targetClass != null ? targetClass : method.getDeclaringClass());
+		// 判断config中保存的advisor中是否有IntroductionAdvisor类型的，并且match传入的actualClass
 		boolean hasIntroductions = hasMatchingIntroductions(config, actualClass);
 		AdvisorAdapterRegistry registry = GlobalAdvisorAdapterRegistry.getInstance();
 
@@ -62,11 +63,17 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 			if (advisor instanceof PointcutAdvisor) {
 				// Add it conditionally.
 				PointcutAdvisor pointcutAdvisor = (PointcutAdvisor) advisor;
+				// 如果已经过滤过就不用再过滤了
 				if (config.isPreFiltered() || pointcutAdvisor.getPointcut().getClassFilter().matches(actualClass)) {
-					//如果advisor是MethodInterceptor类型的则直接返回，否则用AdvisorAdapter做适配
+					// 如果advisor中的advice是MethodInterceptor类型的则直接返回，否则遍历registry中的所有AdvisorAdapter，如果某个AdvisorAdapter
+					// 支持对advisor中的advice进行适配，则进行适配后返回
 					MethodInterceptor[] interceptors = registry.getInterceptors(advisor);
 					MethodMatcher mm = pointcutAdvisor.getPointcut().getMethodMatcher();
+					// 判断当前方法是否符合当前遍历的advisor的pointcut
 					if (MethodMatchers.matches(mm, method, actualClass, hasIntroductions)) {
+						// 如果是runtime的，则表示方法参数对pointcut的匹配结果有影响，则在上面的if中，MethodMatchers.matches方法即使调用了
+						// matches(Method method, @Nullable Class<?> targetClass)方法进行判断，在之后最终执行advice之前还要执行matches(Method method, @Nullable Class<?> targetClass, Object... args)
+						// 方法再次判断，这里用InterceptorAndDynamicMethodMatcher组合MethodInterceptor和MethodMatcher，待后面再次执行时使用
 						if (mm.isRuntime()) {
 							// Creating a new object instance in the getInterceptors() method
 							// isn't a problem as we normally cache created chains.
@@ -75,6 +82,7 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 							}
 						}
 						else {
+							// 如果不是runtime的则直接添加到interceptorList即可
 							interceptorList.addAll(Arrays.asList(interceptors));
 						}
 					}
@@ -82,12 +90,14 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 			}
 			else if (advisor instanceof IntroductionAdvisor) {
 				IntroductionAdvisor ia = (IntroductionAdvisor) advisor;
+				// IntroductionAdvisor只能用classFilter进行过滤
 				if (config.isPreFiltered() || ia.getClassFilter().matches(actualClass)) {
 					Interceptor[] interceptors = registry.getInterceptors(advisor);
 					interceptorList.addAll(Arrays.asList(interceptors));
 				}
 			}
 			else {
+				// 其他类型的advisor不做过滤
 				Interceptor[] interceptors = registry.getInterceptors(advisor);
 				interceptorList.addAll(Arrays.asList(interceptors));
 			}

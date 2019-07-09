@@ -86,22 +86,22 @@ public abstract class AopNamespaceUtils {
 		 */
 		BeanDefinition beanDefinition = AopConfigUtils.registerAspectJAnnotationAutoProxyCreatorIfNecessary(
 				parserContext.getRegistry(), parserContext.extractSource(sourceElement));
-		//如果设置了proxy-target-class为true就给AUTO_PROXY_CREATOR_BEAN_NAME添加一个PropertyValue，key为proxyTargetClass，value为true
-		//如果设置了expose-proxy就给AUTO_PROXY_CREATOR_BEAN_NAME添加一个PropertyValue，key为exposeProxy，value为true
+		// 如果设置了proxy-target-class为true就给AUTO_PROXY_CREATOR_BEAN_NAME添加一个PropertyValue，key为proxyTargetClass，value为true
+		// 如果设置了expose-proxy就给AUTO_PROXY_CREATOR_BEAN_NAME添加一个PropertyValue，key为exposeProxy，value为true
 		useClassProxyingIfNecessary(parserContext.getRegistry(), sourceElement);
 		registerComponentIfNecessary(beanDefinition, parserContext);
 	}
 
 	private static void useClassProxyingIfNecessary(BeanDefinitionRegistry registry, @Nullable Element sourceElement) {
 		if (sourceElement != null) {
-			//proxyTargetClass为true表示使用cglib实现代理
+			// proxyTargetClass为true表示使用cglib实现代理
 			boolean proxyTargetClass = Boolean.parseBoolean(sourceElement.getAttribute(PROXY_TARGET_CLASS_ATTRIBUTE));
 			if (proxyTargetClass) {
-				//给刚刚创建的名叫AUTO_PROXY_CREATOR_BEAN_NAME的BeanDefinition添加proxyTargetClass为true的PropertyValue
+				// 给刚刚创建的名叫AUTO_PROXY_CREATOR_BEAN_NAME的BeanDefinition添加proxyTargetClass为true的PropertyValue
 				AopConfigUtils.forceAutoProxyCreatorToUseClassProxying(registry);
 			}
-			//exposeProxy为是否暴露当前代理对象为ThreadLocal模式，如果为true则被代理类就可以在其代码中使用MyTest proxy=(MyTest) AopContext.currentProxy()获取到代理他的代理类，并以此对象代替this指针执行自身的方法
-			//避免通过this指针执行的方法不会被代理
+			// exposeProxy为是否暴露当前代理对象为ThreadLocal模式，如果为true则被代理类就可以在其代码中使用MyTest proxy=(MyTest) AopContext.currentProxy()获取到代理他的代理类，并以此对象代替this指针执行自身的方法
+			// 避免通过this指针执行的方法不会被代理
 			boolean exposeProxy = Boolean.parseBoolean(sourceElement.getAttribute(EXPOSE_PROXY_ATTRIBUTE));
 			if (exposeProxy) {
 				AopConfigUtils.forceAutoProxyCreatorToExposeProxy(registry);
@@ -111,7 +111,7 @@ public abstract class AopNamespaceUtils {
 
 	private static void registerComponentIfNecessary(@Nullable BeanDefinition beanDefinition, ParserContext parserContext) {
 		if (beanDefinition != null) {
-			//BeanComponentDefinition继承自BeanDefinitionHolder和ComponentDefinition，这里调用registerComponent发起BeanDefinition的注册事件
+			// BeanComponentDefinition继承自BeanDefinitionHolder和ComponentDefinition，这里调用registerComponent发起BeanDefinition的注册事件
 			BeanComponentDefinition componentDefinition =
 					new BeanComponentDefinition(beanDefinition, AopConfigUtils.AUTO_PROXY_CREATOR_BEAN_NAME);
 			parserContext.registerComponent(componentDefinition);

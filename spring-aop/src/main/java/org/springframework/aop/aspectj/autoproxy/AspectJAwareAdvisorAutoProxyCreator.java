@@ -43,7 +43,6 @@ import org.springframework.util.ClassUtils;
  * @author Ramnivas Laddad
  * @since 2.0
  */
-//实现了Advisor即切面的排序
 @SuppressWarnings("serial")
 public class AspectJAwareAdvisorAutoProxyCreator extends AbstractAdvisorAutoProxyCreator {
 
@@ -73,9 +72,9 @@ public class AspectJAwareAdvisorAutoProxyCreator extends AbstractAdvisorAutoProx
 			partiallyComparableAdvisors.add(
 					new PartiallyComparableAdvisorHolder(element, DEFAULT_PRECEDENCE_COMPARATOR));
 		}
-		//用DEFAULT_PRECEDENCE_COMPARATOR对partiallyComparableAdvisors进行排序，也就是对传入的advisors进行排序
+		// 用DEFAULT_PRECEDENCE_COMPARATOR对partiallyComparableAdvisors进行排序，也就是对传入的advisors进行排序
 		List<PartiallyComparableAdvisorHolder> sorted = PartialOrder.sort(partiallyComparableAdvisors);
-		//如果partiallyComparableAdvisors的大小存在循环，即A>B, B>C, C>A，则PartialOrder.sort返回null，此时交给父类排序
+		// 如果partiallyComparableAdvisors的大小存在循环，即A>B, B>C, C>A，则PartialOrder.sort返回null，此时交给父类排序
 		if (sorted != null) {
 			List<Advisor> result = new ArrayList<>(advisors.size());
 			for (PartiallyComparableAdvisorHolder pcAdvisor : sorted) {
@@ -95,7 +94,7 @@ public class AspectJAwareAdvisorAutoProxyCreator extends AbstractAdvisorAutoProx
 	 */
 	@Override
 	protected void extendAdvisors(List<Advisor> candidateAdvisors) {
-		//如果candidateAdvisors包含AspectJ的增强则添加ExposeInvocationInterceptor到增强链的首位，目的是暴露执行方法调用时的MethodInvocation便于全局访问
+		// 如果candidateAdvisors包含AspectJ的增强则添加ExposeInvocationInterceptor到增强链的首位，目的是暴露执行方法调用时的MethodInvocation便于全局访问
 		AspectJProxyUtils.makeAdvisorChainAspectJCapableIfNecessary(candidateAdvisors);
 	}
 

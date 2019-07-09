@@ -28,19 +28,21 @@ import org.springframework.util.Assert;
  * @author Juergen Hoeller
  * @see AdvisedSupport
  */
-//创建bean代理类的类的父类，维护了拥有创建代理类功能的类的属性，确保代理的creator拥有一致的配置属性
+// 创建bean代理类的类的父类，维护了拥有创建代理类功能的类的属性，确保代理的creator拥有一致的配置属性
 public class ProxyConfig implements Serializable {
 
 	/** use serialVersionUID from Spring 1.2 for interoperability */
 	private static final long serialVersionUID = -8409359707199703185L;
 
-
+    // 为true表示使用cglib实现代理，否则使用JDK动态代理
 	private boolean proxyTargetClass = false;
 
 	private boolean optimize = false;
 
+	// 代理对象是否可以强转为Advised类型，Advised类可以获取一些代理的信息
 	boolean opaque = false;
 
+	// 如果为true则被代理类就可以在其代码中使用MyTest proxy=(MyTest) AopContext.currentProxy()获取到代理他的代理类，并以此对象代替this指针执行自身的方法
 	boolean exposeProxy = false;
 
 	private boolean frozen = false;

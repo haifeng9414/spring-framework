@@ -90,7 +90,7 @@ import org.springframework.util.StringUtils;
  * @see BeanNameAutoProxyCreator
  * @see DefaultAdvisorAutoProxyCreator
  */
-//实现了基本的创建bean代理的逻辑，获取切面的过程由子类实现，这里在获取到切面后利用BeanPostProcessor拦截bean的创建，调用createProxy方法创建bean的代理并返回
+// 实现了基本的创建bean代理的逻辑，获取切面的过程由子类实现，这里在获取到切面后利用BeanPostProcessor拦截bean的创建，调用createProxy方法创建bean的代理并返回
 @SuppressWarnings("serial")
 public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		implements SmartInstantiationAwareBeanPostProcessor, BeanFactoryAware {
@@ -114,6 +114,8 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	/** Default is global AdvisorAdapterRegistry */
+	// advisorAdapterRegistry可将advice封装成advisor，也可从advisor中获取MethodInterceptor，MethodInterceptor能够拦截指定方法的调用
+	// AdvisorAdapterRegistry还可注册AdvisorAdapter，AdvisorAdapter用于将特定的advice转换为MethodInterceptor
 	private AdvisorAdapterRegistry advisorAdapterRegistry = GlobalAdvisorAdapterRegistry.getInstance();
 
 	/**
@@ -139,6 +141,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	private final Map<Object, Class<?>> proxyTypes = new ConcurrentHashMap<>(16);
 
+	// key为bean，value为true表示该bean已创建代理，false表示不需要创建代理
 	private final Map<Object, Boolean> advisedBeans = new ConcurrentHashMap<>(256);
 
 
@@ -221,6 +224,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	@Override
 	@Nullable
+	// 预测bean最终返回时的类型
 	public Class<?> predictBeanType(Class<?> beanClass, String beanName) {
 		if (this.proxyTypes.isEmpty()) {
 			return null;
@@ -231,11 +235,13 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	@Override
 	@Nullable
+	// 由于将为bean创建代理，所以没必要决定可用的构造函数
 	public Constructor<?>[] determineCandidateConstructors(Class<?> beanClass, String beanName) throws BeansException {
 		return null;
 	}
 
 	@Override
+	// bean从BeanFactory最终返回前被调用
 	public Object getEarlyBeanReference(Object bean, String beanName) throws BeansException {
 		Object cacheKey = getCacheKey(bean.getClass(), beanName);
 		if (!this.earlyProxyReferences.contains(cacheKey)) {
@@ -244,15 +250,17 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		return wrapIfNecessary(bean, beanName, cacheKey);
 	}
 
-	// 在bean被实例化前调用，每次获取bean实例化之前检查是否存在该bean的TargetSource，如果存在则用TargetSource取代bean并创建代理返回
+	// 在bean被实例化前调用，这里每次获取bean实例化之前检查是否存在该bean的TargetSource，如果存在则用TargetSource取代bean并创建代理返回
 	@Override
 	public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) throws BeansException {
 		Object cacheKey = getCacheKey(beanClass, beanName);
 
 		if (!StringUtils.hasLength(beanName) || !this.targetSourcedBeans.contains(beanName)) {
+			// 如果已经存在代理则没必要再执行下面的判断了，因为已存在代理表示bean已经被创建，该方法已经执行过了
 			if (this.advisedBeans.containsKey(cacheKey)) {
 				return null;
 			}
+			// 如果是基础设施bean或者不应该被代理，则保存到advisedBeans中，并标记成不需要代理
 			if (isInfrastructureClass(beanClass) || shouldSkip(beanClass, beanName)) {
 				this.advisedBeans.put(cacheKey, Boolean.FALSE);
 				return null;
@@ -306,8 +314,8 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	public Object postProcessAfterInitialization(@Nullable Object bean, String beanName) throws BeansException {
 		if (bean != null) {
 			Object cacheKey = getCacheKey(bean.getClass(), beanName);
-			//getEarlyBeanReference方法会将bean的cacheKey添加到earlyProxyReferences中，防止对同一个bean多次调用wrapIfNecessary方法
 			if (!this.earlyProxyReferences.contains(cacheKey)) {
+				// 创建代理
 				return wrapIfNecessary(bean, beanName, cacheKey);
 			}
 		}
@@ -346,28 +354,29 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	 */
 	// 如果是需要代理的bean则创建代理，否则直接返回bean
 	protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) {
-		//如果创建过bean的targetSource则直接返回，因为该bean已经被代理过了
+		// 如果创建过bean的targetSource则直接返回，因为该bean已经被代理过了
 		if (StringUtils.hasLength(beanName) && this.targetSourcedBeans.contains(beanName)) {
 			return bean;
 		}
-		//如果之前已经判断过该bean不需要代理则直接返回
+		// 如果之前已经判断过该bean不需要代理则直接返回
 		if (Boolean.FALSE.equals(this.advisedBeans.get(cacheKey))) {
 			return bean;
 		}
-		//基础设施bean不进行代理
+		// 基础设施bean不进行代理
 		if (isInfrastructureClass(bean.getClass()) || shouldSkip(bean.getClass(), beanName)) {
 			this.advisedBeans.put(cacheKey, Boolean.FALSE);
 			return bean;
 		}
 
 		// Create proxy if we have advice.
-		// 获取增强和切面
+		// 获取bean的切面，供子类实现
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
 		// 如果发现了适合当前bean的切面则创建代理
 		if (specificInterceptors != DO_NOT_PROXY) {
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
 			Object proxy = createProxy(
 					bean.getClass(), beanName, specificInterceptors, new SingletonTargetSource(bean));
+			// 添加代理到缓存
 			this.proxyTypes.put(cacheKey, proxy.getClass());
 			return proxy;
 		}
@@ -462,11 +471,12 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			AutoProxyUtils.exposeTargetClass((ConfigurableListableBeanFactory) this.beanFactory, beanName, beanClass);
 		}
 
+		// ProxyFactory用于创建代理
 		ProxyFactory proxyFactory = new ProxyFactory();
 		proxyFactory.copyFrom(this);
 
 		// 如果没有设置proxyTargetClass属性为true的话则判断当前bean的BeanDefinition是否设置了preserveTargetClass属性为true，如果是则仍然使用cglib
-		// 如果没有设置则使用evaluateProxyInterfaces方法判断当前bean是否支持JDK动态代理(实现了除了Spring的回调接口外的其他接口)，如果没有可代理的接口则使用cglib
+		// 如果没有设置则使用evaluateProxyInterfaces方法判断当前bean是否支持JDK动态代理(实现了除了Spring的回调接口外的其他接口)，如果有则将这些接口添加到proxyFactory中，如果没有可代理的接口则使用cglib
 		if (!proxyFactory.isProxyTargetClass()) {
 			if (shouldProxyTargetClass(beanClass, beanName)) {
 				proxyFactory.setProxyTargetClass(true);
@@ -479,13 +489,16 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 		proxyFactory.addAdvisors(advisors);
 		proxyFactory.setTargetSource(targetSource);
+		// 空方法，供子类实现
 		customizeProxyFactory(proxyFactory);
 
 		proxyFactory.setFrozen(this.freezeProxy);
+		// 如果advisor已经都是过滤后的则设置preFiltered为true标记一下
 		if (advisorsPreFiltered()) {
 			proxyFactory.setPreFiltered(true);
 		}
 
+		// 通过proxyFactory创建代理返回
 		return proxyFactory.getProxy(getProxyClassLoader());
 	}
 
@@ -528,7 +541,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	protected Advisor[] buildAdvisors(@Nullable String beanName, @Nullable Object[] specificInterceptors) {
 		// Handle prototypes correctly...
 		// 获取interceptorNames对应的多个beanName并从beanFactory获取这些beanName对应的bean，转换为Advisor，默认为空数组，相当于
-		// 可以通过interceptorNames属性为所有的将被代理的bean添加代理
+		// 可以通过interceptorNames属性为所有的将被代理的bean添加切面
 		Advisor[] commonInterceptors = resolveInterceptorNames();
 
 		List<Object> allInterceptors = new ArrayList<>();
@@ -553,7 +566,8 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 		Advisor[] advisors = new Advisor[allInterceptors.size()];
 		for (int i = 0; i < allInterceptors.size(); i++) {
-			//遍历allInterceptors，如果是Advisor类型的直接返回，如果是Advice则用DefaultPointcutAdvisor封装成Advisor
+			// 遍历allInterceptors，如果是Advisor类型的直接返回，如果是Advice则用DefaultPointcutAdvisor封装成Advisor，DefaultPointcutAdvisor中的
+			// Pointcut对于所有的连接点都判定为需要执行advice
 			advisors[i] = this.advisorAdapterRegistry.wrap(allInterceptors.get(i));
 		}
 		return advisors;

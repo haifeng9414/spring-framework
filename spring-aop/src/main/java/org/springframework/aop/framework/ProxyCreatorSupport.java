@@ -32,8 +32,11 @@ import org.springframework.util.Assert;
 @SuppressWarnings("serial")
 public class ProxyCreatorSupport extends AdvisedSupport {
 
+	// AopProxyFactory用于创建AopProxy，一共有两个AopProxy的实现，ObjenesisCglibAopProxy - cglib，JdkDynamicAopProxy - JDK动态代理
+	// AopProxyFactory根据AdvisedSupport中的配置返回不同的AopProxy，默认实现为DefaultAopProxyFactory
 	private AopProxyFactory aopProxyFactory;
 
+	// 代理创建和执行期间的事件监听器
 	private List<AdvisedSupportListener> listeners = new LinkedList<>();
 
 	/** Set to true when the first AOP proxy has been created */
@@ -102,8 +105,8 @@ public class ProxyCreatorSupport extends AdvisedSupport {
 		if (!this.active) {
 			activate();
 		}
-		//AopProxyFactory默认是DefaultAopProxyFactory
-		//createAopProxy方法根据配置返回JdkDynamicAopProxy或ObjenesisCglibAopProxy
+		// AopProxyFactory默认是DefaultAopProxyFactory
+		// createAopProxy方法根据配置返回JdkDynamicAopProxy或ObjenesisCglibAopProxy
 		return getAopProxyFactory().createAopProxy(this);
 	}
 

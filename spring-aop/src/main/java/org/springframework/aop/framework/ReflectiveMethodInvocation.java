@@ -159,35 +159,38 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 	@Nullable
 	public Object proceed() throws Throwable {
 		//	We start with an index of -1 and increment early.
-		//如果所有的拦截器都已经被调用了(无论是before还是after)，则进行被代理方法自身的执行
+		// 如果所有的拦截器都已经被调用了(无论是before还是after)，则进行被代理方法自身的执行
 		if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
 			return invokeJoinpoint();
 		}
 
 		Object interceptorOrInterceptionAdvice =
 				this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
-		//遍历拦截器并调用，这里判断当前拦截器是否是动态拦截器，如果是则在下面判断是否匹配当前方法
+		// 遍历拦截器并调用，这里判断当前拦截器是否是动态拦截器，如果是则在下面判断是否匹配当前方法
 		if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
 			// Evaluate dynamic method matcher here: static part will already have
 			// been evaluated and found to match.
 			InterceptorAndDynamicMethodMatcher dm =
 					(InterceptorAndDynamicMethodMatcher) interceptorOrInterceptionAdvice;
+			// DefaultAdvisorChainFactory在从advisor中创建Interceptor时，对于动态MethodMatcher，用InterceptorAndDynamicMethodMatcher封装了MethodInterceptor
+			// 和MethodMatcher，表示需要在最终调用前传入调用参数并再次判断是否匹配MethodMatcher
 			if (dm.methodMatcher.matches(this.method, this.targetClass, this.arguments)) {
-				//注意proceed方法所有的invoke调用传入的代理都是this，所以在拦截器执行MethodInvocation.proceed方法是实际上调用的还是这里的proceed方法，
-				//对于before的拦截器，调用完拦截器自身的逻辑后调用proceed方法即可回到该方法继续执行后面的拦截器，而after则是先执行proceed再调用自身的逻辑。
-				//即递归调用，这样当proceed递归到最后执行上面invokeJoinpoint方法后，所有的after就会依次被执行了
+				// proceed方法所有的invoke调用传入的代理都是this，所以在拦截器执行MethodInvocation.proceed方法是实际上调用的还是这里的proceed方法，
+				// 对于before的拦截器，调用完拦截器自身的逻辑后调用proceed方法即可回到该方法继续执行后面的拦截器，而after则是先执行proceed再调用自身的逻辑。
+				// 即递归调用，这样当proceed递归到最后执行上面invokeJoinpoint方法后，所有的after就会依次被执行了
 				return dm.interceptor.invoke(this);
 			}
 			else {
 				// Dynamic matching failed.
 				// Skip this interceptor and invoke the next in the chain.
-				//如果动态拦截器匹配失败则跳过该拦截器
+				// 如果动态拦截器匹配失败则跳过该拦截器
 				return proceed();
 			}
 		}
 		else {
 			// It's an interceptor, so we just invoke it: The pointcut will have
 			// been evaluated statically before this object was constructed.
+			// 如果不是InterceptorAndDynamicMethodMatcher类型的，则直接调用即可
 			return ((MethodInterceptor) interceptorOrInterceptionAdvice).invoke(this);
 		}
 	}

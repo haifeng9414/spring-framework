@@ -101,18 +101,20 @@ public class ProxyProcessorSupport extends ProxyConfig implements Ordered, BeanC
 	 * @param beanClass the class of the bean
 	 * @param proxyFactory the ProxyFactory for the bean
 	 */
+	// 过滤bean的接口中不应该被用于JDK动态代理中使用的部分，并将剩下的添加到ProxyFactory，如果没有可用于动态代理的接口，则设置ProxyFactory的
+	// proxyTargetClass为true，表示使用cglib
 	protected void evaluateProxyInterfaces(Class<?> beanClass, ProxyFactory proxyFactory) {
 		Class<?>[] targetInterfaces = ClassUtils.getAllInterfacesForClass(beanClass, getProxyClassLoader());
 		boolean hasReasonableProxyInterface = false;
 		for (Class<?> ifc : targetInterfaces) {
-			//过滤掉回调接口如InitializingBean、Closeable和没有方法的接口
+			// 过滤掉回调接口如InitializingBean、Closeable和没有方法的接口
 			if (!isConfigurationCallbackInterface(ifc) && !isInternalLanguageInterface(ifc) &&
 					ifc.getMethods().length > 0) {
 				hasReasonableProxyInterface = true;
 				break;
 			}
 		}
-		//如果存在可以被代理的接口则把所有的接口添加到ProxyFactory中，否则设置ProxyTargetClass为true表示使用cglib
+		// 如果存在可以被代理的接口则把所有的接口添加到ProxyFactory中，否则设置ProxyTargetClass为true表示使用cglib
 		if (hasReasonableProxyInterface) {
 			// Must allow for introductions; can't just set interfaces to the target's interfaces only.
 			for (Class<?> ifc : targetInterfaces) {

@@ -79,7 +79,7 @@ public class AnnotationAwareAspectJAutoProxyCreator extends AspectJAwareAdvisorA
 	protected void initBeanFactory(ConfigurableListableBeanFactory beanFactory) {
 		super.initBeanFactory(beanFactory);
 		if (this.aspectJAdvisorFactory == null) {
-			//aspectJAdvisorFactory能够获取切面、切点和增强
+			// aspectJAdvisorFactory能够获取切面、切点和增强
 			this.aspectJAdvisorFactory = new ReflectiveAspectJAdvisorFactory(beanFactory);
 		}
 		this.aspectJAdvisorsBuilder =

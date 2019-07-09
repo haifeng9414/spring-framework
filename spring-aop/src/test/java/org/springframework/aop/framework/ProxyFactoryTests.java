@@ -38,6 +38,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.tests.TimeStamped;
 import org.springframework.tests.aop.advice.CountingBeforeAdvice;
 import org.springframework.tests.aop.interceptor.NopInterceptor;
+import org.springframework.tests.sample.beans.AgeHolder;
 import org.springframework.tests.sample.beans.IOther;
 import org.springframework.tests.sample.beans.ITestBean;
 import org.springframework.tests.sample.beans.TestBean;

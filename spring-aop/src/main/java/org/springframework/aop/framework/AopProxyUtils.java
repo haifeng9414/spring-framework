@@ -83,6 +83,7 @@ public abstract class AopProxyUtils {
 			current = getSingletonTarget(current);
 		}
 		if (result == null) {
+			// 如果是cglib，则父类就是被代理类
 			result = (AopUtils.isCglibProxy(candidate) ? candidate.getClass().getSuperclass() : candidate.getClass());
 		}
 		return result;
@@ -116,6 +117,7 @@ public abstract class AopProxyUtils {
 	 * @see DecoratingProxy
 	 */
 	static Class<?>[] completeProxiedInterfaces(AdvisedSupport advised, boolean decoratingProxy) {
+		// 获取需要代理的接口
 		Class<?>[] specifiedInterfaces = advised.getProxiedInterfaces();
 		if (specifiedInterfaces.length == 0) {
 			// No user-specified interfaces: check whether target class is an interface.
@@ -130,8 +132,13 @@ public abstract class AopProxyUtils {
 				specifiedInterfaces = advised.getProxiedInterfaces();
 			}
 		}
+		// 如果需要代理的接口中没有SpringProxy，则标记需要添加SpringProxy接口到代理接口列表，SpringProxy接口是个标记接口，用于标记
+		// 当前的代理是Spring创建的
 		boolean addSpringProxy = !advised.isInterfaceProxied(SpringProxy.class);
+		// opaque表示是否应该暴露代理的配置，Advised接口定义了访问代理配置的方法，如果opaque为true并且Advised接口不在代理接口列表中，则
+		// 将Advised添加到代理接口列表中
 		boolean addAdvised = !advised.isOpaque() && !advised.isInterfaceProxied(Advised.class);
+		// 同上处理，DecoratingProxy接口只有一个getDecoratedClass方法，能够返回被代理的类
 		boolean addDecoratingProxy = (decoratingProxy && !advised.isInterfaceProxied(DecoratingProxy.class));
 		int nonUserIfcCount = 0;
 		if (addSpringProxy) {

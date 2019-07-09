@@ -67,9 +67,9 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 							AbstractAspectJAdvisorFactory.findAspectJAnnotationOnMethod(method);
 					return (annotation != null ? annotation.getAnnotation() : null);
 				});
-		//按名称排序
+		// 按名称排序
 		Comparator<Method> methodNameComparator = new ConvertingComparator<>(Method::getName);
-		//先按注解顺序排序再按名称排序
+		// 先按注解顺序排序再按名称排序
 		METHOD_COMPARATOR = adviceKindComparator.thenComparing(methodNameComparator);
 	}
 
@@ -123,9 +123,8 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
     	其他方法只需要在注解中指向sleepPoint方法即可，如
     	@Before("sleepPoint()")
     	public void beforeSleep(){
-    	    System.out.println("睡觉前要脱衣服!");
+    	    System.out.println("test");
     	}
-
     	即可定义一个完整的Pointcut
 		 */
 		for (Method method : getAdvisorMethods(aspectClass)) {
@@ -212,7 +211,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 			return null;
 		}
 
-		// 这里传入了上面创建的expressionPointcut，InstantiationModelAwarePointcutAdvisorImpl还在构造函数中初始化了Advice(增强、通知)
+		// InstantiationModelAwarePointcutAdvisorImpl会在构造函数中调用当前类的getAdvice方法初始化Advice
 		return new InstantiationModelAwarePointcutAdvisorImpl(expressionPointcut, candidateAdviceMethod,
 				this, aspectInstanceFactory, declarationOrderInAspect, aspectName);
 	}

@@ -243,7 +243,7 @@ public abstract class AopUtils {
 		}
 		classes.addAll(ClassUtils.getAllInterfacesForClassAsSet(targetClass));
 
-		// 遍历bean的类即其实现的接口，再遍历类的方法，判断是否存在能够匹配当前Pointcut的方法
+		// 遍历bean实现的接口，再遍历接口的方法，判断是否存在能够匹配当前Pointcut的方法
 		for (Class<?> clazz : classes) {
 			Method[] methods = ReflectionUtils.getAllDeclaredMethods(clazz);
 			for (Method method : methods) {
