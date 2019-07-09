@@ -1,7 +1,7 @@
 ## 如何实现AOP
 学习AOP之前需要先理解Spring AOP中涉及到的概念：
 - Aspect（切面）：对哪些方法进行拦截，拦截后怎么处理，这些关注点称之为横切关注点，类是对物体特征的抽象，切面就是对横切关注点的抽象
-- Advisor：Advice和Pointcut组成的独立的单元，可以认为是v切面的具体实现
+- Advisor：Advice和Pointcut组成的独立的单元，可以认为是具体的切面
 - Joint point（连接点）：表示在程序中明确定义的点，典型的包括方法调用，对类成员的访问以及异常处理程序块的执行等等，是个单纯的定义，如所有的方法调用都是Joint point
 - Pointcut（切点）：用于描述Joint point，如通过逻辑关系组合，或是通过通配、正则表达式等方式组合一组Joint point，也就是对Advice将要作用的Joint point进行筛选的条件
 - Advice（增强）：Advice定义了在通过Pointcut筛选后的Joint point上具体要做的操作，它通过before、after和around来区别是在每个Joint point之前、之后还是代替执行的代码
@@ -3109,7 +3109,7 @@ public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedence
 }
 ```
 
-再看一个比较复杂的@Around注解的环绕通知的实现，实现类是[AspectJAroundAdvice]，代码：
+再看一个@Around注解的环绕通知的实现，实现类是[AspectJAroundAdvice]，代码：
 ```java
 @SuppressWarnings("serial")
 public class AspectJAroundAdvice extends AbstractAspectJAdvice implements MethodInterceptor, Serializable {
@@ -3133,6 +3133,7 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 
 	@Override
 	protected boolean supportsProceedingJoinPoint() {
+		// 表示advice方法的第一个参数可以是ProceedingJoinPoint类型的
 		return true;
 	}
 
@@ -3141,9 +3142,15 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 		if (!(mi instanceof ProxyMethodInvocation)) {
 			throw new IllegalStateException("MethodInvocation is not a Spring ProxyMethodInvocation: " + mi);
 		}
+		// 传入的ProxyMethodInvocation实际上就是ReflectiveMethodInvocation
 		ProxyMethodInvocation pmi = (ProxyMethodInvocation) mi;
+		// lazyGetProceedingJoinPoint返回MethodInvocationProceedingJoinPoint实例，调用MethodInvocationProceedingJoinPoint的proceed方法
+		// 实际上就是执行ReflectiveMethodInvocation的proceed方法
 		ProceedingJoinPoint pjp = lazyGetProceedingJoinPoint(pmi);
 		JoinPointMatch jpm = getJoinPointMatch(pmi);
+		// 从AbstractAspectJAdvice的argBinding方法可知，pjp将会作为advice的第一个参数被传入，通过pjp，被@Around注解的环绕通知可以自己执行
+		// 被代理方法（更正确说是执行ReflectiveMethodInvocation的proceed方法），其他类型的AbstractAspectJAdvice实现类传入的第一个参数只能是
+		// JoinPoint类型的，无法自己执行被代理方法
 		return invokeAdviceMethod(pjp, jpm, null, null);
 	}
 
@@ -3154,6 +3161,7 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 }
 ```
 
+以上是Spring AOP的实现
 
 [BeanFactory]: aaa
 [NamespaceHandlerSupport]: aaa

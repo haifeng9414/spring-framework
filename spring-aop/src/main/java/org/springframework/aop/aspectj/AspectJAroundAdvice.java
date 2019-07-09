@@ -56,6 +56,7 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 
 	@Override
 	protected boolean supportsProceedingJoinPoint() {
+		// 表示advice方法的第一个参数可以是ProceedingJoinPoint类型的
 		return true;
 	}
 
@@ -64,9 +65,15 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 		if (!(mi instanceof ProxyMethodInvocation)) {
 			throw new IllegalStateException("MethodInvocation is not a Spring ProxyMethodInvocation: " + mi);
 		}
+		// 传入的ProxyMethodInvocation实际上就是ReflectiveMethodInvocation
 		ProxyMethodInvocation pmi = (ProxyMethodInvocation) mi;
+		// lazyGetProceedingJoinPoint返回MethodInvocationProceedingJoinPoint实例，调用MethodInvocationProceedingJoinPoint的proceed方法
+		// 实际上就是执行ReflectiveMethodInvocation的proceed方法
 		ProceedingJoinPoint pjp = lazyGetProceedingJoinPoint(pmi);
 		JoinPointMatch jpm = getJoinPointMatch(pmi);
+		// 从AbstractAspectJAdvice的argBinding方法可知，pjp将会作为advice的第一个参数被传入，通过pjp，被@Around注解的环绕通知可以自己执行
+		// 被代理方法（更正确说是执行ReflectiveMethodInvocation的proceed方法），其他类型的AbstractAspectJAdvice实现类传入的第一个参数只能是
+		// JoinPoint类型的，无法自己执行被代理方法
 		return invokeAdviceMethod(pjp, jpm, null, null);
 	}
 
