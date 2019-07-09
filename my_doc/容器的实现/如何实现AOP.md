@@ -1026,7 +1026,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 }
 ```
 
-[BeanFactoryAspectJAdvisorsBuilderAdapter]中用到的[AspectJAdvisorFactory]就是[AnnotationAwareAspectJAutoProxyCreator]中的[ReflectiveAspectJAdvisorFactory]，[ReflectiveAspectJAdvisorFactory]代码：
+[BeanFactoryAspectJAdvisorsBuilderAdapter]用[AspectJAdvisorFactory]获取切面，[AspectJAdvisorFactory]是创建[BeanFactoryAspectJAdvisorsBuilderAdapter]时传入的，也就是[AnnotationAwareAspectJAutoProxyCreator]中的[ReflectiveAspectJAdvisorFactory]，[ReflectiveAspectJAdvisorFactory]代码：
 ```java
 @SuppressWarnings("serial")
 public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFactory implements Serializable {
@@ -1334,6 +1334,7 @@ protected Object createProxy(Class<?> beanClass, @Nullable String beanName,
 ```
 
 代理是由[ProxyFactory]创建的，[ProxyFactory]类图如下:
+
 ![ProxyFactory继承结构图](../img/ProxyFactory.png)
 
 [TargetClassAware]能够返回被代理类的类型，代码：
@@ -2093,7 +2094,7 @@ public class ProxyFactory extends ProxyCreatorSupport {
 }
 ```
 
-从[ProxyFactory]获取到的代理有两个：ObjenesisCglibAopProxy - cglib，JdkDynamicAopProxy - JDK动态代理，以JdkDynamicAopProxy为例，理解AOP代理的执行过程，代码：
+从[ProxyFactory]获取到的代理有两个：[ObjenesisCglibAopProxy] - cglib，[JdkDynamicAopProxy] - JDK动态代理，以JdkDynamicAopProxy为例，理解AOP代理的执行过程，代码：
 ```java
 final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializable {
 
@@ -2292,7 +2293,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 }
 ```
 
-上面提到的[ReflectiveMethodInvocation]类是AOP代理执行过程中的关键之一，代码：
+[JdkDynamicAopProxy]本身实现了[InvocationHandler]接口，所以被代理的方法执行时将会执行[JdkDynamicAopProxy]的`invoke()`方法，`invoke()`方法用到的[ReflectiveMethodInvocation]类是AOP代理执行过程中的关键之一，代码：
 ```java
 public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Cloneable {
 
@@ -2483,7 +2484,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 }
 ```
 
-以最简单的[MethodBeforeAdviceInterceptor]为例，该[Interceptor]会在被代理方法执行前执行，代码：
+对于[ReflectiveMethodInvocation]的`proceed()`方法的执行过程，以最简单的[MethodBeforeAdviceInterceptor]为例，该[Interceptor]会在被代理方法执行前执行，代码：
 ```java
 @SuppressWarnings("serial")
 public class MethodBeforeAdviceInterceptor implements MethodInterceptor, Serializable {
@@ -2535,7 +2536,7 @@ public class AspectJMethodBeforeAdvice extends AbstractAspectJAdvice implements 
 }
 ```
 
-[AspectJMethodBeforeAdvice]继承自[AbstractAspectJAdvice]，实际上所有AspectJ注解解析而来的Advice都继承自[AbstractAspectJAdvice]，[AbstractAspectJAdvice]实现了AspectJ的参数绑定，子类直接调用`invokeAdviceMethod()`方法就可以调用自己的advice，代码：
+[AspectJMethodBeforeAdvice]继承自[AbstractAspectJAdvice]，实际上所有AspectJ注解解析而来的Advice都继承自[AbstractAspectJAdvice]，[AbstractAspectJAdvice]实现了advice方法的参数绑定和调用，子类直接调用`invokeAdviceMethod()`方法就可以调用自己的advice，并能够接收到需要的被代理方法执行时的参数，代码：
 ```java
 @SuppressWarnings("serial")
 public abstract class AbstractAspectJAdvice implements Advice, AspectJPrecedenceInformation, Serializable {
@@ -3164,8 +3165,18 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 以上是Spring AOP的实现
 
 [BeanFactory]: aaa
+[AopInfrastructureBean]: aaa
+[ProxyFactory]: aaa
+[TargetSource]: aaa
+[BeanPostProcessor]: aaa
+[AbstractAdvisorAutoProxyCreator]: aaa
+[AspectJAdvisorFactory]: aaa
 [NamespaceHandlerSupport]: aaa
 [AopNamespaceHandler]: aaa
+[TargetClassAware]: aaa
+[Advised]: aaa
+[AdvisedSupport]: aaa
+[ProxyCreatorSupport]: aaa
 [BeanDefinitionParser]: aaa
 [AspectJAutoProxyBeanDefinitionParser]: aaa
 [AnnotationAwareAspectJAutoProxyCreator]: aaa
@@ -3178,6 +3189,13 @@ public class AspectJAroundAdvice extends AbstractAspectJAdvice implements Method
 [AbstractAutowireCapableBeanFactory]: aaa
 [InstantiationAwareBeanPostProcessor]: aaa
 [Advisor]: aaa
+[ObjenesisCglibAopProxy]: aaa
+[JdkDynamicAopProxy]: aaa
+[MethodBeforeAdviceInterceptor]: aaa
+[Interceptor]: aaa
+[MethodBeforeAdvice]: aaa
+[AbstractAspectJAdvice]: aaa
+[AspectJAroundAdvice]: aaa
 [BeanFactoryAspectJAdvisorsBuilderAdapter]: aaa
 [Aspect]: aaa
 [ReflectiveAspectJAdvisorFactory]: aaa
