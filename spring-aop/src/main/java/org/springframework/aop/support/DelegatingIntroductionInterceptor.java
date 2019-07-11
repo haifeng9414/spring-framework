@@ -88,9 +88,11 @@ public class DelegatingIntroductionInterceptor extends IntroductionInfoSupport
 	private void init(Object delegate) {
 		Assert.notNull(delegate, "Delegate must not be null");
 		this.delegate = delegate;
+		// 保存delegate实现的所有接口到publishedInterfaces，对于scoped-proxy这个例子，delegate就是DefaultScopedObject
 		implementInterfacesOnObject(delegate);
 
 		// We don't want to expose the control interface
+		// 忽略下面两个接口
 		suppressInterface(IntroductionInterceptor.class);
 		suppressInterface(DynamicIntroductionAdvice.class);
 	}
@@ -104,14 +106,17 @@ public class DelegatingIntroductionInterceptor extends IntroductionInfoSupport
 	@Override
 	@Nullable
 	public Object invoke(MethodInvocation mi) throws Throwable {
+		// 传入的方法所在类是否在publishedInterfaces中，即是否是被代理的接口
 		if (isMethodOnIntroducedInterface(mi)) {
 			// Using the following method rather than direct reflection, we
 			// get correct handling of InvocationTargetException
 			// if the introduced method throws an exception.
+			// 直接调用被代理的方法
 			Object retVal = AopUtils.invokeJoinpointUsingReflection(this.delegate, mi.getMethod(), mi.getArguments());
 
 			// Massage return value if possible: if the delegate returned itself,
 			// we really want to return the proxy.
+			// 如果返回结果是delegate，则上面的方法调用返回的是this这个值，此时需要将结果替换为代理
 			if (retVal == this.delegate && mi instanceof ProxyMethodInvocation) {
 				Object proxy = ((ProxyMethodInvocation) mi).getProxy();
 				if (mi.getMethod().getReturnType().isInstance(proxy)) {
@@ -121,6 +126,7 @@ public class DelegatingIntroductionInterceptor extends IntroductionInfoSupport
 			return retVal;
 		}
 
+		// 如果方法不在被代理的接口范围内，则什么也不做，继续其他advice的调用
 		return doProceed(mi);
 	}
 

@@ -55,10 +55,12 @@ import org.springframework.util.ClassUtils;
 public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<Object>, BeanFactoryAware {
 
 	/** The TargetSource that manages scoping */
+	// TargetSource在AOP中用于在创建bean之前返回对象以代替bean，这里的SimpleBeanTargetSource实际上就是用beanFactory获取bean返回
 	private final SimpleBeanTargetSource scopedTargetSource = new SimpleBeanTargetSource();
 
 	/** The name of the target bean */
 	@Nullable
+	// 对于scoped-proxy这个例子，targetBeanName = scopedTarget. + 被代理bean的名字
 	private String targetBeanName;
 
 	/** The cached singleton proxy */
@@ -91,21 +93,25 @@ public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<O
 
 		this.scopedTargetSource.setBeanFactory(beanFactory);
 
+		// ProxyFactory用于创建代理
 		ProxyFactory pf = new ProxyFactory();
 		pf.copyFrom(this);
 		pf.setTargetSource(this.scopedTargetSource);
 
 		Assert.notNull(this.targetBeanName, "Property 'targetBeanName' is required");
+		// 对于scoped-proxy这个例子，这里获取的就是自己，也就是ScopedProxyFactoryBean
 		Class<?> beanType = beanFactory.getType(this.targetBeanName);
 		if (beanType == null) {
 			throw new IllegalStateException("Cannot create scoped proxy for bean '" + this.targetBeanName +
 					"': Target type could not be determined at the time of proxy creation.");
 		}
 		if (!isProxyTargetClass() || beanType.isInterface() || Modifier.isPrivate(beanType.getModifiers())) {
+			// 使用JDK动态代理，这里设置bean上的所有接口为JDK动态代理将实现的接口
 			pf.setInterfaces(ClassUtils.getAllInterfacesForClass(beanType, cbf.getBeanClassLoader()));
 		}
 
 		// Add an introduction that implements only the methods on ScopedObject.
+		// 创建advice
 		ScopedObject scopedObject = new DefaultScopedObject(cbf, this.scopedTargetSource.getTargetBeanName());
 		pf.addAdvice(new DelegatingIntroductionInterceptor(scopedObject));
 
@@ -113,6 +119,7 @@ public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<O
 		// itself is not subject to auto-proxying! Only its target bean is.
 		pf.addInterface(AopInfrastructureBean.class);
 
+		// 对于scoped-proxy这个例子，ScopedProxyFactoryBean为自己创建了一个代理，自己实现的FactoryBean接口返回的也是这个代理
 		this.proxy = pf.getProxy(cbf.getBeanClassLoader());
 	}
 

@@ -134,5 +134,99 @@ myBeanA1 == myBeanA3:false
 */
 ```
 
-可以看到，一个线程中获取到的bean是同一个，不同的线程获取到的是不同的bean
+可以看到，一个线程中获取到的bean是同一个，不同的线程获取到的是不同的bean，[SimpleThreadScope]的实现很简单，每次获取bean时判断保存在当前线程的[ThreadLocal]中的Map是否已存在该bean，如果存在则返回，否则调用`objectFactory.getObject()`创建一个新的bean，Spring是如何使用[SimpleThreadScope]实现bean的线程内生命周期的？首先，使用自定义scope需要先将scope注册到[BeanFactory]中，代码：
+```java
+applicationContext.getBeanFactory().registerScope("thread", new SimpleThreadScope());
 
+// registerScope方法实现在AbstractBeanFactory中
+public void registerScope(String scopeName, Scope scope) {
+    Assert.notNull(scopeName, "Scope identifier must not be null");
+    Assert.notNull(scope, "Scope must not be null");
+    // singleton和prototype的scope不可覆盖
+    if (SCOPE_SINGLETON.equals(scopeName) || SCOPE_PROTOTYPE.equals(scopeName)) {
+        throw new IllegalArgumentException("Cannot replace existing scopes 'singleton' and 'prototype'");
+    }
+    Scope previous = this.scopes.put(scopeName, scope);
+    if (previous != null && previous != scope) {
+        if (logger.isInfoEnabled()) {
+            logger.info("Replacing scope '" + scopeName + "' from [" + previous + "] to [" + scope + "]");
+        }
+    }
+    else {
+        if (logger.isDebugEnabled()) {
+            logger.debug("Registering scope '" + scopeName + "' with implementation [" + scope + "]");
+        }
+    }
+}
+```
+
+自定义scope保存到了[BeanFactory]的`scopes`中，从笔记[从容器获取Bean](../容器的实现/容器的初始化过程.md)可知，当调用`getBean()`方法获取bean时，会执行[BeanFactory]的`doGetBean()`方法，该方法会判断bean的scope是否是singleton或prototype的，如果不是则作为自定义scope处理，执行下面的代码：
+```java
+try {
+    //...
+    if (mbd.isSingleton()) {
+        //...
+    }
+    else if (mbd.isPrototype()) {
+        //...
+    }
+    else {
+        String scopeName = mbd.getScope();
+        final Scope scope = this.scopes.get(scopeName);
+        if (scope == null) {
+            throw new IllegalStateException("No Scope registered for scope name '" + scopeName + "'");
+        }
+        try {
+            Object scopedInstance = scope.get(beanName, () -> {
+                beforePrototypeCreation(beanName);
+                try {
+                    return createBean(beanName, mbd, args);
+                }
+                finally {
+                    afterPrototypeCreation(beanName);
+                }
+            });
+            bean = getObjectForBeanInstance(scopedInstance, name, beanName, mbd);
+        }
+        catch (IllegalStateException ex) {
+            throw new BeanCreationException(beanName,
+                    "Scope '" + scopeName + "' is not active for the current thread; consider " +
+                    "defining a scoped proxy for this bean if you intend to refer to it from a singleton",
+                    ex);
+        }
+    }
+}
+catch (BeansException ex) {
+    cleanupAfterBeanCreationFailure(beanName);
+    throw ex;
+}
+```
+
+当bean的scope为自定义scope时，Spring会从`scopes`中获取该scope并调用`get(String name, ObjectFactory<?> objectFactory)`方法获取bean，该方法也就是[SimpleThreadScope]中的`get(String name, ObjectFactory<?> objectFactory)`方法，如果[SimpleThreadScope]调用了`objectFactory.getObject()`方法，则会执行上面的`createBean(beanName, mbd, args)`方法创建新的bean。
+
+自定义scope需要完全控制bean的生命周期，`registerDestructionCallback()`注册回调函数是在[BeanFactory]的`registerDisposableBeanIfNecessary()`方法中调用的，代码：
+```java
+protected void registerDisposableBeanIfNecessary(String beanName, Object bean, RootBeanDefinition mbd) {
+    AccessControlContext acc = (System.getSecurityManager() != null ? getAccessControlContext() : null);
+    if (!mbd.isPrototype() && requiresDestruction(bean, mbd)) {
+        if (mbd.isSingleton()) {
+            // Register a DisposableBean implementation that performs all destruction
+            // work for the given bean: DestructionAwareBeanPostProcessors,
+            // DisposableBean interface, custom destroy method.
+            registerDisposableBean(beanName,
+                    new DisposableBeanAdapter(bean, beanName, mbd, getBeanPostProcessors(), acc));
+        }
+        else {
+            // A bean with a custom scope...
+            Scope scope = this.scopes.get(mbd.getScope());
+            if (scope == null) {
+                throw new IllegalStateException("No Scope registered for scope name '" + mbd.getScope() + "'");
+            }
+            scope.registerDestructionCallback(beanName,
+                    new DisposableBeanAdapter(bean, beanName, mbd, getBeanPostProcessors(), acc));
+        }
+    }
+}
+```
+
+自定义scope的bean创建时会执行其scope的`registerDestructionCallback()`方法注册回调函数，但是Spring不负责该函数的调用，因为自定义scope中bean的生命周期不由Spring控制，Spring仅仅只是调用了`registerDestructionCallback()`方法方法而已，可以参考[SessionScope]的实现，[SessionScope]在`registerDestructionCallback()`方法中将回调函数保存到session，在session完成后调用，完全是自己控制这一过程，同样对于[Scope]接口的`remove()`方法也是，Spring不负责调用该方法，生命时候调用由自定义scope自己控制

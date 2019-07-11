@@ -28,6 +28,8 @@ import org.castor.xml.XMLProperties;
 import org.exolab.castor.xml.XercesXMLSerializerFactory;
 import org.junit.Test;
 import org.mockito.InOrder;
+import org.springframework.oxm.jibx.Flights;
+import org.springframework.oxm.xstream.Flight;
 import org.w3c.dom.Node;
 import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
@@ -121,9 +123,7 @@ public class CastorMarshallerTests extends AbstractMarshallerTests<CastorMarshal
 	@Override
 	protected Object createFlights() {
 		Flight flight = new Flight();
-		flight.setNumber(42L);
-		Flights flights = new Flights();
-		flights.addFlight(flight);
+		flight.setFlightNumber(42L);
 		return flights;
 	}
 

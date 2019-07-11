@@ -56,6 +56,7 @@ public class DefaultScopedObject implements ScopedObject, Serializable {
 
 
 	@Override
+	// 对于scoped-proxy这个例子，返回的将是ScopedProxyFactoryBean
 	public Object getTargetObject() {
 		return this.beanFactory.getBean(this.targetBeanName);
 	}

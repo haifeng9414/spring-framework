@@ -19,14 +19,14 @@ package org.springframework.oxm.jaxb;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.oxm.AbstractMarshallerTests;
 import org.springframework.oxm.UncategorizedMappingException;
 import org.springframework.oxm.XmlMappingException;
-import org.springframework.oxm.jaxb.test.FlightType;
-import org.springframework.oxm.jaxb.test.Flights;
-import org.springframework.oxm.jaxb.test.ObjectFactory;
+import org.springframework.oxm.jibx.FlightType;
+import org.springframework.oxm.jibx.Flights;
 import org.springframework.oxm.mime.MimeContainer;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.util.ReflectionUtils;
@@ -98,7 +98,7 @@ public class Jaxb2MarshallerTests extends AbstractMarshallerTests<Jaxb2Marshalle
 		FlightType flight = new FlightType();
 		flight.setNumber(42L);
 		flights = new Flights();
-		flights.getFlight().add(flight);
+		flights.addFlight(flight);
 		return flights;
 	}
 

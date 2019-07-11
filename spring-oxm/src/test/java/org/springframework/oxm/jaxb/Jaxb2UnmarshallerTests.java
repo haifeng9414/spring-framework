@@ -33,8 +33,8 @@ import org.junit.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.oxm.AbstractUnmarshallerTests;
-import org.springframework.oxm.jaxb.test.FlightType;
-import org.springframework.oxm.jaxb.test.Flights;
+import org.springframework.oxm.jibx.FlightType;
+import org.springframework.oxm.jibx.Flights;
 import org.springframework.oxm.mime.MimeContainer;
 import org.springframework.util.xml.StaxUtils;
 
@@ -64,8 +64,8 @@ public class Jaxb2UnmarshallerTests extends AbstractUnmarshallerTests<Jaxb2Marsh
 	protected void testFlights(Object o) {
 		Flights flights = (Flights) o;
 		assertNotNull("Flights is null", flights);
-		assertEquals("Invalid amount of flight elements", 1, flights.getFlight().size());
-		testFlight(flights.getFlight().get(0));
+		assertEquals("Invalid amount of flight elements", 1, flights.sizeFlightList());
+		testFlight(flights.getFlight(0));
 	}
 
 	@Override
