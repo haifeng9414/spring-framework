@@ -58,12 +58,16 @@ public class SimpleThreadScope implements Scope {
 
 	@Override
 	@Nullable
+    // 如果实现了registerDestructionCallback方法，则在remove时记得同时要remove注册的回调函数，可以参考SessionScope的实现
 	public Object remove(String name) {
 		Map<String, Object> scope = this.threadScope.get();
 		return scope.remove(name);
 	}
 
 	@Override
+    // 注册bean的销毁回调函数，当bean被销毁时调用，由于当前scope中bean的生命周期是线程内，
+    // 而线程被销毁时并不知道，所以这里没有实现该方法，可以看SessionScope中该方法的实现，SessionScope将销毁回调函数
+    // 注册到session，并在session complete时执行销毁函数
 	public void registerDestructionCallback(String name, Runnable callback) {
 		logger.warn("SimpleThreadScope does not support destruction callbacks. " +
 				"Consider using RequestScope in a web environment.");
@@ -80,6 +84,10 @@ public class SimpleThreadScope implements Scope {
 		return Thread.currentThread().getName();
 	}
 
+    // 打印threadScope内容，便于测试时查看threadScope中有哪些bean
+    public void printBeans() {
+        System.out.println(threadScope.get());
+    }
 }
 ```
 
@@ -229,4 +237,395 @@ protected void registerDisposableBeanIfNecessary(String beanName, Object bean, R
 }
 ```
 
-自定义scope的bean创建时会执行其scope的`registerDestructionCallback()`方法注册回调函数，但是Spring不负责该函数的调用，因为自定义scope中bean的生命周期不由Spring控制，Spring仅仅只是调用了`registerDestructionCallback()`方法方法而已，可以参考[SessionScope]的实现，[SessionScope]在`registerDestructionCallback()`方法中将回调函数保存到session，在session完成后调用，完全是自己控制这一过程，同样对于[Scope]接口的`remove()`方法也是，Spring不负责调用该方法，生命时候调用由自定义scope自己控制
+自定义scope的bean创建时会执行其scope的`registerDestructionCallback()`方法注册回调函数，但是Spring不负责回调函数的调用，因为自定义scope中bean的生命周期不由Spring控制，Spring仅仅只是调用了`registerDestructionCallback()`方法而已，可以参考[SessionScope]的实现，[SessionScope]在`registerDestructionCallback()`方法中将回调函数保存到session，在session完成后调用回调函数，完全是自己控制，同样对于[Scope]接口的`remove()`方法也是，Spring不负责调用该方法，生命时候调用由自定义scope自己控制
+
+实现自定义scope后如果想要将bean从scope从删除，除了手动调用scope的`remove()`方法外，还可以使用代理实现通过bean即可将bean从scope中删除，方法是，定义bean时设置`<aop:scoped-proxy/>`属性，例子如下：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+	<bean id="testBean" class="org.springframework.tests.sample.beans.TestBean" scope="thread">
+		<property name="name" value="testBean"/>
+		<aop:scoped-proxy proxy-target-class="true"/>
+	</bean>
+</beans>
+```
+
+单测：
+```java
+@Test
+public void testScopedProxyThreadScope() {
+    ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+    SimpleThreadScope scope = new SimpleThreadScope();
+    applicationContext.getBeanFactory().registerScope("thread", scope);
+    TestBean testBean = applicationContext.getBean("testBean", TestBean.class);
+    // 获取原始的被代理bean
+    TestBean originalTestBean = applicationContext.getBean("scopedTarget.testBean", TestBean.class);
+    System.out.println(testBean.getClass());
+    System.out.println(originalTestBean.getClass());
+    System.out.println(testBean.getName());
+    System.out.println(originalTestBean.getName());
+    System.out.println(((ScopedObject)testBean).getTargetObject());
+    System.out.println(((ScopedObject)testBean).getClass());
+    scope.printBeans();
+    ((ScopedObject)testBean).removeFromScope();
+    scope.printBeans();
+}
+
+/*
+输出：
+class org.springframework.tests.sample.beans.TestBean$$EnhancerBySpringCGLIB$$fad5a0da
+class org.springframework.tests.sample.beans.TestBean
+testBean
+testBean
+TestBean{name='testBean'}
+class org.springframework.tests.sample.beans.TestBean$$EnhancerBySpringCGLIB$$fad5a0da
+{scopedTarget.testBean=TestBean{name='testBean'}}
+{}
+*/
+```
+
+可以看到获取到的TestBean其实是个cglib代理，调用`removeFromScope()`方法前bean被保存在[SimpleThreadScope]中，调用`removeFromScope()`方法后被移除，下面介绍这一过程的实现原理
+
+从笔记[从XML加载Bean配置信息](../容器的实现/从XML加载Bean配置信息.md)可知，`<aop:scoped-proxy/>`属性会被[AopNamespaceHandler]解析，对于`scoped-proxy`属性，[AopNamespaceHandler]调用[ScopedProxyBeanDefinitionDecorator]处理，代码：
+```java
+class ScopedProxyBeanDefinitionDecorator implements BeanDefinitionDecorator {
+
+	private static final String PROXY_TARGET_CLASS = "proxy-target-class";
+
+
+	@Override
+	public BeanDefinitionHolder decorate(Node node, BeanDefinitionHolder definition, ParserContext parserContext) {
+		// 默认为true，即默认使用cglib代理
+		boolean proxyTargetClass = true;
+		if (node instanceof Element) {
+			Element ele = (Element) node;
+			if (ele.hasAttribute(PROXY_TARGET_CLASS)) {
+				proxyTargetClass = Boolean.valueOf(ele.getAttribute(PROXY_TARGET_CLASS));
+			}
+		}
+
+		// Register the original bean definition as it will be referenced by the scoped proxy
+		// and is relevant for tooling (validation, navigation).
+		// 覆盖被代理的bean的BeanDefinition为class为ScopedProxyFactoryBean的BeanDefinition
+		BeanDefinitionHolder holder =
+				ScopedProxyUtils.createScopedProxy(definition, parserContext.getRegistry(), proxyTargetClass);
+		String targetBeanName = ScopedProxyUtils.getTargetBeanName(definition.getBeanName());
+		// 发起注册事件
+		parserContext.getReaderContext().fireComponentRegistered(
+				new BeanComponentDefinition(definition.getBeanDefinition(), targetBeanName));
+		return holder;
+	}
+
+}
+```
+
+[ScopedProxyBeanDefinitionDecorator]类调用`createScopedProxy()`方法创建了一个[BeanDefinition]并覆盖被代理bean的[BeanDefinition]，代码：
+```java
+public static BeanDefinitionHolder createScopedProxy(BeanDefinitionHolder definition,
+        BeanDefinitionRegistry registry, boolean proxyTargetClass) {
+
+    // 被代理的bean的名字
+    String originalBeanName = definition.getBeanName();
+    // 被代理bean的BeanDefinition
+    BeanDefinition targetDefinition = definition.getBeanDefinition();
+    // 格式为'scopedTarget.' + beanName
+    String targetBeanName = getTargetBeanName(originalBeanName);
+
+    // Create a scoped proxy definition for the original bean name,
+    // "hiding" the target bean in an internal target definition.
+    // 创建代理类的BeanDefinition，class为ScopedProxyFactoryBean
+    RootBeanDefinition proxyDefinition = new RootBeanDefinition(ScopedProxyFactoryBean.class);
+    proxyDefinition.setDecoratedDefinition(new BeanDefinitionHolder(targetDefinition, targetBeanName));
+    proxyDefinition.setOriginatingBeanDefinition(targetDefinition);
+    proxyDefinition.setSource(definition.getSource());
+    proxyDefinition.setRole(targetDefinition.getRole());
+
+    // 添加targetBeanName到将要添加的BeanDefinition的PropertyValues中，ScopedProxyFactoryBean类中有该属性
+    proxyDefinition.getPropertyValues().add("targetBeanName", targetBeanName);
+    if (proxyTargetClass) {
+        targetDefinition.setAttribute(AutoProxyUtils.PRESERVE_TARGET_CLASS_ATTRIBUTE, Boolean.TRUE);
+        // ScopedProxyFactoryBean's "proxyTargetClass" default is TRUE, so we don't need to set it explicitly here.
+    }
+    else {
+        proxyDefinition.getPropertyValues().add("proxyTargetClass", Boolean.FALSE);
+    }
+
+    // Copy autowire settings from original bean definition.
+    // 保留targetDefinition的属性注入相关属性
+    proxyDefinition.setAutowireCandidate(targetDefinition.isAutowireCandidate());
+    proxyDefinition.setPrimary(targetDefinition.isPrimary());
+    if (targetDefinition instanceof AbstractBeanDefinition) {
+        proxyDefinition.copyQualifiersFrom((AbstractBeanDefinition) targetDefinition);
+    }
+
+    // The target bean should be ignored in favor of the scoped proxy.
+    targetDefinition.setAutowireCandidate(false);
+    targetDefinition.setPrimary(false);
+
+    // Register the target bean as separate bean in the factory.
+    // 将被代理的bean的BeanDefinition重新以targetBeanName，也就是'scopedTarget.' + beanName的名字注册一遍
+    registry.registerBeanDefinition(targetBeanName, targetDefinition);
+
+    // Return the scoped proxy definition as primary bean definition
+    // (potentially an inner bean).
+    // 注意这里传入的第二个参数为originalBeanName，该属性将会作为proxyDefinition在beanFactory中的名字，而originalBeanName
+    // 就是被代理的bean的名字，所以这里相当于用proxyDefinition覆盖了被代理bean的BeanDefinition
+    return new BeanDefinitionHolder(proxyDefinition, originalBeanName, definition.getAliases());
+}
+```
+
+关键在于[ScopedProxyFactoryBean]类，代码：
+```java
+@SuppressWarnings("serial")
+public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<Object>, BeanFactoryAware {
+
+	/** The TargetSource that manages scoping */
+	// SimpleBeanTargetSource在代理中用于返回被代理类，ScopedProxyFactoryBean直接替代了被代理类，没有持有被代理类的实例，
+	// 但ScopedProxyBeanDefinitionDecorator在创建代理类的BeanFactory时将被代理类的BeanDefinition以'scopedTarget.' + 被代理bean的名字
+	// 的形式重新注册了，所以'scopedTarget.' + 被代理bean的名字就是被代理bean在beanFactory的名字，也就是下面的targetBeanName属性，
+	// SimpleBeanTargetSource的实现是以targetBeanName为name，直接从beanFactory获取bean，从而获取到被代理类
+	private final SimpleBeanTargetSource scopedTargetSource = new SimpleBeanTargetSource();
+
+	/** The name of the target bean */
+	@Nullable
+	// 对于scoped-proxy这个例子，targetBeanName = 'scopedTarget.' + 被代理bean的名字
+	private String targetBeanName;
+
+	/** The cached singleton proxy */
+	@Nullable
+	private Object proxy;
+
+
+	/**
+	 * Create a new ScopedProxyFactoryBean instance.
+	 */
+	public ScopedProxyFactoryBean() {
+		setProxyTargetClass(true);
+	}
+
+
+	/**
+	 * Set the name of the bean that is to be scoped.
+	 */
+	public void setTargetBeanName(String targetBeanName) {
+		this.targetBeanName = targetBeanName;
+		// 保存被代理类的名字到scopedTargetSource
+		this.scopedTargetSource.setTargetBeanName(targetBeanName);
+	}
+
+	@Override
+	public void setBeanFactory(BeanFactory beanFactory) {
+		if (!(beanFactory instanceof ConfigurableBeanFactory)) {
+			throw new IllegalStateException("Not running in a ConfigurableBeanFactory: " + beanFactory);
+		}
+		ConfigurableBeanFactory cbf = (ConfigurableBeanFactory) beanFactory;
+
+		this.scopedTargetSource.setBeanFactory(beanFactory);
+
+		// ProxyFactory用于创建代理
+		ProxyFactory pf = new ProxyFactory();
+		pf.copyFrom(this);
+		// 设置scopedTargetSource为targetSource，scopedTargetSource能够获取到被代理类
+		pf.setTargetSource(this.scopedTargetSource);
+
+		Assert.notNull(this.targetBeanName, "Property 'targetBeanName' is required");
+		// 对于scoped-proxy这个例子，这里获取的就是被代理类的类型
+		Class<?> beanType = beanFactory.getType(this.targetBeanName);
+		if (beanType == null) {
+			throw new IllegalStateException("Cannot create scoped proxy for bean '" + this.targetBeanName +
+					"': Target type could not be determined at the time of proxy creation.");
+		}
+		if (!isProxyTargetClass() || beanType.isInterface() || Modifier.isPrivate(beanType.getModifiers())) {
+			// 使用JDK动态代理，这里设置bean上的所有接口为JDK动态代理将实现的接口
+			pf.setInterfaces(ClassUtils.getAllInterfacesForClass(beanType, cbf.getBeanClassLoader()));
+		}
+
+		// Add an introduction that implements only the methods on ScopedObject.
+		// 创建advice
+		ScopedObject scopedObject = new DefaultScopedObject(cbf, this.scopedTargetSource.getTargetBeanName());
+		pf.addAdvice(new DelegatingIntroductionInterceptor(scopedObject));
+
+		// Add the AopInfrastructureBean marker to indicate that the scoped proxy
+		// itself is not subject to auto-proxying! Only its target bean is.
+		pf.addInterface(AopInfrastructureBean.class);
+
+		// 对于scoped-proxy这个例子，ScopedProxyFactoryBean为自己创建了一个代理，自己实现的FactoryBean接口返回的也是这个代理
+		this.proxy = pf.getProxy(cbf.getBeanClassLoader());
+	}
+
+
+	@Override
+	public Object getObject() {
+		if (this.proxy == null) {
+			throw new FactoryBeanNotInitializedException();
+		}
+		return this.proxy;
+	}
+
+	@Override
+	public Class<?> getObjectType() {
+		if (this.proxy != null) {
+			return this.proxy.getClass();
+		}
+		return this.scopedTargetSource.getTargetClass();
+	}
+
+	@Override
+	public boolean isSingleton() {
+		return true;
+	}
+
+}
+```
+
+[ScopedProxyFactoryBean]在`setBeanFactory()`方法中创建了一个代理类，并添加了[DelegatingIntroductionInterceptor]为advice，使得[DelegatingIntroductionInterceptor]能够拦截到代理类的方法执行，同时[ScopedProxyFactoryBean]还实现了[FactoryBean]接口，所以从[BeanFactory]中获取TestBean时，返回的是[ScopedProxyFactoryBean]的`getObject()`方法的返回值，也就是其创建的代理，而这个代理只有一个[DelegatingIntroductionInterceptor]的advice，[DelegatingIntroductionInterceptor]创建时传入了[DefaultScopedObject]到构造函数，先看[DefaultScopedObject]的作用，代码：
+```java
+@SuppressWarnings("serial")
+public class DefaultScopedObject implements ScopedObject, Serializable {
+
+	private final ConfigurableBeanFactory beanFactory;
+
+	private final String targetBeanName;
+
+
+	/**
+	 * Creates a new instance of the {@link DefaultScopedObject} class.
+	 * @param beanFactory the {@link ConfigurableBeanFactory} that holds the scoped target object
+	 * @param targetBeanName the name of the target bean
+	 */
+	public DefaultScopedObject(ConfigurableBeanFactory beanFactory, String targetBeanName) {
+		Assert.notNull(beanFactory, "BeanFactory must not be null");
+		Assert.hasText(targetBeanName, "'targetBeanName' must not be empty");
+		this.beanFactory = beanFactory;
+		this.targetBeanName = targetBeanName;
+	}
+
+
+	@Override
+	// 对于scoped-proxy这个例子，返回的将是被代理类
+	public Object getTargetObject() {
+		return this.beanFactory.getBean(this.targetBeanName);
+	}
+
+	@Override
+	public void removeFromScope() {
+		this.beanFactory.destroyScopedBean(this.targetBeanName);
+	}
+
+}
+```
+
+可以看到，[DefaultScopedObject]只有两个方法，`getTargetObject()`和`removeFromScope()`，一个返回被代理bean，一个将被代理bean从scope销毁，再看[DelegatingIntroductionInterceptor]的代码：
+```java
+@SuppressWarnings("serial")
+public class DelegatingIntroductionInterceptor extends IntroductionInfoSupport
+		implements IntroductionInterceptor {
+
+	@Nullable
+	private Object delegate;
+
+	public DelegatingIntroductionInterceptor(Object delegate) {
+		init(delegate);
+	}
+    
+	protected DelegatingIntroductionInterceptor() {
+		init(this);
+	}
+
+	private void init(Object delegate) {
+		Assert.notNull(delegate, "Delegate must not be null");
+		this.delegate = delegate;
+		// 保存delegate实现的所有接口到publishedInterfaces，对于scoped-proxy这个例子，delegate就是DefaultScopedObject
+		implementInterfacesOnObject(delegate);
+
+		// We don't want to expose the control interface
+		// 忽略下面两个接口
+		suppressInterface(IntroductionInterceptor.class);
+		suppressInterface(DynamicIntroductionAdvice.class);
+	}
+
+	@Override
+	@Nullable
+	public Object invoke(MethodInvocation mi) throws Throwable {
+		// 传入的方法所在类是否在publishedInterfaces中，即是否是被代理的接口
+		if (isMethodOnIntroducedInterface(mi)) {
+			// Using the following method rather than direct reflection, we
+			// get correct handling of InvocationTargetException
+			// if the introduced method throws an exception.
+			// 直接调用被代理的方法
+			Object retVal = AopUtils.invokeJoinpointUsingReflection(this.delegate, mi.getMethod(), mi.getArguments());
+
+			// Massage return value if possible: if the delegate returned itself,
+			// we really want to return the proxy.
+			// 如果返回结果是delegate，则上面的方法调用返回的是this这个值，此时需要将结果替换为代理
+			if (retVal == this.delegate && mi instanceof ProxyMethodInvocation) {
+				Object proxy = ((ProxyMethodInvocation) mi).getProxy();
+				if (mi.getMethod().getReturnType().isInstance(proxy)) {
+					retVal = proxy;
+				}
+			}
+			return retVal;
+		}
+
+		// 如果方法不在被代理的接口范围内，则什么也不做，继续其他advice的调用
+		return doProceed(mi);
+	}
+	protected Object doProceed(MethodInvocation mi) throws Throwable {
+		// If we get here, just pass the invocation on.
+		return mi.proceed();
+	}
+
+}
+```
+
+[DelegatingIntroductionInterceptor]在构造函数中调用了`init()`方法，该方法将参数`delegate`的所有接口方法保存到了`publishedInterfaces`属性中，而这里的`delegate`就是[DefaultScopedObject]，
+[DelegatingIntroductionInterceptor]的`invoke()`方法也很简单，如果调用的方法是`publishedInterfaces`接口中的方法，则直接在`delegate`上调用该方法，否则直接调用`doProceed(mi)`继续执行其他advice，而[ScopedProxyFactoryBean]只添加了一个advice，所以`doProceed(mi)`实际上就是直接调用被代理类的对应方法
+
+根据以上分析，回到单测就可以明白是如何实现的了，单测代码：
+```java
+public void testScopedProxyThreadScope() {
+    ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+    SimpleThreadScope scope = new SimpleThreadScope();
+    applicationContext.getBeanFactory().registerScope("thread", scope);
+    // 1
+    TestBean testBean = applicationContext.getBean("testBean", TestBean.class);
+    // 获取原始的被代理bean
+    // 2
+    TestBean originalTestBean = applicationContext.getBean("scopedTarget.testBean", TestBean.class);
+    // 3
+    System.out.println(testBean.getClass());
+    // 4
+    System.out.println(originalTestBean.getClass());
+    // 5
+    System.out.println(testBean.getName());
+    // 6
+    System.out.println(originalTestBean.getName());
+    // 7
+    System.out.println(((ScopedObject)testBean).getTargetObject());
+    // 8
+    System.out.println(((ScopedObject)testBean).getClass());
+    // 9
+    scope.printBeans();
+    // 10
+    ((ScopedObject)testBean).removeFromScope();
+    // 11
+    scope.printBeans();
+}
+
+/*
+输出：
+class org.springframework.tests.sample.beans.TestBean$$EnhancerBySpringCGLIB$$fad5a0da
+class org.springframework.tests.sample.beans.TestBean
+testBean
+testBean
+TestBean{name='testBean'}
+class org.springframework.tests.sample.beans.TestBean$$EnhancerBySpringCGLIB$$fad5a0da
+{scopedTarget.testBean=TestBean{name='testBean'}}
+{}
+*/
+```
+
+在1处获取到的实际上是[ScopedProxyFactoryBean]创建的代理，该代理只针对[DefaultScopedObject]类实现的接口的方法进行代理，也就是`getTargetObject()`和`removeFromScope()`，其他方法直接调用被代理类执行，2处通过`scopedTarget.testBean`获取到了被代理类，和[ScopedProxyFactoryBean]的`targetBeanName`是相等的，7处和10处调用的两个方法在[DefaultScopedObject]实现的接口中，也就是保存在了[DelegatingIntroductionInterceptor]的`publishedInterfaces`属性中，所以执行时会被[DelegatingIntroductionInterceptor]处理，直接在其`delegate`属性上执行这两个方法，也就是直接在[DefaultScopedObject]上执行这两个方法，也就解释了单测的输出

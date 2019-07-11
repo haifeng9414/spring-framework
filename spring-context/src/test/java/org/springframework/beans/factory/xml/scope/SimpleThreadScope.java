@@ -77,12 +77,16 @@ public class SimpleThreadScope implements Scope {
 
 	@Override
 	@Nullable
+	// 如果实现了registerDestructionCallback方法，则在remove时记得同时要remove注册的回调函数，可以参考SessionScope的实现
 	public Object remove(String name) {
 		Map<String, Object> scope = this.threadScope.get();
 		return scope.remove(name);
 	}
 
 	@Override
+	// 注册bean的销毁回调函数，当bean被销毁时调用，由于当前scope中bean的生命周期是线程内，
+	// 而线程被销毁时并不知道，所以这里没有实现该方法，可以看SessionScope中该方法的实现，SessionScope将销毁回调函数
+	// 注册到session，并在session complete时执行销毁函数
 	public void registerDestructionCallback(String name, Runnable callback) {
 		logger.warn("SimpleThreadScope does not support destruction callbacks. " +
 				"Consider using RequestScope in a web environment.");
@@ -97,6 +101,10 @@ public class SimpleThreadScope implements Scope {
 	@Override
 	public String getConversationId() {
 		return Thread.currentThread().getName();
+	}
+
+	public void printBeans() {
+		System.out.println(threadScope.get());
 	}
 
 }

@@ -41,6 +41,7 @@ class ScopedProxyBeanDefinitionDecorator implements BeanDefinitionDecorator {
 
 	@Override
 	public BeanDefinitionHolder decorate(Node node, BeanDefinitionHolder definition, ParserContext parserContext) {
+		// 默认为true，即默认使用cglib代理
 		boolean proxyTargetClass = true;
 		if (node instanceof Element) {
 			Element ele = (Element) node;
@@ -51,9 +52,11 @@ class ScopedProxyBeanDefinitionDecorator implements BeanDefinitionDecorator {
 
 		// Register the original bean definition as it will be referenced by the scoped proxy
 		// and is relevant for tooling (validation, navigation).
+		// 覆盖被代理的bean的BeanDefinition为class为ScopedProxyFactoryBean的BeanDefinition
 		BeanDefinitionHolder holder =
 				ScopedProxyUtils.createScopedProxy(definition, parserContext.getRegistry(), proxyTargetClass);
 		String targetBeanName = ScopedProxyUtils.getTargetBeanName(definition.getBeanName());
+		// 发起注册事件
 		parserContext.getReaderContext().fireComponentRegistered(
 				new BeanComponentDefinition(definition.getBeanDefinition(), targetBeanName));
 		return holder;

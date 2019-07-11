@@ -17,9 +17,12 @@
 package org.springframework.beans.factory.xml.scope;
 
 import org.junit.Test;
+import org.springframework.aop.scope.ScopedObject;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.tests.sample.beans.MyBeanA;
+import org.springframework.tests.sample.beans.*;
 
 public class XmlBeanFactoryScopeTests {
 
@@ -44,5 +47,24 @@ public class XmlBeanFactoryScopeTests {
 			System.out.println("myBeanA3 == myBeanA4:" + (myBeanA3 == myBeanA4));
 			System.out.println("myBeanA1 == myBeanA3:" + (myBeanA1 == myBeanA3));
 		}).start();
+	}
+
+	@Test
+	public void testScopedProxyThreadScope() {
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
+		SimpleThreadScope scope = new SimpleThreadScope();
+		applicationContext.getBeanFactory().registerScope("thread", scope);
+		TestBean testBean = applicationContext.getBean("testBean", TestBean.class);
+		// 获取原始的被代理bean
+		TestBean originalTestBean = applicationContext.getBean("scopedTarget.testBean", TestBean.class);
+		System.out.println(testBean.getClass());
+		System.out.println(originalTestBean.getClass());
+		System.out.println(testBean.getName());
+		System.out.println(originalTestBean.getName());
+		System.out.println(((ScopedObject)testBean).getTargetObject());
+		System.out.println(((ScopedObject)testBean).getClass());
+		scope.printBeans();
+		((ScopedObject)testBean).removeFromScope();
+		scope.printBeans();
 	}
 }

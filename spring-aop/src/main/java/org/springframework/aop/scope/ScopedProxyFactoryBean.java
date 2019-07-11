@@ -55,12 +55,15 @@ import org.springframework.util.ClassUtils;
 public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<Object>, BeanFactoryAware {
 
 	/** The TargetSource that manages scoping */
-	// TargetSource在AOP中用于在创建bean之前返回对象以代替bean，这里的SimpleBeanTargetSource实际上就是用beanFactory获取bean返回
+	// SimpleBeanTargetSource在代理中用于返回被代理类，ScopedProxyFactoryBean直接替代了被代理类，没有持有被代理类的实例，
+	// 但ScopedProxyBeanDefinitionDecorator在创建代理类的BeanFactory时将被代理类的BeanDefinition以'scopedTarget.' + 被代理bean的名字
+	// 的形式重新注册了，所以'scopedTarget.' + 被代理bean的名字就是被代理bean在beanFactory的名字，也就是下面的targetBeanName属性，
+	// SimpleBeanTargetSource的实现是以targetBeanName为name，直接从beanFactory获取bean，从而获取到被代理类
 	private final SimpleBeanTargetSource scopedTargetSource = new SimpleBeanTargetSource();
 
 	/** The name of the target bean */
 	@Nullable
-	// 对于scoped-proxy这个例子，targetBeanName = scopedTarget. + 被代理bean的名字
+	// 对于scoped-proxy这个例子，targetBeanName = 'scopedTarget.' + 被代理bean的名字
 	private String targetBeanName;
 
 	/** The cached singleton proxy */
@@ -81,6 +84,7 @@ public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<O
 	 */
 	public void setTargetBeanName(String targetBeanName) {
 		this.targetBeanName = targetBeanName;
+		// 保存被代理类的名字到scopedTargetSource
 		this.scopedTargetSource.setTargetBeanName(targetBeanName);
 	}
 
@@ -96,10 +100,11 @@ public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<O
 		// ProxyFactory用于创建代理
 		ProxyFactory pf = new ProxyFactory();
 		pf.copyFrom(this);
+		// 设置scopedTargetSource为targetSource，scopedTargetSource能够获取到被代理类
 		pf.setTargetSource(this.scopedTargetSource);
 
 		Assert.notNull(this.targetBeanName, "Property 'targetBeanName' is required");
-		// 对于scoped-proxy这个例子，这里获取的就是自己，也就是ScopedProxyFactoryBean
+		// 对于scoped-proxy这个例子，这里获取的就是被代理类的类型
 		Class<?> beanType = beanFactory.getType(this.targetBeanName);
 		if (beanType == null) {
 			throw new IllegalStateException("Cannot create scoped proxy for bean '" + this.targetBeanName +

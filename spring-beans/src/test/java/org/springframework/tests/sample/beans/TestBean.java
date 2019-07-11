@@ -495,7 +495,8 @@ public class TestBean implements BeanNameAware, BeanFactoryAware, ITestBean, IOt
 
 	@Override
 	public String toString() {
-		return this.name;
+		return "TestBean{" +
+				"name='" + name + '\'' +
+				'}';
 	}
-
 }

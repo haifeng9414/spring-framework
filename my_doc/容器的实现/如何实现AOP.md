@@ -405,7 +405,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 		// Create proxy if we have advice.
 		// 获取bean的切面，供子类实现
 		Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
-		// 如果发现了适合当前bean的切面则创建代理
+		// 如果发现了适合当前bean的切面则创建代理，传入的targetSource在代理中用于获取被代理bean，当代理执行时会获取targetSource判断被代理类的类型
 		if (specificInterceptors != DO_NOT_PROXY) {
 			this.advisedBeans.put(cacheKey, Boolean.TRUE);
 			Object proxy = createProxy(
@@ -607,7 +607,7 @@ protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) 
 	// Create proxy if we have advice.
 	// 获取bean的切面，供子类实现
 	Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
-	// 如果发现了适合当前bean的切面则创建代理
+	// 如果发现了适合当前bean的切面则创建代理，传入的targetSource在代理中用于获取被代理bean，当代理执行时会获取targetSource判断被代理类的类型
 	if (specificInterceptors != DO_NOT_PROXY) {
 		this.advisedBeans.put(cacheKey, Boolean.TRUE);
 		Object proxy = createProxy(
@@ -2199,6 +2199,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 
 			// Get as late as possible to minimize the time we "own" the target,
 			// in case it comes from a pool.
+			// 获取被代理类的类型
 			target = targetSource.getTarget();
 			Class<?> targetClass = (target != null ? target.getClass() : null);
 
