@@ -116,7 +116,8 @@ public class ScopedProxyFactoryBean extends ProxyConfig implements FactoryBean<O
 		}
 
 		// Add an introduction that implements only the methods on ScopedObject.
-		// 创建advice
+		// 创建advice，DelegatingIntroductionInterceptor实现了IntroductionInfo接口，所以addAdvice后scopedObject实现的
+		// 接口也会被添加到ProxyFactory的interfaces中，这里相当于在添加advice的同时使代理也实现了ScopedObject接口
 		ScopedObject scopedObject = new DefaultScopedObject(cbf, this.scopedTargetSource.getTargetBeanName());
 		pf.addAdvice(new DelegatingIntroductionInterceptor(scopedObject));
 
