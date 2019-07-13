@@ -200,7 +200,7 @@ public class CustomDateEditor extends PropertyEditorSupport {
 }
 ```
 
-bean的属性填充过程先获取了bean的[BeanDefinition]的[PropertyValues]，[BeanDefinition]的[PropertyValues]是在容器初始化过程中创建[BeanFactory]后解析资源文件时创建的，对于XML的资源文件，解析并创建[BeanDefinition]的过程在[BeanDefinitionParserDelegate]的`parseBeanDefinitionElement()`方法，代码：
+Bean的属性填充过程先获取了bean的[BeanDefinition]的[PropertyValues]，[BeanDefinition]的[PropertyValues]是在容器初始化过程中创建[BeanFactory]后解析资源文件时创建的，对于XML的资源文件，解析并创建[BeanDefinition]的过程在[BeanDefinitionParserDelegate]的`parseBeanDefinitionElement()`方法，代码：
 ```java
 @Nullable
 public BeanDefinitionHolder parseBeanDefinitionElement(Element ele, @Nullable BeanDefinition containingBean) {

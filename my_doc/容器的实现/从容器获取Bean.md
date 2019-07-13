@@ -870,7 +870,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
       }
   }
   ```
-  实例化bean后将bean保存到[BeanWrapper]中，此时bean的属性还没有被填充，而[BeanWrapper]实现了[PropertyAccessor]接口，能够对bean的属性进行读写，关于属性注册可以看笔记[bean的属性填充过程](bean的属性填充过程.md)
+  实例化bean后将bean保存到[BeanWrapper]中，此时bean的属性还没有被填充，而[BeanWrapper]实现了[PropertyAccessor]接口，能够对bean的属性进行读写，关于属性注册可以看笔记[Bean的属性填充过程](Bean的属性填充过程.md)
 - 回到`doCreateBean()`方法，在创建了[BeanWrapper]后，执行`applyMergedBeanDefinitionPostProcessors()`方法，该方法遍历所有的[MergedBeanDefinitionPostProcessor]并执行`postProcessMergedBeanDefinition()`方法，目的是在实例化bean之后，填充bean属性之前对bean的[BeanDefinition]进行操作，Autowired注解的实现就用到了[MergedBeanDefinitionPostProcessor]接口，这一部分可以看笔记[常用注解的实现](常用注解的实现.md)。执行`applyMergedBeanDefinitionPostProcessors()`方法之后执行`doCreateBean()`方法，代码：
   ```java
   protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
