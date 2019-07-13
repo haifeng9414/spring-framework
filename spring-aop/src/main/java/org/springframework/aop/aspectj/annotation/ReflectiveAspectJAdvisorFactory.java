@@ -137,6 +137,8 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 		// If it's a per target aspect, emit the dummy instantiating aspect.
 		if (!advisors.isEmpty() && lazySingletonAspectInstanceFactory.getAspectMetadata().isLazilyInstantiated()) {
+			// SyntheticInstantiationAdvisor的作用是添加了一个MethodBeforeAdvice，该MethodBeforeAdvice执行lazySingletonAspectInstanceFactory.getAspectInstance方法，
+			// 下面将SyntheticInstantiationAdvisor添加到advisor的开头，使得其他advice执行之前bean能够先被实例化
 			Advisor instantiationAdvisor = new SyntheticInstantiationAdvisor(lazySingletonAspectInstanceFactory);
 			advisors.add(0, instantiationAdvisor);
 		}

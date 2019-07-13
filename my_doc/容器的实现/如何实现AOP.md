@@ -480,6 +480,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 		proxyFactory.addAdvisors(advisors);
+		// targetSource用于获取被代理类
 		proxyFactory.setTargetSource(targetSource);
 		// 空方法，供子类实现
 		customizeProxyFactory(proxyFactory);
@@ -1099,6 +1100,8 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 		// If it's a per target aspect, emit the dummy instantiating aspect.
 		if (!advisors.isEmpty() && lazySingletonAspectInstanceFactory.getAspectMetadata().isLazilyInstantiated()) {
+			// SyntheticInstantiationAdvisor的作用是添加了一个MethodBeforeAdvice，该MethodBeforeAdvice执行lazySingletonAspectInstanceFactory.getAspectInstance方法，
+			// 下面将SyntheticInstantiationAdvisor添加到advisor的开头，使得其他advice执行之前bean能够先被实例化
 			Advisor instantiationAdvisor = new SyntheticInstantiationAdvisor(lazySingletonAspectInstanceFactory);
 			advisors.add(0, instantiationAdvisor);
 		}
@@ -1318,6 +1321,7 @@ protected Object createProxy(Class<?> beanClass, @Nullable String beanName,
 
 	Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 	proxyFactory.addAdvisors(advisors);
+	// targetSource用于获取被代理类
 	proxyFactory.setTargetSource(targetSource);
 	// 空方法，供子类实现
 	customizeProxyFactory(proxyFactory);
@@ -1808,7 +1812,8 @@ public class AdvisedSupport extends ProxyConfig implements Advised {
 		MethodCacheKey cacheKey = new MethodCacheKey(method);
 		List<Object> cached = this.methodCache.get(cacheKey);
 		if (cached == null) {
-			// 返回适合当前方法的advisor并转换为各种Interceptor返回
+			// 遍历advisor，将适合当前方法的advisor中的advice转换为各种Interceptor返回，advisorChainFactory的默认实现是DefaultAdvisorChainFactory，
+			// 转换过程可以看DefaultAdvisorChainFactory类中的注释
 			cached = this.advisorChainFactory.getInterceptorsAndDynamicInterceptionAdvice(
 					this, method, targetClass);
 			// 缓存结果
@@ -2012,6 +2017,7 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
 	public AopProxy createAopProxy(AdvisedSupport config) throws AopConfigException {
 		// optimize表示优化，此时直接使用cglib作为实现，或者proxyTargetClass为true表示直接使用cglib，或者config中的interfaces为空则使用cglib
 		if (config.isOptimize() || config.isProxyTargetClass() || hasNoUserSuppliedProxyInterfaces(config)) {
+			// getTargetClass返回targetSource中保存的被代理类的类型
 			Class<?> targetClass = config.getTargetClass();
 			if (targetClass == null) {
 				throw new AopConfigException("TargetSource cannot determine target class: " +

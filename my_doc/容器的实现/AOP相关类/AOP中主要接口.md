@@ -103,7 +103,7 @@
 
 - [IntroductionAdvisor]
 
-  [IntroductionAdvisor]接口表示的是一个introduction advisor，除了提供[IntroductionInfo]接口和[Advisor]接口所具备的能力外，还能够对[IntroductionAdvisor]的实例所针对的代理类类型进行过滤，并验证[Advisor]中的[Advice]是否实现了所有[IntroductionInfo]接口的`getInterfaces()`方法返回的接口
+  [IntroductionAdvisor]接口表示的是一个introduction advisor，除了提供[IntroductionInfo]接口和[Advisor]接口所具备的能力外，还能够对[IntroductionAdvisor]的实例所针对的代理类类型进行过滤，这也是[PointcutAdvisor]接口中提到的另一种判断[Advice]适用性的方法，[IntroductionAdvisor]接口还能验证[Advisor]中的[Advice]是否实现了所有[IntroductionInfo]接口的`getInterfaces()`方法返回的接口
   ```java
   public interface IntroductionAdvisor extends Advisor, IntroductionInfo {
     ClassFilter getClassFilter();

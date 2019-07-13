@@ -488,6 +488,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 		proxyFactory.addAdvisors(advisors);
+		// targetSource用于获取被代理类
 		proxyFactory.setTargetSource(targetSource);
 		// 空方法，供子类实现
 		customizeProxyFactory(proxyFactory);

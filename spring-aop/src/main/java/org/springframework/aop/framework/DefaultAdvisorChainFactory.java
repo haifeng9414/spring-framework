@@ -60,13 +60,14 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 		AdvisorAdapterRegistry registry = GlobalAdvisorAdapterRegistry.getInstance();
 
 		for (Advisor advisor : config.getAdvisors()) {
+			// PointcutAdvisor是通过Pointcut对advice的适用性进行过滤
 			if (advisor instanceof PointcutAdvisor) {
 				// Add it conditionally.
 				PointcutAdvisor pointcutAdvisor = (PointcutAdvisor) advisor;
 				// 如果已经过滤过就不用再过滤了
 				if (config.isPreFiltered() || pointcutAdvisor.getPointcut().getClassFilter().matches(actualClass)) {
-					// 如果advisor中的advice是MethodInterceptor类型的则直接返回，否则遍历registry中的所有AdvisorAdapter，如果某个AdvisorAdapter
-					// 支持对advisor中的advice进行适配，则进行适配后返回
+					// getInterceptors相当于根据传入的advisor获取Interceptor，如果advisor中的advice是MethodInterceptor类型的则直接返回，
+					// 否则遍历registry中的所有AdvisorAdapter，如果某个AdvisorAdapter支持对advisor中的advice进行适配，则进行适配后返回
 					MethodInterceptor[] interceptors = registry.getInterceptors(advisor);
 					MethodMatcher mm = pointcutAdvisor.getPointcut().getMethodMatcher();
 					// 判断当前方法是否符合当前遍历的advisor的pointcut
@@ -88,6 +89,7 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 					}
 				}
 			}
+			// IntroductionAdvisor是通过ClassFilter对advice的适用性进行过滤
 			else if (advisor instanceof IntroductionAdvisor) {
 				IntroductionAdvisor ia = (IntroductionAdvisor) advisor;
 				// IntroductionAdvisor只能用classFilter进行过滤
