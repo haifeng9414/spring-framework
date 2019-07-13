@@ -256,6 +256,7 @@ public class AdvisedSupport extends ProxyConfig implements Advised {
 	@Override
 	public void addAdvisor(int pos, Advisor advisor) throws AopConfigException {
 		if (advisor instanceof IntroductionAdvisor) {
+			// 将IntroductionAdvisor中指定的接口添加到被代理接口列表中
 			validateIntroductionAdvisor((IntroductionAdvisor) advisor);
 		}
 		addAdvisorInternal(pos, advisor);
@@ -397,6 +398,8 @@ public class AdvisedSupport extends ProxyConfig implements Advised {
 	@Override
 	public void addAdvice(int pos, Advice advice) throws AopConfigException {
 		Assert.notNull(advice, "Advice must not be null");
+		// IntroductionInfo类型的advice表示该advice实现了额外的接口，代理类需要代理这些接口，当方法执行时交由advice执行
+		// 这里将IntroductionInfo中指定的接口添加到代理类需要代理的接口的列表中
 		if (advice instanceof IntroductionInfo) {
 			// We don't need an IntroductionAdvisor for this kind of introduction:
 			// It's fully self-describing.
