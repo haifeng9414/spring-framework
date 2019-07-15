@@ -597,12 +597,16 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 			logger.debug("Executing prepared SQL statement" + (sql != null ? " [" + sql + "]" : ""));
 		}
 
+		// 从DataSource获取Connection
 		Connection con = DataSourceUtils.getConnection(obtainDataSource());
 		PreparedStatement ps = null;
 		try {
 			ps = psc.createPreparedStatement(con);
+			// 设置jdbcTemplate的fetchSize、maxRows和queryTimeout属性到PreparedStatement
 			applyStatementSettings(ps);
+			// 调用PreparedStatementCallback执行SQL操作
 			T result = action.doInPreparedStatement(ps);
+			// 如果PreparedStatement存在warning并且ignoreWarnings为false，则封装为SQLWarningException抛出
 			handleWarnings(ps);
 			return result;
 		}
@@ -615,6 +619,7 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 			String sql = getSql(psc);
 			JdbcUtils.closeStatement(ps);
 			ps = null;
+			//
 			DataSourceUtils.releaseConnection(con, getDataSource());
 			con = null;
 			throw translateException("PreparedStatementCallback", sql, ex);
@@ -850,12 +855,15 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 		return updateCount(execute(psc, ps -> {
 			try {
 				if (pss != null) {
+					// 先用PreparedStatementCreator设置PreparedStatement的参数值
 					pss.setValues(ps);
 				}
+				// 执行更新操作
 				int rows = ps.executeUpdate();
 				if (logger.isDebugEnabled()) {
 					logger.debug("SQL update affected " + rows + " rows");
 				}
+				// 返回更新的数据行
 				return rows;
 			}
 			finally {

@@ -13,8 +13,9 @@
   - [从容器获取Bean](my_doc/容器的实现/从容器获取Bean.md)
   - [如何实现AOP](my_doc/容器的实现/如何实现AOP.md)
   - AOP相关接口
-    - [从XML加载Bean配置信息](my_doc/容器的实现/AOP相关接口/AOP中主要接口.md)
+    - [AOP中主要接口](my_doc/容器的实现/AOP相关接口/AOP中主要接口.md)
   - [容器的初始化过程](my_doc/容器的实现/容器的初始化过程.md)
+  - [Spring事务的实现原理](my_doc/容器的实现/Spring事务的实现原理.md)
 - 容器的使用
   - [FactoryBean的使用和实现原理](my_doc/容器的使用/FactoryBean的使用和实现原理.md)
   - [Spring的scope如何使用和实现](my_doc/容器的使用/Spring的scope如何使用和实现.md)

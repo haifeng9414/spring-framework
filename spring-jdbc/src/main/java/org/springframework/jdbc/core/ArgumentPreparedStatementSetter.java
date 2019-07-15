@@ -72,6 +72,7 @@ public class ArgumentPreparedStatementSetter implements PreparedStatementSetter,
 
 	@Override
 	public void cleanupParameters() {
+		// 如果参数是DisposableSqlTypeValue或SqlValue类型的，则调用其cleanup方法
 		StatementCreatorUtils.cleanupParameters(this.args);
 	}
 

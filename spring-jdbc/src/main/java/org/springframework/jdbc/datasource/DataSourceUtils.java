@@ -100,9 +100,13 @@ public abstract class DataSourceUtils {
 	public static Connection doGetConnection(DataSource dataSource) throws SQLException {
 		Assert.notNull(dataSource, "No DataSource specified");
 
+		// 获取当前线程的dataSource对应的ConnectionHolder
 		ConnectionHolder conHolder = (ConnectionHolder) TransactionSynchronizationManager.getResource(dataSource);
+		// 如果ConnectionHolder不为空并且持有Connection对象或者conHolder在事务之中
 		if (conHolder != null && (conHolder.hasConnection() || conHolder.isSynchronizedWithTransaction())) {
+			// Connection的使用数+1
 			conHolder.requested();
+			// 如果还没有初始化Connection则初始化
 			if (!conHolder.hasConnection()) {
 				logger.debug("Fetching resumed JDBC Connection from DataSource");
 				conHolder.setConnection(fetchConnection(dataSource));
@@ -111,9 +115,11 @@ public abstract class DataSourceUtils {
 		}
 		// Else we either got no holder or an empty thread-bound holder here.
 
+		// 否则初始化当前dataSource的ConnectionHolder
 		logger.debug("Fetching JDBC Connection from DataSource");
 		Connection con = fetchConnection(dataSource);
 
+		// 如果当前线程开启了事务
 		if (TransactionSynchronizationManager.isSynchronizationActive()) {
 			logger.debug("Registering transaction synchronization for JDBC Connection");
 			// Use same Connection for further JDBC actions within the transaction.
@@ -126,14 +132,17 @@ public abstract class DataSourceUtils {
 				holderToUse.setConnection(con);
 			}
 			holderToUse.requested();
+			// 保存ConnectionSynchronization到当前线程的threadLocal中
 			TransactionSynchronizationManager.registerSynchronization(
 					new ConnectionSynchronization(holderToUse, dataSource));
 			holderToUse.setSynchronizedWithTransaction(true);
 			if (holderToUse != conHolder) {
+				// 保存dataSource和ConnectionHolder的对应关系
 				TransactionSynchronizationManager.bindResource(dataSource, holderToUse);
 			}
 		}
 
+		// 没有开启事务则直接返回新创建的Connection
 		return con;
 	}
 
@@ -330,14 +339,18 @@ public abstract class DataSourceUtils {
 			return;
 		}
 		if (dataSource != null) {
+			// 如果有当前dataSource的ConnectionHolder并且该ConnectionHolder中有Connection并且该Connection等于传入的Connection，则释放
+			// Connection
 			ConnectionHolder conHolder = (ConnectionHolder) TransactionSynchronizationManager.getResource(dataSource);
 			if (conHolder != null && connectionEquals(conHolder, con)) {
 				// It's the transactional Connection: Don't close it.
+				// 由于Connection在事务之中，Connection可能正在被其他方法使用，所以不能直接close connection，这里将referenceCount - 1
 				conHolder.released();
 				return;
 			}
 		}
 		logger.debug("Returning JDBC Connection to DataSource");
+		// 如果以上条件不满足，则直接close connection
 		doCloseConnection(con, dataSource);
 	}
 

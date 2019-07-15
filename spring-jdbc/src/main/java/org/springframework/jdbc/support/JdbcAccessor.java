@@ -46,8 +46,10 @@ public abstract class JdbcAccessor implements InitializingBean {
 	private DataSource dataSource;
 
 	@Nullable
+	// 将SQL Exception转换为Spring的DataAccessException
 	private volatile SQLExceptionTranslator exceptionTranslator;
 
+	// 是否延迟初始化exceptionTranslator
 	private boolean lazyInit = true;
 
 
@@ -156,6 +158,7 @@ public abstract class JdbcAccessor implements InitializingBean {
 	 */
 	@Override
 	public void afterPropertiesSet() {
+		// 验证dataSource属性已被设置，如果lazyInit为false则初始化exceptionTranslator
 		if (getDataSource() == null) {
 			throw new IllegalArgumentException("Property 'dataSource' is required");
 		}
