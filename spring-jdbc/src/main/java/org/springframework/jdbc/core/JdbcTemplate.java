@@ -618,16 +618,20 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 			}
 			String sql = getSql(psc);
 			JdbcUtils.closeStatement(ps);
+			// 设置ps == null使得finally的closeStatement不再对ps做处理
 			ps = null;
-			//
+			// 发生异常时释放连接
 			DataSourceUtils.releaseConnection(con, getDataSource());
+			// 设置con == null使得finally的releaseConnection不再对con做处理
 			con = null;
 			throw translateException("PreparedStatementCallback", sql, ex);
 		}
 		finally {
+			// 下面的方法在catch中已经调用过了，但是重复调用下面的几个方法没有影响
 			if (psc instanceof ParameterDisposer) {
 				((ParameterDisposer) psc).cleanupParameters();
 			}
+			// close PreparedStatement
 			JdbcUtils.closeStatement(ps);
 			DataSourceUtils.releaseConnection(con, getDataSource());
 		}
