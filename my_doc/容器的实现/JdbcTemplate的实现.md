@@ -485,7 +485,297 @@ protected int update(final PreparedStatementCreator psc, @Nullable final Prepare
 
 上面代码的核心在于`execute()`方法，代码：
 ```java
+@Override
+@Nullable
+public <T> T execute(PreparedStatementCreator psc, PreparedStatementCallback<T> action)
+    throws DataAccessException {
 
+  Assert.notNull(psc, "PreparedStatementCreator must not be null");
+  Assert.notNull(action, "Callback object must not be null");
+  if (logger.isDebugEnabled()) {
+    String sql = getSql(psc);
+    logger.debug("Executing prepared SQL statement" + (sql != null ? " [" + sql + "]" : ""));
+  }
+
+  // 从DataSource获取Connection
+  Connection con = DataSourceUtils.getConnection(obtainDataSource());
+  PreparedStatement ps = null;
+  try {
+    ps = psc.createPreparedStatement(con);
+    // 设置jdbcTemplate的fetchSize、maxRows和queryTimeout属性到PreparedStatement
+    applyStatementSettings(ps);
+    // 调用PreparedStatementCallback执行SQL操作
+    T result = action.doInPreparedStatement(ps);
+    // 如果PreparedStatement存在warning并且ignoreWarnings为false，则封装为SQLWarningException抛出
+    handleWarnings(ps);
+    return result;
+  }
+  catch (SQLException ex) {
+    // Release Connection early, to avoid potential connection pool deadlock
+    // in the case when the exception translator hasn't been initialized yet.
+    if (psc instanceof ParameterDisposer) {
+      ((ParameterDisposer) psc).cleanupParameters();
+    }
+    String sql = getSql(psc);
+    JdbcUtils.closeStatement(ps);
+    // 设置ps == null使得finally的closeStatement不再对ps做处理
+    ps = null;
+    // 发生异常时释放连接
+    DataSourceUtils.releaseConnection(con, getDataSource());
+    // 设置con == null使得finally的releaseConnection不再对con做处理
+    con = null;
+    throw translateException("PreparedStatementCallback", sql, ex);
+  }
+  finally {
+    // 下面的方法在catch中已经调用过了，但是重复调用下面的几个方法没有影响
+    if (psc instanceof ParameterDisposer) {
+      ((ParameterDisposer) psc).cleanupParameters();
+    }
+    // close PreparedStatement
+    JdbcUtils.closeStatement(ps);
+    DataSourceUtils.releaseConnection(con, getDataSource());
+  }
+}
 ```
 
+`execute(PreparedStatementCreator psc, PreparedStatementCallback<T> action)`方法定义了SQL执行过程的基本逻辑，包括获取连接、创建[PreparedStatement]和释放连接，SQL执行过程中的差异行为则交由[PreparedStatementCallback]处理，回到`update(final PreparedStatementCreator psc, @Nullable final PreparedStatementSetter pss)`方法，该方法传入的[PreparedStatementCallback]为：
+```java
+ps -> {
+  try {
+    if (pss != null) {
+      // 先用PreparedStatementCreator设置PreparedStatement的参数值
+      pss.setValues(ps);
+    }
+    // 执行更新操作
+    int rows = ps.executeUpdate();
+    if (logger.isDebugEnabled()) {
+      logger.debug("SQL update affected " + rows + " rows");
+    }
+    // 返回更新的数据行
+    return rows;
+  }
+  finally {
+    if (pss instanceof ParameterDisposer) {
+      ((ParameterDisposer) pss).cleanupParameters();
+    }
+  }
+}
+```
+
+对于其他的update操作，包括增删改都是上面的执行过程，执行的是同一个`update()`方法，对于批量操作，和上面的流程有些许不同，批量操作方法的使用例子：
+```java
+public void insertBatch(final List<Book> books) {
+    String sql = "INSERT INTO BOOK (BOOK_ID, NAME, YEAR) VALUES (?, ?, ?)";
+
+    getJdbcTemplate().batchUpdate(sql, new BatchPreparedStatementSetter() {
+
+        public void setValues(PreparedStatement ps, int i) throws SQLException {
+            Book customer = books.get(i);
+            ps.setLong(1, customer.getBookId());
+            ps.setString(2, customer.getName());
+            ps.setInt(3, customer.getYear());
+        }
+
+        public int getBatchSize() {
+            return books.size();
+        }
+    });
+}
+```
+
+批量操作执行时需要传入一个[BatchPreparedStatementSetter]实例，用于设置批量操作时的参数，下面是`batchUpdate(String sql, final BatchPreparedStatementSetter pss)`方法代码：
+
+```java
+@Override
+public int[] batchUpdate(String sql, final BatchPreparedStatementSetter pss) throws DataAccessException {
+  if (logger.isDebugEnabled()) {
+    logger.debug("Executing SQL batch update [" + sql + "]");
+  }
+
+  int[] result = execute(sql, (PreparedStatementCallback<int[]>) ps -> {
+    try {
+      int batchSize = pss.getBatchSize();
+      InterruptibleBatchPreparedStatementSetter ipss =
+          (pss instanceof InterruptibleBatchPreparedStatementSetter ?
+          (InterruptibleBatchPreparedStatementSetter) pss : null);
+      // 首先判断数据库是否支持批量操作
+      if (JdbcUtils.supportsBatchUpdates(ps.getConnection())) {
+        for (int i = 0; i < batchSize; i++) {
+          pss.setValues(ps, i);
+          // 如果ipss不为空，则判断isBatchExhausted是否为true，该方法可以在batchSize的基础上进一步控制批量操作的操作数量
+          if (ipss != null && ipss.isBatchExhausted(i)) {
+            break;
+          }
+          ps.addBatch();
+        }
+        return ps.executeBatch();
+      }
+      else {
+        // 如果不支持批量操作，则循环依次执行
+        List<Integer> rowsAffected = new ArrayList<>();
+        for (int i = 0; i < batchSize; i++) {
+          pss.setValues(ps, i);
+          if (ipss != null && ipss.isBatchExhausted(i)) {
+            break;
+          }
+          // 保存执行结果
+          rowsAffected.add(ps.executeUpdate());
+        }
+        int[] rowsAffectedArray = new int[rowsAffected.size()];
+        for (int i = 0; i < rowsAffectedArray.length; i++) {
+          rowsAffectedArray[i] = rowsAffected.get(i);
+        }
+        return rowsAffectedArray;
+      }
+    }
+    finally {
+      if (pss instanceof ParameterDisposer) {
+        ((ParameterDisposer) pss).cleanupParameters();
+      }
+    }
+  });
+
+  Assert.state(result != null, "No result array");
+  return result;
+}
+```
+
+`batchUpdate(String sql, final BatchPreparedStatementSetter pss)`方法中调用的`execute()`方法和普通的更新操作调用的`execute()`方法是同一个。
+
+以上是更新操作的执行过程，下面看查询过程，一个普通的查询操作如下：
+```java
+public List<Book> getAll() {
+    String sql = "SELECT * FROM BOOK";
+    return getJdbcTemplate().query(sql, new BookRowMapper());
+}
+```
+
+传入的第二个参数[BookRowMapper]是[RowMapper]接口的实现类，[RowMapper]接口用于结果集的转换，[BookRowMapper]实现如下：
+```java
+public class BookRowMapper implements RowMapper {
+    // rowNum表示当前行数
+    public Book mapRow(ResultSet rs, int rowNum) throws SQLException {
+        Book book = new Book();
+        book.setBookId(rs.getInt("BOOK_ID"));
+        book.setName(rs.getString("NAME"));
+        book.setYear(rs.getInt("YEAR"));
+        return book;
+    }
+}
+```
+
+上面调用的`query()`方法代码：
+```java
+public <T> List<T> query(String sql, RowMapper<T> rowMapper) throws DataAccessException {
+  return result(query(sql, new RowMapperResultSetExtractor<>(rowMapper)));
+}
+```
+
+[RowMapperResultSetExtractor]类用于遍历[ResultSet]转换结果集，代码：
+```java
+public class RowMapperResultSetExtractor<T> implements ResultSetExtractor<List<T>> {
+
+	private final RowMapper<T> rowMapper;
+
+	private final int rowsExpected;
+
+	public RowMapperResultSetExtractor(RowMapper<T> rowMapper) {
+		this(rowMapper, 0);
+	}
+
+	public RowMapperResultSetExtractor(RowMapper<T> rowMapper, int rowsExpected) {
+		Assert.notNull(rowMapper, "RowMapper is required");
+		this.rowMapper = rowMapper;
+		this.rowsExpected = rowsExpected;
+	}
+
+
+	@Override
+	public List<T> extractData(ResultSet rs) throws SQLException {
+		List<T> results = (this.rowsExpected > 0 ? new ArrayList<>(this.rowsExpected) : new ArrayList<>());
+		int rowNum = 0;
+		while (rs.next()) {
+			results.add(this.rowMapper.mapRow(rs, rowNum++));
+		}
+		return results;
+	}
+}
+```
+
+`query(final String sql, final ResultSetExtractor<T> rse)`方法代码：
+```java
+public <T> T query(final String sql, final ResultSetExtractor<T> rse) throws DataAccessException {
+  Assert.notNull(sql, "SQL must not be null");
+  Assert.notNull(rse, "ResultSetExtractor must not be null");
+  if (logger.isDebugEnabled()) {
+    logger.debug("Executing SQL query [" + sql + "]");
+  }
+
+  class QueryStatementCallback implements StatementCallback<T>, SqlProvider {
+    @Override
+    @Nullable
+    public T doInStatement(Statement stmt) throws SQLException {
+      ResultSet rs = null;
+      try {
+        rs = stmt.executeQuery(sql);
+        // 调用ResultSetExtractor转换结果集
+        return rse.extractData(rs);
+      }
+      finally {
+        JdbcUtils.closeResultSet(rs);
+      }
+    }
+    @Override
+    public String getSql() {
+      return sql;
+    }
+  }
+
+  return execute(new QueryStatementCallback());
+}
+```
+
+`execute(StatementCallback<T> action)`方法代码：
+```java
+public <T> T execute(StatementCallback<T> action) throws DataAccessException {
+  Assert.notNull(action, "Callback object must not be null");
+
+  Connection con = DataSourceUtils.getConnection(obtainDataSource());
+  Statement stmt = null;
+  try {
+    stmt = con.createStatement();
+    applyStatementSettings(stmt);
+    T result = action.doInStatement(stmt);
+    handleWarnings(stmt);
+    return result;
+  }
+  catch (SQLException ex) {
+    // Release Connection early, to avoid potential connection pool deadlock
+    // in the case when the exception translator hasn't been initialized yet.
+    String sql = getSql(action);
+    JdbcUtils.closeStatement(stmt);
+    stmt = null;
+    DataSourceUtils.releaseConnection(con, getDataSource());
+    con = null;
+    throw translateException("StatementCallback", sql, ex);
+  }
+  finally {
+    JdbcUtils.closeStatement(stmt);
+    DataSourceUtils.releaseConnection(con, getDataSource());
+  }
+}
+```
+
+可以看到查询过程和更新过程区别不大，其他的查询方式也差不多是上面的执行过程
+
 [JdbcTemplate]: aaa
+[InitializingBean]: aaa
+[JdbcAccessor]: aaa
+[SQLExceptionTranslator]: aaa
+[DataSource]: aaa
+[JdbcOperations]: aaa
+[Connection]: aaa
+[PreparedStatement]: aaa
+[PreparedStatementCallback]: aaa
+[RowMapperResultSetExtractor]: aaa
+[ResultSet]: aaa

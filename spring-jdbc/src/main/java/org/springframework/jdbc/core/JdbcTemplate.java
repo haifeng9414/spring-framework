@@ -431,6 +431,7 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 				ResultSet rs = null;
 				try {
 					rs = stmt.executeQuery(sql);
+					// 调用ResultSetExtractor转换结果集
 					return rse.extractData(rs);
 				}
 				finally {
@@ -453,6 +454,7 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 
 	@Override
 	public <T> List<T> query(String sql, RowMapper<T> rowMapper) throws DataAccessException {
+		// RowMapper用于结果映射
 		return result(query(sql, new RowMapperResultSetExtractor<>(rowMapper)));
 	}
 
@@ -939,9 +941,11 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 				InterruptibleBatchPreparedStatementSetter ipss =
 						(pss instanceof InterruptibleBatchPreparedStatementSetter ?
 						(InterruptibleBatchPreparedStatementSetter) pss : null);
+				// 首先判断数据库是否支持批量操作
 				if (JdbcUtils.supportsBatchUpdates(ps.getConnection())) {
 					for (int i = 0; i < batchSize; i++) {
 						pss.setValues(ps, i);
+						// 如果ipss不为空，则判断isBatchExhausted是否为true，该方法可以在batchSize的基础上进一步控制批量操作的操作数量
 						if (ipss != null && ipss.isBatchExhausted(i)) {
 							break;
 						}
@@ -950,12 +954,14 @@ public class JdbcTemplate extends JdbcAccessor implements JdbcOperations {
 					return ps.executeBatch();
 				}
 				else {
+					// 如果不支持批量操作，则循环依次执行
 					List<Integer> rowsAffected = new ArrayList<>();
 					for (int i = 0; i < batchSize; i++) {
 						pss.setValues(ps, i);
 						if (ipss != null && ipss.isBatchExhausted(i)) {
 							break;
 						}
+						// 保存执行结果
 						rowsAffected.add(ps.executeUpdate());
 					}
 					int[] rowsAffectedArray = new int[rowsAffected.size()];
