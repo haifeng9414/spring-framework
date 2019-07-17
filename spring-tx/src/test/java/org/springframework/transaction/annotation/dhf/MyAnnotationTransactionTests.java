@@ -22,12 +22,11 @@ public class MyAnnotationTransactionTests {
 		try {
 			System.out.println("insertWithException");
 			bookDao.insertWithException(new Book() {{
-				setBookId(4);
-				setName("4");
-				setYear(4);
+				setName("test");
+				setYear(1);
 			}});
 		} catch (Exception e) {
-			e.printStackTrace();
+			System.out.println(e.getMessage());;
 		}
 
 		count = bookDao.getAll().size();
@@ -36,9 +35,8 @@ public class MyAnnotationTransactionTests {
 		try {
 			System.out.println("insert");
 			bookDao.insert(new Book() {{
-				setBookId(4);
-				setName("4");
-				setYear(4);
+				setName("test");
+				setYear(1);
 			}});
 		} catch (Exception e) {
 			e.printStackTrace();
