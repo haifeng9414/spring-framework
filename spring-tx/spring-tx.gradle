@@ -13,4 +13,5 @@ dependencies {
 	testCompile("org.aspectj:aspectjweaver:${aspectjVersion}")
 	testCompile("org.codehaus.groovy:groovy-all:${groovyVersion}")
 	testCompile("org.eclipse.persistence:javax.persistence:2.2.0")
+	testCompile("mysql:mysql-connector-java:5.1.9")
 }
