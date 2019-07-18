@@ -120,7 +120,7 @@ public class BeanDefinitionReaderUtils {
 		}
 
 		String id = generatedBeanName;
-		// 如果是内嵌bean则给beanNama多加一些字符串做区分
+		// 如果是内嵌bean则给beanName多加一些字符串做区分
 		if (isInnerBean) {
 			// Inner bean: generate identity hashcode suffix.
 			id = generatedBeanName + GENERATED_BEAN_NAME_SEPARATOR + ObjectUtils.getIdentityHexString(definition);
