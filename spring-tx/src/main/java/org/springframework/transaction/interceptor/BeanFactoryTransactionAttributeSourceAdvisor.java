@@ -35,6 +35,7 @@ import org.springframework.lang.Nullable;
 public class BeanFactoryTransactionAttributeSourceAdvisor extends AbstractBeanFactoryPointcutAdvisor {
 
 	@Nullable
+	// 在AnnotationDrivenBeanDefinitionParser中被设置为了AnnotationTransactionAttributeSource
 	private TransactionAttributeSource transactionAttributeSource;
 
 	private final TransactionAttributeSourcePointcut pointcut = new TransactionAttributeSourcePointcut() {

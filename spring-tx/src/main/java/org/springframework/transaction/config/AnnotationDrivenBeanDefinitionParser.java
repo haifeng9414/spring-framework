@@ -118,7 +118,7 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 						"org.springframework.transaction.annotation.AnnotationTransactionAttributeSource");
 				sourceDef.setSource(eleSource);
 				sourceDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
-				// 注册BeanDefinition到BeanFactory，bean name为className
+				// 注册BeanDefinition到BeanFactory，用DefaultBeanNameGenerator生成bean name，默认为className#0
 				String sourceName = parserContext.getReaderContext().registerWithGeneratedName(sourceDef);
 
 				// Create the TransactionInterceptor definition.

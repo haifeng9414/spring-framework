@@ -44,6 +44,7 @@ import org.springframework.util.Assert;
 public abstract class AbstractBeanFactoryPointcutAdvisor extends AbstractPointcutAdvisor implements BeanFactoryAware {
 
 	@Nullable
+	// 在AnnotationDrivenBeanDefinitionParser中被设置为了TransactionInterceptor的bean name
 	private String adviceBeanName;
 
 	@Nullable
@@ -82,6 +83,7 @@ public abstract class AbstractBeanFactoryPointcutAdvisor extends AbstractPointcu
 	}
 
 	private void resetAdviceMonitor() {
+		// 获取BeanFactory中的锁对象
 		if (this.beanFactory instanceof ConfigurableBeanFactory) {
 			this.adviceMonitor = ((ConfigurableBeanFactory) this.beanFactory).getSingletonMutex();
 		}
@@ -108,6 +110,7 @@ public abstract class AbstractBeanFactoryPointcutAdvisor extends AbstractPointcu
 			return advice;
 		}
 
+		// 如果Advice还未初始化则根据adviceBeanName获取Advice
 		Assert.state(this.adviceBeanName != null, "'adviceBeanName' must be specified");
 		Assert.state(this.beanFactory != null, "BeanFactory must be set to resolve 'adviceBeanName'");
 
