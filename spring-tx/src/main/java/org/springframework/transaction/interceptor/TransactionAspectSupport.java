@@ -131,6 +131,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	@Nullable
+	// AnnotationDrivenBeanDefinitionParser中默认设置该属性为transactionManager
 	private String transactionManagerBeanName;
 
 	@Nullable
@@ -296,7 +297,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 		// 执行事务管理逻辑
 		if (txAttr == null || !(tm instanceof CallbackPreferringPlatformTransactionManager)) {
 			// Standard transaction demarcation with getTransaction and commit/rollback calls.
-			// 如果txAttr不为空，则创建TransactionInfo对象
+			// 如果txAttr不为空，则开启事务，创建TransactionInfo对象并保存事务状态到TransactionInfo对象中
 			TransactionInfo txInfo = createTransactionIfNecessary(tm, txAttr, joinpointIdentification);
 			Object retVal = null;
 			try {
@@ -403,7 +404,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 		if (StringUtils.hasText(qualifier)) {
 			return determineQualifiedTransactionManager(this.beanFactory, qualifier);
 		}
-		// 同上
+		// 默认被设置为transactionManager
 		else if (StringUtils.hasText(this.transactionManagerBeanName)) {
 			return determineQualifiedTransactionManager(this.beanFactory, this.transactionManagerBeanName);
 		}
@@ -494,6 +495,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 		TransactionStatus status = null;
 		if (txAttr != null) {
 			if (tm != null) {
+				// getTransaction方法开启事务并返回TransactionStatus对象
 				status = tm.getTransaction(txAttr);
 			}
 			else {

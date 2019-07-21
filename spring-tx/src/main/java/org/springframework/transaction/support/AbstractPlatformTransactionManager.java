@@ -339,6 +339,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 	 */
 	@Override
 	public final TransactionStatus getTransaction(@Nullable TransactionDefinition definition) throws TransactionException {
+		// 开启事务
 		Object transaction = doGetTransaction();
 
 		// Cache debug flag to avoid repeated checks.
@@ -346,20 +347,24 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 
 		if (definition == null) {
 			// Use defaults if no transaction definition given.
+			// TransactionDefinition定义了事务的属性，包括传播行为、隔离级别、超时时间和是否只读
 			definition = new DefaultTransactionDefinition();
 		}
 
+		// 如果已经存在事务，则需要根据事务的隔离级别做相应的处理
 		if (isExistingTransaction(transaction)) {
 			// Existing transaction found -> check propagation behavior to find out how to behave.
 			return handleExistingTransaction(definition, transaction, debugEnabled);
 		}
 
 		// Check definition settings for new transaction.
+		// 验证事务的超时时间是否合法
 		if (definition.getTimeout() < TransactionDefinition.TIMEOUT_DEFAULT) {
 			throw new InvalidTimeoutException("Invalid transaction timeout", definition.getTimeout());
 		}
 
 		// No existing transaction found -> check propagation behavior to find out how to proceed.
+		// 如果当前没有事务并且事务的传播行为是PROPAGATION_MANDATORY，则报错
 		if (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_MANDATORY) {
 			throw new IllegalTransactionStateException(
 					"No existing transaction found for transaction marked with propagation 'mandatory'");
