@@ -55,14 +55,17 @@ import org.springframework.util.ClassUtils;
 public class AnnotationTransactionAttributeSource extends AbstractFallbackTransactionAttributeSource
 		implements Serializable {
 
+	// 判断是否使用了javax.transaction.Transactional注解，如果是则在获取TransactionAttributeSource时需要使用相应的解析类获取
 	private static final boolean jta12Present = ClassUtils.isPresent(
 			"javax.transaction.Transactional", AnnotationTransactionAttributeSource.class.getClassLoader());
 
+	// 同上
 	private static final boolean ejb3Present = ClassUtils.isPresent(
 			"javax.ejb.TransactionAttribute", AnnotationTransactionAttributeSource.class.getClassLoader());
 
 	private final boolean publicMethodsOnly;
 
+	// TransactionAnnotationParser根据注解获取TransactionAttributeSource
 	private final Set<TransactionAnnotationParser> annotationParsers;
 
 
@@ -87,10 +90,13 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 	public AnnotationTransactionAttributeSource(boolean publicMethodsOnly) {
 		this.publicMethodsOnly = publicMethodsOnly;
 		this.annotationParsers = new LinkedHashSet<>(2);
+		// Spring的Transactional注解的解析类
 		this.annotationParsers.add(new SpringTransactionAnnotationParser());
+		// javax.transaction.Transactional注解的解析类
 		if (jta12Present) {
 			this.annotationParsers.add(new JtaTransactionAnnotationParser());
 		}
+		// javax.ejb.TransactionAttribute注解的解析类
 		if (ejb3Present) {
 			this.annotationParsers.add(new Ejb3TransactionAnnotationParser());
 		}
@@ -153,6 +159,7 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 	 * or {@code null} if none was found
 	 */
 	@Nullable
+	// 遍历TransactionAnnotationParser尝试解析注解，所有可被注解的元素都实现了AnnotatedElement接口，如Method和Class
 	protected TransactionAttribute determineTransactionAttribute(AnnotatedElement ae) {
 		for (TransactionAnnotationParser annotationParser : this.annotationParsers) {
 			TransactionAttribute attr = annotationParser.parseTransactionAnnotation(ae);

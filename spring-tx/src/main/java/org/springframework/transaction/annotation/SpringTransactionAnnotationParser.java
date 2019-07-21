@@ -41,6 +41,7 @@ public class SpringTransactionAnnotationParser implements TransactionAnnotationP
 	@Override
 	@Nullable
 	public TransactionAttribute parseTransactionAnnotation(AnnotatedElement ae) {
+		// 合并注解的属性，方法上的Transactional注解属性会覆盖类上的属性
 		AnnotationAttributes attributes = AnnotatedElementUtils.findMergedAnnotationAttributes(
 				ae, Transactional.class, false, false);
 		if (attributes != null) {
@@ -56,6 +57,7 @@ public class SpringTransactionAnnotationParser implements TransactionAnnotationP
 	}
 
 	protected TransactionAttribute parseTransactionAnnotation(AnnotationAttributes attributes) {
+		// 创建RuleBasedTransactionAttribute类，并为RuleBasedTransactionAttribute设置传入的注解的若干属性值
 		RuleBasedTransactionAttribute rbta = new RuleBasedTransactionAttribute();
 		Propagation propagation = attributes.getEnum("propagation");
 		rbta.setPropagationBehavior(propagation.value());
@@ -67,21 +69,25 @@ public class SpringTransactionAnnotationParser implements TransactionAnnotationP
 		ArrayList<RollbackRuleAttribute> rollBackRules = new ArrayList<>();
 		Class<?>[] rbf = attributes.getClassArray("rollbackFor");
 		for (Class<?> rbRule : rbf) {
+			// rbf表示所有应该被回滚的异常，这里用RollbackRuleAttribute封装异常类并保存到RuleBasedTransactionAttribute中
 			RollbackRuleAttribute rule = new RollbackRuleAttribute(rbRule);
 			rollBackRules.add(rule);
 		}
 		String[] rbfc = attributes.getStringArray("rollbackForClassName");
 		for (String rbRule : rbfc) {
+			// 同上
 			RollbackRuleAttribute rule = new RollbackRuleAttribute(rbRule);
 			rollBackRules.add(rule);
 		}
 		Class<?>[] nrbf = attributes.getClassArray("noRollbackFor");
 		for (Class<?> rbRule : nrbf) {
+			// nrbf表示所有不应该被回滚的异常
 			NoRollbackRuleAttribute rule = new NoRollbackRuleAttribute(rbRule);
 			rollBackRules.add(rule);
 		}
 		String[] nrbfc = attributes.getStringArray("noRollbackForClassName");
 		for (String rbRule : nrbfc) {
+			// 同上
 			NoRollbackRuleAttribute rule = new NoRollbackRuleAttribute(rbRule);
 			rollBackRules.add(rule);
 		}

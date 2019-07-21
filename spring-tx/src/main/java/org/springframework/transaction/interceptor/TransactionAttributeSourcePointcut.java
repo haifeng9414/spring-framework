@@ -35,6 +35,7 @@ abstract class TransactionAttributeSourcePointcut extends StaticMethodMatcherPoi
 
 	@Override
 	public boolean matches(Method method, @Nullable Class<?> targetClass) {
+		// 如果bean本身是个代理，则不匹配
 		if (targetClass != null && TransactionalProxy.class.isAssignableFrom(targetClass)) {
 			return false;
 		}
