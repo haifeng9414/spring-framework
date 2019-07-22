@@ -173,12 +173,14 @@ public abstract class DataSourceUtils {
 	 * @see #resetConnectionAfterTransaction
 	 */
 	@Nullable
+	// 根据TransactionDefinition中保存的事务配置来设置Connection对象的相关属性
 	public static Integer prepareConnectionForTransaction(Connection con, @Nullable TransactionDefinition definition)
 			throws SQLException {
 
 		Assert.notNull(con, "No Connection specified");
 
 		// Set read-only flag.
+		// 如果事务配置为readonly的则设置connection为readonly
 		if (definition != null && definition.isReadOnly()) {
 			try {
 				if (logger.isDebugEnabled()) {
@@ -202,18 +204,21 @@ public abstract class DataSourceUtils {
 
 		// Apply specific isolation level, if any.
 		Integer previousIsolationLevel = null;
+		// 如果事务的隔离级别非默认的则设置connection的隔离级别
 		if (definition != null && definition.getIsolationLevel() != TransactionDefinition.ISOLATION_DEFAULT) {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Changing isolation level of JDBC Connection [" + con + "] to " +
 						definition.getIsolationLevel());
 			}
 			int currentIsolation = con.getTransactionIsolation();
+			// 如果connection对象的隔离级别和事务配置的隔离级别不相等则更新隔离级别
 			if (currentIsolation != definition.getIsolationLevel()) {
 				previousIsolationLevel = currentIsolation;
 				con.setTransactionIsolation(definition.getIsolationLevel());
 			}
 		}
 
+		// 返回原先connection的隔离级别
 		return previousIsolationLevel;
 	}
 

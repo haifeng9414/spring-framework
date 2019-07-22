@@ -46,6 +46,7 @@ import org.springframework.util.Assert;
  * @since 1.1
  * @see DataSourceTransactionManager
  */
+// 实现了基本的保存点相关功能
 public abstract class JdbcTransactionObjectSupport implements SavepointManager, SmartTransactionObject {
 
 	private static final Log logger = LogFactory.getLog(JdbcTransactionObjectSupport.class);

@@ -14,7 +14,7 @@ public class MyAnnotationTransactionTests {
 	}
 
 	@Test
-	public void requestTest() {
+	public void requiredTest() {
 		BookDao bookDao = (BookDao) context.getBean("bookDao");
 		int count = bookDao.getAll().size();
 		System.out.println("count: " + count);
