@@ -314,7 +314,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 				throw ex;
 			}
 			finally {
-				// Spring的事务是可嵌套的，这里将事务还原成外部事务
+				// 设置当前线程的ThreadLocal -> transactionInfoHolder指向原先的TransactionInfo对象
 				cleanupTransactionInfo(txInfo);
 			}
 			// 执行txInfo中的transactionManager的commit方法
@@ -328,7 +328,8 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 			// It's a CallbackPreferringPlatformTransactionManager: pass a TransactionCallback in.
 			try {
 				Object result = ((CallbackPreferringPlatformTransactionManager) tm).execute(txAttr, status -> {
-					// 创建TransactionInfo，TransactionInfo持有所有事务相关的对象，包括事务管理器、事务属性对象、事务状态对象等
+					// 创建TransactionInfo，设置当前线程的ThreadLocal -> transactionInfoHolder指向这个新创建的TransactionInfo，
+					// TransactionInfo持有所有事务相关的对象，包括事务管理器、事务属性对象、事务状态对象等
 					TransactionInfo txInfo = prepareTransactionInfo(tm, txAttr, joinpointIdentification, status);
 					try {
 						// 执行aop的后续advice，如果没有advice了实际上执行的就是被代理方法
@@ -338,6 +339,9 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 						// 发生异常时判断是否需要回滚
 						if (txAttr.rollbackOn(ex)) {
 							// A RuntimeException: will lead to a rollback.
+							// 需要回滚的异常直接抛出去
+							// 下面将RuntimeException和Exception区分开，RuntimeException直接抛出，Exception用ThrowableHolderException
+							// 封装，在下面的catch中能针对ThrowableHolderException进行catch
 							if (ex instanceof RuntimeException) {
 								throw (RuntimeException) ex;
 							}
@@ -347,11 +351,13 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 						}
 						else {
 							// A normal return value: will lead to a commit.
+							// 不需要回滚的异常记录下来
 							throwableHolder.throwable = ex;
 							return null;
 						}
 					}
 					finally {
+						// 设置当前线程的ThreadLocal -> transactionInfoHolder指向原先的TransactionInfo对象
 						cleanupTransactionInfo(txInfo);
 					}
 				});
@@ -363,9 +369,12 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 				return result;
 			}
 			catch (ThrowableHolderException ex) {
+				// 这里相当于对于被代理方法抛出的受检测异常直接抛出去
 				throw ex.getCause();
 			}
 			catch (TransactionSystemException ex2) {
+				// TransactionSystemException是事务执行过程中Spring抛出的异常，这里判断是否存在被代理方法抛出的异常，如存在则保存到
+				// ex2的applicationException中
 				if (throwableHolder.throwable != null) {
 					logger.error("Application exception overridden by commit exception", throwableHolder.throwable);
 					ex2.initApplicationException(throwableHolder.throwable);
