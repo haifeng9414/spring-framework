@@ -59,4 +59,15 @@ public class MyAnnotationTransactionTests2 {
 		userService.addNestedWithExceptionAndTry();
 		userService.printLargestUserId();
 	}
+
+	@Test
+	public void nestedWithExternalExceptionTest() {
+		userService.printLargestUserId();
+		try {
+			userService.addNestedWithExternalException();
+		} catch (Exception e) {
+			System.out.println(e.getClass().getName());
+		}
+		userService.printLargestUserId();
+	}
 }

@@ -268,7 +268,7 @@ public abstract class TransactionSynchronizationManager {
 	 * @see #registerSynchronization
 	 */
 	public static boolean isSynchronizationActive() {
-		// 以synchronizations是否被设置值作为事务同步是否激活的依据
+		// 以synchronizations是否被设置值作为事务同步是否激活的依据，当事务被挂起或没有事务时synchronizations.get()为null
 		return (synchronizations.get() != null);
 	}
 

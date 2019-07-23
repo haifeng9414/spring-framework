@@ -48,6 +48,11 @@ public class User2Service {
 	}
 
 	@Transactional(propagation = Propagation.NESTED)
+	public void addNested(User2 user) {
+		user2Dao.insert(user);
+	}
+
+	@Transactional(propagation = Propagation.NESTED)
 	public void addNestedWithException(User2 user) {
 		user2Dao.insert(user);
 		throw new RuntimeException();

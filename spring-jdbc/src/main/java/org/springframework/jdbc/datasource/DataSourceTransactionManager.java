@@ -237,7 +237,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 		DataSourceTransactionObject txObject = new DataSourceTransactionObject();
 		// 允许内嵌事务的情况下才支持保存点，DataSourceTransactionManager的默认构造函数将nestedTransactionAllowed设置为true
 		txObject.setSavepointAllowed(isNestedTransactionAllowed());
-		// 根据dataSource获取ConnectionHolder，可能为空，对于使用已存在的事务的情况，这里返回的将是已存在事务的ConnectionHolder
+		// 根据dataSource获取ConnectionHolder，对于使用已存在的事务的情况，这里返回的将是已存在事务的ConnectionHolder，如果不存在事务或者事务被挂起，则返回的是空
 		ConnectionHolder conHolder =
 				(ConnectionHolder) TransactionSynchronizationManager.getResource(obtainDataSource());
 		txObject.setConnectionHolder(conHolder, false);
@@ -271,7 +271,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 				txObject.setConnectionHolder(new ConnectionHolder(newCon), true);
 			}
 
-			// 标记connectionHolder关联了事务，这样当子事务被创建时会重写获取Connection
+			// 标记connectionHolder关联了事务，这样当子事务被创建时会重新获取Connection
 			txObject.getConnectionHolder().setSynchronizedWithTransaction(true);
 			con = txObject.getConnectionHolder().getConnection();
 

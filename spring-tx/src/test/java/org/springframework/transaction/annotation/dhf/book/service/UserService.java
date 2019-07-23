@@ -109,4 +109,17 @@ public class UserService {
 			System.out.println(e.getClass().getName());
 		}
 	}
+
+	@Transactional(propagation = Propagation.REQUIRED)
+	public void addNestedWithExternalException() {
+		User1 user1 = new User1();
+		user1.setName("张三");
+		user1Service.addNested(user1);
+
+		User2 user2 = new User2();
+		user2.setName("李四");
+		user2Service.addNested(user2);
+
+		throw new RuntimeException();
+	}
 }
