@@ -237,7 +237,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 		DataSourceTransactionObject txObject = new DataSourceTransactionObject();
 		// 允许内嵌事务的情况下才支持保存点，DataSourceTransactionManager的默认构造函数将nestedTransactionAllowed设置为true
 		txObject.setSavepointAllowed(isNestedTransactionAllowed());
-		// 根据dataSource获取ConnectionHolder，可能为空
+		// 根据dataSource获取ConnectionHolder，可能为空，对于使用已存在的事务的情况，这里返回的将是已存在事务的ConnectionHolder
 		ConnectionHolder conHolder =
 				(ConnectionHolder) TransactionSynchronizationManager.getResource(obtainDataSource());
 		txObject.setConnectionHolder(conHolder, false);
@@ -259,7 +259,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 		Connection con = null;
 
 		try {
-			// 如果txObject对象上的connectionHolder为空或者txObject对象上的connectionHolder还没有关联到事务
+			// 如果txObject对象上的connectionHolder为空或者txObject对象上的connectionHolder关联了事务，则获取新的Connection
 			if (!txObject.hasConnectionHolder() ||
 					txObject.getConnectionHolder().isSynchronizedWithTransaction()) {
 				// 通过dataSource获取connection
@@ -271,6 +271,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 				txObject.setConnectionHolder(new ConnectionHolder(newCon), true);
 			}
 
+			// 标记connectionHolder关联了事务，这样当子事务被创建时会重写获取Connection
 			txObject.getConnectionHolder().setSynchronizedWithTransaction(true);
 			con = txObject.getConnectionHolder().getConnection();
 
@@ -295,7 +296,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 
 			// 如果enforceReadOnly属性被设置为true并且当前事务被配置成readonly的则创建并执行一个Statement，SQL是"SET TRANSACTION READ ONLY"
 			prepareTransactionalConnection(con, definition);
-			// 设置transactionActive为true表示connectionHolder对应的事务是一个被激活的JDBC事务
+			// 设置transactionActive为true表示connectionHolder的事务已激活
 			txObject.getConnectionHolder().setTransactionActive(true);
 
 			// 如果definition的timeout不为空则返回，否则返回TransactionDefinition.TIMEOUT_DEFAULT

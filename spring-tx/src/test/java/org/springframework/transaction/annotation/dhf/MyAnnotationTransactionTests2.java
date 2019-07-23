@@ -34,9 +34,9 @@ public class MyAnnotationTransactionTests2 {
 
 	@Test
 	public void requireNewTest() {
-		userService.printLargestUserId();
+//		userService.printLargestUserId();
 		userService.addRequireNew();
-		userService.printLargestUserId();
+//		userService.printLargestUserId();
 	}
 
 	@Test
