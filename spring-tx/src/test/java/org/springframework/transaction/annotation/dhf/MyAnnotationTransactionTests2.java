@@ -20,9 +20,9 @@ public class MyAnnotationTransactionTests2 {
 
 	@Test
 	public void requiredTest() {
-		userService.printLargestUserId();
+//		userService.printLargestUserId();
 		userService.addRequired();
-		userService.printLargestUserId();
+//		userService.printLargestUserId();
 	}
 
 	@Test

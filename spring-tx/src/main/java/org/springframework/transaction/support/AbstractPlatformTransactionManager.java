@@ -1113,7 +1113,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 		}
 		if (status.isNewTransaction()) {
 			// 供子类实现，在完成事务后清除事务，对于DataSourceTransactionManager的实现，该方法恢复Connection对象的autoCommit状态、
-			// readonly状态和隔离级别
+			// readonly状态和隔离级别，如果Connection不再被使用，则会关闭Connection
 			doCleanupAfterCompletion(status.getTransaction());
 		}
 		// 如果当前事务中存在一个被挂起的事务则恢复被挂起的事务

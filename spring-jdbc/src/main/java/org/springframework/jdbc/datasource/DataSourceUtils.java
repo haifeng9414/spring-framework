@@ -100,7 +100,8 @@ public abstract class DataSourceUtils {
 	public static Connection doGetConnection(DataSource dataSource) throws SQLException {
 		Assert.notNull(dataSource, "No DataSource specified");
 
-		// 获取当前线程的dataSource对应的ConnectionHolder
+		// 获取当前线程的dataSource对应的ConnectionHolder，如果执行的方法是被Spring事务代理的则这里能够获取到事务创建的ConnectionHolder
+		// 对象，ConnectionHolder对象持有Connection对象
 		ConnectionHolder conHolder = (ConnectionHolder) TransactionSynchronizationManager.getResource(dataSource);
 		// 如果ConnectionHolder不为空并且持有Connection对象或者conHolder在事务之中
 		if (conHolder != null && (conHolder.hasConnection() || conHolder.isSynchronizedWithTransaction())) {
@@ -111,6 +112,7 @@ public abstract class DataSourceUtils {
 				logger.debug("Fetching resumed JDBC Connection from DataSource");
 				conHolder.setConnection(fetchConnection(dataSource));
 			}
+			// 返回事务中的Connection
 			return conHolder.getConnection();
 		}
 		// Else we either got no holder or an empty thread-bound holder here.
@@ -125,6 +127,7 @@ public abstract class DataSourceUtils {
 			// Use same Connection for further JDBC actions within the transaction.
 			// Thread-bound object will get removed by synchronization at transaction completion.
 			ConnectionHolder holderToUse = conHolder;
+			// 如果开启了事务但是ConnectionHolder为空则在这里初始化ConnectionHolder
 			if (holderToUse == null) {
 				holderToUse = new ConnectionHolder(con);
 			}
@@ -132,7 +135,8 @@ public abstract class DataSourceUtils {
 				holderToUse.setConnection(con);
 			}
 			holderToUse.requested();
-			// 保存ConnectionSynchronization到当前线程的threadLocal中
+			// 保存ConnectionSynchronization到当前线程的threadLocal中，这样当Spring的事务代理执行时回调用ConnectionSynchronization
+			// 的不同方法，如事务执行完成前调用beforeCommit和beforeCompletion等
 			TransactionSynchronizationManager.registerSynchronization(
 					new ConnectionSynchronization(holderToUse, dataSource));
 			holderToUse.setSynchronizedWithTransaction(true);
@@ -347,9 +351,12 @@ public abstract class DataSourceUtils {
 			// 如果有当前dataSource的ConnectionHolder并且该ConnectionHolder中有Connection并且该Connection等于传入的Connection，则释放
 			// Connection
 			ConnectionHolder conHolder = (ConnectionHolder) TransactionSynchronizationManager.getResource(dataSource);
+			// 如果事务执行结束，则dataSource和ConnectionHolder的映射关系会被解除，这里获取到的conHolder将为空
 			if (conHolder != null && connectionEquals(conHolder, con)) {
 				// It's the transactional Connection: Don't close it.
 				// 由于Connection在事务之中，Connection可能正在被其他方法使用，所以不能直接close connection，这里将referenceCount - 1
+				// 如果这里将referenceCount减到了0该方法也会执行尝试释放连接，取决于实现方法，对于Spring的事务创建的ConnectionHolder对象，
+				// referenceCount减到了0尝试释放连接时什么都不会做，有事务代理进行连接的释放
 				conHolder.released();
 				return;
 			}

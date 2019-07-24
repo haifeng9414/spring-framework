@@ -538,6 +538,74 @@ public <T> T execute(PreparedStatementCreator psc, PreparedStatementCallback<T> 
 }
 ```
 
+[DataSourceUtils]获取[Connection]时不是简单的新建，而是检查当前线程是否存在事务，并且会尝试获取事务使用的[Connection]，这样才能使得spring-tx的事务代理正常执行，[DataSourceUtils]的`getConnection()`方法：
+```java
+public static Connection getConnection(DataSource dataSource) throws CannotGetJdbcConnectionException {
+  try {
+    return doGetConnection(dataSource);
+  }
+  catch (SQLException ex) {
+    throw new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection", ex);
+  }
+  catch (IllegalStateException ex) {
+    throw new CannotGetJdbcConnectionException("Failed to obtain JDBC Connection: " + ex.getMessage());
+  }
+}
+
+public static Connection doGetConnection(DataSource dataSource) throws SQLException {
+  Assert.notNull(dataSource, "No DataSource specified");
+
+  // 获取当前线程的dataSource对应的ConnectionHolder，如果执行的方法是被Spring事务代理的则这里能够获取到事务创建的ConnectionHolder
+  // 对象，ConnectionHolder对象持有Connection对象
+  ConnectionHolder conHolder = (ConnectionHolder) TransactionSynchronizationManager.getResource(dataSource);
+  // 如果ConnectionHolder不为空并且持有Connection对象或者conHolder在事务之中
+  if (conHolder != null && (conHolder.hasConnection() || conHolder.isSynchronizedWithTransaction())) {
+    // Connection的使用数+1
+    conHolder.requested();
+    // 如果还没有初始化Connection则初始化
+    if (!conHolder.hasConnection()) {
+      logger.debug("Fetching resumed JDBC Connection from DataSource");
+      conHolder.setConnection(fetchConnection(dataSource));
+    }
+    // 返回事务中的Connection
+    return conHolder.getConnection();
+  }
+  // Else we either got no holder or an empty thread-bound holder here.
+
+  // 否则初始化当前dataSource的ConnectionHolder
+  logger.debug("Fetching JDBC Connection from DataSource");
+  Connection con = fetchConnection(dataSource);
+
+  // 如果当前线程开启了事务
+  if (TransactionSynchronizationManager.isSynchronizationActive()) {
+    logger.debug("Registering transaction synchronization for JDBC Connection");
+    // Use same Connection for further JDBC actions within the transaction.
+    // Thread-bound object will get removed by synchronization at transaction completion.
+    ConnectionHolder holderToUse = conHolder;
+    // 如果开启了事务但是ConnectionHolder为空则在这里初始化ConnectionHolder
+    if (holderToUse == null) {
+      holderToUse = new ConnectionHolder(con);
+    }
+    else {
+      holderToUse.setConnection(con);
+    }
+    holderToUse.requested();
+    // 保存ConnectionSynchronization到当前线程的threadLocal中，这样当Spring的事务代理执行时回调用ConnectionSynchronization
+    // 的不同方法，如事务执行完成前调用beforeCommit和beforeCompletion等
+    TransactionSynchronizationManager.registerSynchronization(
+        new ConnectionSynchronization(holderToUse, dataSource));
+    holderToUse.setSynchronizedWithTransaction(true);
+    if (holderToUse != conHolder) {
+      // 保存dataSource和ConnectionHolder的对应关系
+      TransactionSynchronizationManager.bindResource(dataSource, holderToUse);
+    }
+  }
+
+  // 没有开启事务则直接返回新创建的Connection
+  return con;
+}
+```
+
 `execute(PreparedStatementCreator psc, PreparedStatementCallback<T> action)`方法定义了SQL执行过程的基本逻辑，包括获取连接、创建[PreparedStatement]和释放连接，SQL执行过程中的差异行为则交由[PreparedStatementCallback]处理，回到`update(final PreparedStatementCreator psc, @Nullable final PreparedStatementSetter pss)`方法，该方法传入的[PreparedStatementCallback]为：
 ```java
 ps -> {

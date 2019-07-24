@@ -380,6 +380,10 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 		DataSourceTransactionObject txObject = (DataSourceTransactionObject) transaction;
 
 		// Remove the connection holder from the thread, if exposed.
+		// 将dataSource和ConnectionHolder的映射关系解除，这样相当于ConnectionHolder已经没有关联的事务了，可以被释放，而下面
+		// 执行的DataSourceUtils.releaseConnection(con, this.dataSource)方法中判断了传入的Connection对象是否还存在于当前
+		// 线程的ConnectionHolder中，如果不存在则调用Connection对象的close方法，由于下面这里的映射关系的解除，所以Connection对象
+		// 会被close
 		if (txObject.isNewConnectionHolder()) {
 			TransactionSynchronizationManager.unbindResource(obtainDataSource());
 		}
