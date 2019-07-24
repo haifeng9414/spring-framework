@@ -579,7 +579,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 	protected void prepareSynchronization(DefaultTransactionStatus status, TransactionDefinition definition) {
 		// newSynchronization为true表示需要将当前事务配置保存到TransactionSynchronizationManager中
 		if (status.isNewSynchronization()) {
-			// actualTransactionActive表示传入的status对应的事务是否是新创建的
+			// actualTransactionActive表示传入的status对应的事务是否被激活
 			TransactionSynchronizationManager.setActualTransactionActive(status.hasTransaction());
 			// 保存当前事务的隔离级别
 			TransactionSynchronizationManager.setCurrentTransactionIsolationLevel(
@@ -588,7 +588,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 			// 保存当前事务的readonly配置
 			TransactionSynchronizationManager.setCurrentTransactionReadOnly(definition.isReadOnly());
 			// 保存当前事务的名字，在TransactionAspectSupport类的createTransactionIfNecessary方法中创建了一个匿名内部类，重写了
-			// getName方法，这里实际上返回的将是被代理方法的唯一表示，即被代理方法所在类名 + 方法名
+			// getName方法，这里实际上返回的将是被代理方法的唯一标识，即被代理方法所在类名 + 方法名
 			TransactionSynchronizationManager.setCurrentTransactionName(definition.getName());
 			// 初始化ThreadLocal -> synchronizations
 			TransactionSynchronizationManager.initSynchronization();
