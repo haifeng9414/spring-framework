@@ -623,7 +623,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 	 */
 	@Nullable
 	protected final SuspendedResourcesHolder suspend(@Nullable Object transaction) throws TransactionException {
-		// 先判断TransactionSynchronizationManager中当前线程的synchronizations是否不为空
+		// 先判断TransactionSynchronizationManager中当前线程的事务是否被激活了
 		if (TransactionSynchronizationManager.isSynchronizationActive()) {
 			// 获取并调用当前线程的所有TransactionSynchronization的suspend方法
 			List<TransactionSynchronization> suspendedSynchronizations = doSuspendSynchronization();
@@ -1106,6 +1106,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 	 * @see #doCleanupAfterCompletion
 	 */
 	private void cleanupAfterCompletion(DefaultTransactionStatus status) {
+		// 标记当前事务已完成
 		status.setCompleted();
 		if (status.isNewSynchronization()) {
 			TransactionSynchronizationManager.clear();
