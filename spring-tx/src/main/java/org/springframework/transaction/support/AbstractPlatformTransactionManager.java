@@ -564,8 +564,7 @@ public abstract class AbstractPlatformTransactionManager implements PlatformTran
 			boolean newSynchronization, boolean debug, @Nullable Object suspendedResources) {
 
 		// 判断newSynchronization为true并且当前线程事务是否被激活，满足这两个条件才将DefaultTransactionStatus的newSynchronization设置为true
-		// newSynchronization表示是否创建了新的事务，TransactionSynchronizationManager.isSynchronizationActive()表示当前DefaultTransactionStatus
-		// 是否关联到了事务
+		// newSynchronization表示是否创建了新的事务，TransactionSynchronizationManager.isSynchronizationActive()表示当前DefaultTransactionStatus的事务是否激活了
 		boolean actualNewSynchronization = newSynchronization &&
 				!TransactionSynchronizationManager.isSynchronizationActive();
 		return new DefaultTransactionStatus(
