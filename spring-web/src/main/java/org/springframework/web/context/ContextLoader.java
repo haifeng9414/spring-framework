@@ -258,6 +258,8 @@ public class ContextLoader {
 	 * @see #CONFIG_LOCATION_PARAM
 	 */
 	public WebApplicationContext initWebApplicationContext(ServletContext servletContext) {
+		// WebApplicationContext只能创建一次，Spring在创建WebApplicationContext后用WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE
+		// 为key将WebApplicationContext保存到servletContext中
 		if (servletContext.getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE) != null) {
 			throw new IllegalStateException(
 					"Cannot initialize context because there is already a root application context present - " +
@@ -269,6 +271,7 @@ public class ContextLoader {
 		if (logger.isInfoEnabled()) {
 			logger.info("Root WebApplicationContext: initialization started");
 		}
+		// 记录开始启动的时间
 		long startTime = System.currentTimeMillis();
 
 		try {
