@@ -374,6 +374,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @see #applyInitializers
 	 */
 	@SuppressWarnings("unchecked")
+	// ApplicationContextInitializer用于定制化ApplicationContext
 	public void setContextInitializers(@Nullable ApplicationContextInitializer<?>... initializers) {
 		if (initializers != null) {
 			for (ApplicationContextInitializer<?> initializer : initializers) {
@@ -388,6 +389,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @see #configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext)
 	 * @see #applyInitializers(ConfigurableApplicationContext)
 	 */
+	// 同上，也是添加ApplicationContextInitializer，不过这里传入的是全类名，多个ApplicationContextInitializer用,;tab或换行分开
 	public void setContextInitializerClasses(String contextInitializerClasses) {
 		this.contextInitializerClasses = contextInitializerClasses;
 	}
@@ -398,6 +400,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * <p>This is especially handy during testing, although it is debatable whether
 	 * it's good practice to let other application objects access the context this way.
 	 */
+	// 是否将该ServletContext作为ServletContext的属性暴露出去，默认true
 	public void setPublishContext(boolean publishContext) {
 		this.publishContext = publishContext;
 	}
@@ -408,6 +411,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * improvement, provided that no ApplicationListeners rely on such events.
 	 * @see org.springframework.web.context.support.ServletRequestHandledEvent
 	 */
+	// 请求结束后是否需要发送ServletRequestHandledEvent事件，默认true
 	public void setPublishEvents(boolean publishEvents) {
 		this.publishEvents = publishEvents;
 	}
@@ -444,6 +448,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * in any case if your controllers happen to not set the 'Allow' header
 	 * (as required for an OPTIONS response).
 	 */
+	// HTTP的OPTIONS请求是否需要发送到doService方法，默认false
 	public void setDispatchOptionsRequest(boolean dispatchOptionsRequest) {
 		this.dispatchOptionsRequest = dispatchOptionsRequest;
 	}
@@ -521,6 +526,8 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @see #setContextConfigLocation
 	 */
 	protected WebApplicationContext initWebApplicationContext() {
+		// 获取保存在ServletContext中的WebApplicationContext，如果有的话，默认情况下ContextLoaderListener已经创建了一个WebApplicationContext
+		// 并放到了ServletContext
 		WebApplicationContext rootContext =
 				WebApplicationContextUtils.getWebApplicationContext(getServletContext());
 		WebApplicationContext wac = null;
@@ -530,6 +537,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			wac = this.webApplicationContext;
 			if (wac instanceof ConfigurableWebApplicationContext) {
 				ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext) wac;
+				// 和ContextLoaderListener的initWebApplicationContext方法做的是一个事
 				if (!cwac.isActive()) {
 					// The context has not yet been refreshed -> provide services such as
 					// setting the parent context, setting the application context id, etc
@@ -558,6 +566,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			// Either the context is not a ConfigurableApplicationContext with refresh
 			// support or the context injected at construction time had already been
 			// refreshed -> trigger initial onRefresh manually here.
+			// 供子类实现，通知WebApplicationContext刷新了
 			onRefresh(wac);
 		}
 
@@ -840,6 +849,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * Override the parent class implementation in order to intercept PATCH requests.
 	 */
 	@Override
+	// 所有请求都会发送到这里
 	protected void service(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 
@@ -848,6 +858,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			processRequest(request, response);
 		}
 		else {
+			//
 			super.service(request, response);
 		}
 	}
@@ -965,12 +976,15 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 		RequestAttributes previousAttributes = RequestContextHolder.getRequestAttributes();
 		ServletRequestAttributes requestAttributes = buildRequestAttributes(request, response, previousAttributes);
 
+		// 获取request中的WebAsyncManager，如果没有则创建一个返回
 		WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
 		asyncManager.registerCallableInterceptor(FrameworkServlet.class.getName(), new RequestBindingInterceptor());
 
+		// 保存localeContext和requestAttributes到对应的ThreadLocal
 		initContextHolders(request, localeContext, requestAttributes);
 
 		try {
+			// 供子类实现
 			doService(request, response);
 		}
 		catch (ServletException | IOException ex) {
@@ -983,6 +997,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 		}
 
 		finally {
+			// 还原previousLocaleContext和previousAttributes
 			resetContextHolders(request, previousLocaleContext, previousAttributes);
 			if (requestAttributes != null) {
 				requestAttributes.requestCompleted();
@@ -1002,6 +1017,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 				}
 			}
 
+			// 发送请求处理完成事件
 			publishRequestHandledEvent(request, response, startTime, failureCause);
 		}
 	}

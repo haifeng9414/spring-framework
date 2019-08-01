@@ -486,6 +486,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * This implementation calls {@link #initStrategies}.
 	 */
 	@Override
+	// ApplicationContext刷新后执行下面的方法
 	protected void onRefresh(ApplicationContext context) {
 		initStrategies(context);
 	}
@@ -495,7 +496,9 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>May be overridden in subclasses in order to initialize further strategy objects.
 	 */
 	protected void initStrategies(ApplicationContext context) {
+		// 从ApplicationContext获取MultipartResolver bean，如果没有则根据defaultStrategies中的配置来初始化MultipartResolver
 		initMultipartResolver(context);
+		// 以下同上
 		initLocaleResolver(context);
 		initThemeResolver(context);
 		initHandlerMappings(context);
@@ -581,6 +584,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		this.handlerMappings = null;
 
 		if (this.detectAllHandlerMappings) {
+			// 获取所有实现了HandlerMapping接口的bean
 			// Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
 			Map<String, HandlerMapping> matchingBeans =
 					BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
@@ -615,6 +619,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>If no HandlerAdapter beans are defined in the BeanFactory for this namespace,
 	 * we default to SimpleControllerHandlerAdapter.
 	 */
+	// 同上
 	private void initHandlerAdapters(ApplicationContext context) {
 		this.handlerAdapters = null;
 
@@ -653,6 +658,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>If no bean is defined with the given name in the BeanFactory for this namespace,
 	 * we default to no exception resolver.
 	 */
+	// 同上
 	private void initHandlerExceptionResolvers(ApplicationContext context) {
 		this.handlerExceptionResolvers = null;
 
@@ -691,6 +697,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * Initialize the RequestToViewNameTranslator used by this servlet instance.
 	 * <p>If no implementation is configured then we default to DefaultRequestToViewNameTranslator.
 	 */
+	// 同上
 	private void initRequestToViewNameTranslator(ApplicationContext context) {
 		try {
 			this.viewNameTranslator =
@@ -715,6 +722,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>If no ViewResolver beans are defined in the BeanFactory for this
 	 * namespace, we default to InternalResourceViewResolver.
 	 */
+	// 同上
 	private void initViewResolvers(ApplicationContext context) {
 		this.viewResolvers = null;
 
@@ -753,6 +761,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * <p>If no implementation is configured then we default to
 	 * {@code org.springframework.web.servlet.support.DefaultFlashMapManager}.
 	 */
+	// 同上
 	private void initFlashMapManager(ApplicationContext context) {
 		try {
 			this.flashMapManager = context.getBean(FLASH_MAP_MANAGER_BEAN_NAME, FlashMapManager.class);
@@ -835,6 +844,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @return the List of corresponding strategy objects
 	 */
 	@SuppressWarnings("unchecked")
+	// 根据defaultStrategies中保存的接口和实现类的映射关系创建传入的类型实例，并添加到ApplicationContext中
 	protected <T> List<T> getDefaultStrategies(ApplicationContext context, Class<T> strategyInterface) {
 		String key = strategyInterface.getName();
 		String value = defaultStrategies.getProperty(key);

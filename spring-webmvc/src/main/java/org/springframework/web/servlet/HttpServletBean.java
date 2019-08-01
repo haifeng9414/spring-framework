@@ -145,18 +145,33 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 	 * properties are missing), or if subclass initialization fails.
 	 */
 	@Override
+	// GenericServlet定义的方法，用于初始化当前servlet
 	public final void init() throws ServletException {
 		if (logger.isDebugEnabled()) {
 			logger.debug("Initializing servlet '" + getServletName() + "'");
 		}
 
 		// Set bean properties from init parameters.
+		/*
+		 getServletConfig返回ServletConfig，该对象表示的是servlet在web.xml中的配置，如：
+		 <servlet>
+    	    <servlet-name>spring-mvc</servlet-name>
+    	    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    	    <load-on-startup>1</load-on-startup>
+    	</servlet>
+
+		ServletConfigPropertyValues类继承自MutablePropertyValues，这里从ServletConfig中获取InitParameter，并保存下来，
+		如果requiredProperties不为空并且InitParameter中没有requiredProperties指定的属性则报错
+		 */
+
 		PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
 		if (!pvs.isEmpty()) {
 			try {
+				// 将这些属性应用到当前servlet中
 				BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
 				ResourceLoader resourceLoader = new ServletContextResourceLoader(getServletContext());
 				bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, getEnvironment()));
+				// 供子类实现
 				initBeanWrapper(bw);
 				bw.setPropertyValues(pvs, true);
 			}
@@ -169,6 +184,7 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 		}
 
 		// Let subclasses do whatever initialization they like.
+		// 供子类实现
 		initServletBean();
 
 		if (logger.isDebugEnabled()) {
