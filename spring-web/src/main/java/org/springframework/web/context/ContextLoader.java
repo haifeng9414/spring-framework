@@ -138,6 +138,7 @@ public class ContextLoader {
 		// Load default strategy implementations from properties file.
 		// This is currently strictly internal and not meant to be customized
 		// by application developers.
+		// 加载ContextLoader.properties文件中的内容，该文件指定了WebApplicationContext的默认实现
 		try {
 			ClassPathResource resource = new ClassPathResource(DEFAULT_STRATEGIES_PATH, ContextLoader.class);
 			defaultStrategies = PropertiesLoaderUtils.loadProperties(resource);
@@ -294,7 +295,7 @@ public class ContextLoader {
 						ApplicationContext parent = loadParentContext(servletContext);
 						cwac.setParent(parent);
 					}
-					// 刷新容器
+					// 设置容器必要属性并刷新容器
 					configureAndRefreshWebApplicationContext(cwac, servletContext);
 				}
 			}
@@ -410,7 +411,7 @@ public class ContextLoader {
 
 		// 保存ServletContext
 		wac.setServletContext(sc);
-		// 设置contextConfigLocation
+		// 设置contextConfigLocation，该属性配置在web.xml中，值为spring的xml配置文件路径
 		String configLocationParam = sc.getInitParameter(CONFIG_LOCATION_PARAM);
 		if (configLocationParam != null) {
 			wac.setConfigLocation(configLocationParam);
@@ -419,8 +420,10 @@ public class ContextLoader {
 		// The wac environment's #initPropertySources will be called in any case when the context
 		// is refreshed; do it eagerly here to ensure servlet property sources are in place for
 		// use in any post-processing or initialization that occurs below prior to #refresh
+		// 默认实现是StandardEnvironment
 		ConfigurableEnvironment env = wac.getEnvironment();
 		if (env instanceof ConfigurableWebEnvironment) {
+			// 创建MutablePropertySources，并将servlet中的initParameter作为一个PropertySource添加到MutablePropertySources中
 			((ConfigurableWebEnvironment) env).initPropertySources(sc, null);
 		}
 

@@ -160,7 +160,7 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
     	    <load-on-startup>1</load-on-startup>
     	</servlet>
 
-		ServletConfigPropertyValues类继承自MutablePropertyValues，这里从ServletConfig中获取InitParameter，并保存下来，
+		ServletConfigPropertyValues类继承自MutablePropertyValues，该类构造函数从ServletConfig中获取InitParameter，并保存下来，
 		如果requiredProperties不为空并且InitParameter中没有requiredProperties指定的属性则报错
 		 */
 
