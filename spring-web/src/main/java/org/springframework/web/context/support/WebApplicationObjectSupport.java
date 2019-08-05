@@ -48,8 +48,10 @@ public abstract class WebApplicationObjectSupport extends ApplicationObjectSuppo
 
 	@Override
 	public final void setServletContext(ServletContext servletContext) {
+		// initApplicationContext中可能会设置servletContext，这里的判断防止对同一个servletContext重复调用initServletContext方法
 		if (servletContext != this.servletContext) {
 			this.servletContext = servletContext;
+			// 供子类实现
 			initServletContext(servletContext);
 		}
 	}
@@ -75,9 +77,11 @@ public abstract class WebApplicationObjectSupport extends ApplicationObjectSuppo
 	@Override
 	protected void initApplicationContext(ApplicationContext context) {
 		super.initApplicationContext(context);
+		// 如果servletContext为空则尝试从WebApplicationContext中获取servletContext
 		if (this.servletContext == null && context instanceof WebApplicationContext) {
 			this.servletContext = ((WebApplicationContext) context).getServletContext();
 			if (this.servletContext != null) {
+				// 供子类实现
 				initServletContext(this.servletContext);
 			}
 		}
@@ -149,6 +153,7 @@ public abstract class WebApplicationObjectSupport extends ApplicationObjectSuppo
 	 * @see org.springframework.web.util.WebUtils#getTempDir(javax.servlet.ServletContext)
 	 */
 	protected final File getTempDir() throws IllegalStateException {
+		// 获取临时目录
 		ServletContext servletContext = getServletContext();
 		Assert.state(servletContext != null, "ServletContext is required");
 		return WebUtils.getTempDir(servletContext);

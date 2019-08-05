@@ -68,6 +68,7 @@ import org.springframework.web.util.UrlPathHelper;
 public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport implements HandlerMapping, Ordered {
 
 	@Nullable
+	// 默认handler
 	private Object defaultHandler;
 
 	private UrlPathHelper urlPathHelper = new UrlPathHelper();
@@ -78,8 +79,11 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 
 	private final List<HandlerInterceptor> adaptedInterceptors = new ArrayList<>();
 
+	// UrlBasedCorsConfigurationSource用于根据请求返回对应的cors配置，实现逻辑就是用请求路径作为key，CorsConfiguration作为value
+	// 保存cors配置，每次获取请求的CorsConfiguration时，直接从UrlBasedCorsConfigurationSource的cors配置中获取请求对应的CorsConfiguration
 	private final UrlBasedCorsConfigurationSource globalCorsConfigSource = new UrlBasedCorsConfigurationSource();
 
+	// CorsProcessor用于处理cors相关请求，为cors response添加cors相关的请求头
 	private CorsProcessor corsProcessor = new DefaultCorsProcessor();
 
 	private int order = Ordered.LOWEST_PRECEDENCE;  // default: same as non-Ordered
@@ -239,8 +243,11 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 */
 	@Override
 	protected void initApplicationContext() throws BeansException {
+		// 供子类实现
 		extendInterceptors(this.interceptors);
+		// 将所有实现了MappedInterceptor接口的bean添加到adaptedInterceptors中
 		detectMappedInterceptors(this.adaptedInterceptors);
+		// 将interceptors中的对象添加到adaptedInterceptors中
 		initInterceptors();
 	}
 
@@ -303,6 +310,8 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		if (interceptor instanceof HandlerInterceptor) {
 			return (HandlerInterceptor) interceptor;
 		}
+		// WebRequestInterceptor接口的方法和HandlerInterceptor接口的一样，但是没有继承HandlerInterceptor接口，这里的
+		// WebRequestHandlerInterceptorAdapter就是作为一个适配器
 		else if (interceptor instanceof WebRequestInterceptor) {
 			return new WebRequestHandlerInterceptorAdapter((WebRequestInterceptor) interceptor);
 		}
@@ -347,8 +356,10 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	@Override
 	@Nullable
 	public final HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+		// 从request获取handler，供子类实习
 		Object handler = getHandlerInternal(request);
 		if (handler == null) {
+			// 获取默认handler
 			handler = getDefaultHandler();
 		}
 		if (handler == null) {
@@ -361,10 +372,15 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		}
 
 		HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request);
+		// 如果是cors请求
 		if (CorsUtils.isCorsRequest(request)) {
+			// 从globalCorsConfigSource中获取CorsConfiguration
 			CorsConfiguration globalConfig = this.globalCorsConfigSource.getCorsConfiguration(request);
+			// 如果handler是CorsConfigurationSource类型的，则从handler中获取CorsConfiguration
 			CorsConfiguration handlerConfig = getCorsConfiguration(handler, request);
+			// 结合两个CorsConfiguration
 			CorsConfiguration config = (globalConfig != null ? globalConfig.combine(handlerConfig) : handlerConfig);
+			// 将cors逻辑添加到HandlerExecutionChain中
 			executionChain = getCorsHandlerExecutionChain(request, executionChain, config);
 		}
 		return executionChain;
@@ -410,6 +426,7 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	 * @see #getAdaptedInterceptors()
 	 */
 	protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
+		// 创建HandlerExecutionChain实例
 		HandlerExecutionChain chain = (handler instanceof HandlerExecutionChain ?
 				(HandlerExecutionChain) handler : new HandlerExecutionChain(handler));
 
@@ -417,11 +434,13 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 		for (HandlerInterceptor interceptor : this.adaptedInterceptors) {
 			if (interceptor instanceof MappedInterceptor) {
 				MappedInterceptor mappedInterceptor = (MappedInterceptor) interceptor;
+				// 判断请求的路径是否满足条件，如果满足则添加到HandlerExecutionChain中
 				if (mappedInterceptor.matches(lookupPath, this.pathMatcher)) {
 					chain.addInterceptor(mappedInterceptor.getInterceptor());
 				}
 			}
 			else {
+				// 普通类型的HandlerInterceptor直接添加
 				chain.addInterceptor(interceptor);
 			}
 		}
@@ -462,11 +481,13 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	protected HandlerExecutionChain getCorsHandlerExecutionChain(HttpServletRequest request,
 			HandlerExecutionChain chain, @Nullable CorsConfiguration config) {
 
+		// 判断是否为preflight request，如果是则返回一个preflight response而不是普通的业务响应
 		if (CorsUtils.isPreFlightRequest(request)) {
 			HandlerInterceptor[] interceptors = chain.getInterceptors();
 			chain = new HandlerExecutionChain(new PreFlightHandler(config), interceptors);
 		}
 		else {
+			// 如果是普通cors请求，则添加一个CorsInterceptor，因为cors请求的响应必须包含cors相关的header
 			chain.addInterceptor(new CorsInterceptor(config));
 		}
 		return chain;

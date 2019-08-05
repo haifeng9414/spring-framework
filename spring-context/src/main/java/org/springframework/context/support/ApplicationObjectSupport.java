@@ -62,6 +62,7 @@ public abstract class ApplicationObjectSupport implements ApplicationContextAwar
 
 	@Override
 	public final void setApplicationContext(@Nullable ApplicationContext context) throws BeansException {
+		// 如果context为空并且applicationContext是非必须的，则清空下面两个属性
 		if (context == null && !isContextRequired()) {
 			// Reset internal context state.
 			this.applicationContext = null;
@@ -69,16 +70,21 @@ public abstract class ApplicationObjectSupport implements ApplicationContextAwar
 		}
 		else if (this.applicationContext == null) {
 			// Initialize with passed-in context.
+			// 如果context不是需要的context类型，则报错
 			if (!requiredContextClass().isInstance(context)) {
 				throw new ApplicationContextException(
 						"Invalid application context: needs to be of type [" + requiredContextClass().getName() + "]");
 			}
 			this.applicationContext = context;
+			// MessageSourceAccessor能够从MessageSource中获取属性，而ApplicationContext接口继承了MessageSource接口，所以这里的
+			// MessageSourceAccessor相当于能够从context中获取属性
 			this.messageSourceAccessor = new MessageSourceAccessor(context);
+			// 供子类实现
 			initApplicationContext(context);
 		}
 		else {
 			// Ignore reinitialization if same context passed in.
+			// context不能重复设置
 			if (this.applicationContext != context) {
 				throw new ApplicationContextException(
 						"Cannot reinitialize with different application context: current one is [" +

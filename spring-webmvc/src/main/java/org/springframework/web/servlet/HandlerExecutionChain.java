@@ -40,12 +40,15 @@ public class HandlerExecutionChain {
 
 	private static final Log logger = LogFactory.getLog(HandlerExecutionChain.class);
 
+	// 表示能够执行请求的handler，这里是Object而不是某种接口，所以handler的实现形式是任意的
 	private final Object handler;
 
 	@Nullable
+	// HandlerInterceptor接口定义了3个方法，分别是preHandle、postHandle和afterCompletion，在处理请求过程中的不同时间点执行
 	private HandlerInterceptor[] interceptors;
 
 	@Nullable
+	// 这里还定义一个List<HandlerInterceptor>是为了在添加HandlerInterceptor时方便
 	private List<HandlerInterceptor> interceptorList;
 
 	private int interceptorIndex = -1;
@@ -128,12 +131,14 @@ public class HandlerExecutionChain {
 	 * next interceptor or the handler itself. Else, DispatcherServlet assumes
 	 * that this interceptor has already dealt with the response itself.
 	 */
+	// 遍历HandlerInterceptor调用preHandle方法
 	boolean applyPreHandle(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		HandlerInterceptor[] interceptors = getInterceptors();
 		if (!ObjectUtils.isEmpty(interceptors)) {
 			for (int i = 0; i < interceptors.length; i++) {
 				HandlerInterceptor interceptor = interceptors[i];
 				if (!interceptor.preHandle(request, response, this.handler)) {
+					// 如果preHandle方法返回false表示终止遍历，同时也表示终止请求的执行，所以这里需要调用triggerAfterCompletion
 					triggerAfterCompletion(request, response, null);
 					return false;
 				}
@@ -174,6 +179,8 @@ public class HandlerExecutionChain {
 					interceptor.afterCompletion(request, response, this.handler, ex);
 				}
 				catch (Throwable ex2) {
+					// 遍历过程中发生异常记录日志，但是日志中没有强调发生的异常是哪个HandlerInterceptor抛出的，只是把错误信息打印，
+					// 实际上错误信息中就包含了HandlerInterceptor的信息，所以以后自己记录日志时也不用纠结应该如果输出抛出错误的对象
 					logger.error("HandlerInterceptor.afterCompletion threw exception", ex2);
 				}
 			}
@@ -183,6 +190,9 @@ public class HandlerExecutionChain {
 	/**
 	 * Apply afterConcurrentHandlerStarted callback on mapped AsyncHandlerInterceptors.
 	 */
+	// 调用AsyncHandlerInterceptor，AsyncHandlerInterceptor继承自HandlerInterceptor，添加了一个afterConcurrentHandlingStarted方法，
+	// 当开始并发执行一个请求时被调用，当并发执行请求时HandlerInterceptor的postHandle和afterCompletion不会被调用，因为并发执行请求时什么时候
+	// 请求执行完成是不确定的
 	void applyAfterConcurrentHandlingStarted(HttpServletRequest request, HttpServletResponse response) {
 		HandlerInterceptor[] interceptors = getInterceptors();
 		if (!ObjectUtils.isEmpty(interceptors)) {
