@@ -1014,7 +1014,8 @@ public class DispatcherServlet extends FrameworkServlet {
 					return;
 				}
 
-				// 利用viewNameTranslator获取请求的viewName，并将该值设置到handle方法返回的ModelAndView中
+				// 利用viewNameTranslator获取请求的viewName，并将该值设置到handle方法返回的ModelAndView中，所以viewNameTranslator能够
+				// 覆盖controller中设置的viewName
 				applyDefaultViewName(processedRequest, mv);
 				// 调用handler的postHandle方法
 				mappedHandler.applyPostHandle(processedRequest, response, mv);
@@ -1083,6 +1084,8 @@ public class DispatcherServlet extends FrameworkServlet {
 			}
 			else {
 				Object handler = (mappedHandler != null ? mappedHandler.getHandler() : null);
+				// 对于其他类型的异常，如果存在HandlerExceptionResolver则对异常进行解析，获取对应的ModelAndView，如果不存在HandlerExceptionResolver
+				// 则抛出传入的异常
 				mv = processHandlerException(request, response, handler, exception);
 				errorView = (mv != null);
 			}
@@ -1090,6 +1093,7 @@ public class DispatcherServlet extends FrameworkServlet {
 
 		// Did the handler return a view to render?
 		if (mv != null && !mv.wasCleared()) {
+			// 渲染ModelAndView
 			render(mv, request, response);
 			if (errorView) {
 				WebUtils.clearErrorRequestAttributes(request);
@@ -1318,14 +1322,17 @@ public class DispatcherServlet extends FrameworkServlet {
 	 */
 	protected void render(ModelAndView mv, HttpServletRequest request, HttpServletResponse response) throws Exception {
 		// Determine locale for request and apply it to the response.
+		// 如果存在localeResolver则获取Locale，以支持国际化
 		Locale locale =
 				(this.localeResolver != null ? this.localeResolver.resolveLocale(request) : request.getLocale());
 		response.setLocale(locale);
 
 		View view;
+		// 获取controller中设置的viewName
 		String viewName = mv.getViewName();
 		if (viewName != null) {
 			// We need to resolve the view name.
+			// 调用viewResolvers解析viewName，返回View对象
 			view = resolveViewName(viewName, mv.getModelInternal(), locale, request);
 			if (view == null) {
 				throw new ServletException("Could not resolve view with name '" + mv.getViewName() +
