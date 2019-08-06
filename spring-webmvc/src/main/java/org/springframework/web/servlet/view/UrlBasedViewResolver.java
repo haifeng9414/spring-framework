@@ -91,6 +91,7 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 	 * Such view names will not be resolved in the configured default
 	 * way but rather be treated as special shortcut.
 	 */
+	// 重定向的前缀
 	public static final String REDIRECT_URL_PREFIX = "redirect:";
 
 	/**
@@ -99,10 +100,12 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 	 * Such view names will not be resolved in the configured default
 	 * way but rather be treated as special shortcut.
 	 */
+	// 转发的前缀
 	public static final String FORWARD_URL_PREFIX = "forward:";
 
 
 	@Nullable
+	// 视图的类型
 	private Class<?> viewClass;
 
 	private String prefix = "";
@@ -112,17 +115,21 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 	@Nullable
 	private String contentType;
 
+	// 当重定向的路径是/开头时，是否认为是路径相对于当前ServletContext
 	private boolean redirectContextRelative = true;
 
+	// 重定向是否需要兼容http 1.0
 	private boolean redirectHttp10Compatible = true;
 
 	@Nullable
+	// 表示能被重定向的域名，可以为空
 	private String[] redirectHosts;
 
 	@Nullable
 	private String requestContextAttribute;
 
 	/** Map of static attributes, keyed by attribute name (String) */
+	// 静态属性，将会被添加到创建的视图属性中
 	private final Map<String, Object> staticAttributes = new HashMap<>();
 
 	@Nullable
@@ -466,20 +473,26 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 	protected View createView(String viewName, Locale locale) throws Exception {
 		// If this resolver is not supposed to handle the given view,
 		// return null to pass on to the next resolver in the chain.
+		// 如果viewNames属性不为空，则根据viewNames属性判断当前视图名称是否能被解析
 		if (!canHandle(viewName, locale)) {
 			return null;
 		}
 		// Check for special "redirect:" prefix.
+		// 如果是重定向请求
 		if (viewName.startsWith(REDIRECT_URL_PREFIX)) {
 			String redirectUrl = viewName.substring(REDIRECT_URL_PREFIX.length());
+			// 创建重定向视图
 			RedirectView view = new RedirectView(redirectUrl, isRedirectContextRelative(), isRedirectHttp10Compatible());
+			// 获取能够被重定向的域名，可以为空
 			String[] hosts = getRedirectHosts();
 			if (hosts != null) {
 				view.setHosts(hosts);
 			}
+			// 将创建的视图作为bean添加到applicationContext
 			return applyLifecycleMethods(viewName, view);
 		}
 		// Check for special "forward:" prefix.
+		// 如果是转发请求则创建对应的视图，该视图没有被添加到applicationContext
 		if (viewName.startsWith(FORWARD_URL_PREFIX)) {
 			String forwardUrl = viewName.substring(FORWARD_URL_PREFIX.length());
 			return new InternalResourceView(forwardUrl);
@@ -521,6 +534,7 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 	@Override
 	protected View loadView(String viewName, Locale locale) throws Exception {
 		AbstractUrlBasedView view = buildView(viewName);
+		// 将视图作为bean添加到applicationContext中
 		View result = applyLifecycleMethods(viewName, view);
 		return (view.checkResource(locale) ? result : null);
 	}
@@ -543,7 +557,9 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 		Class<?> viewClass = getViewClass();
 		Assert.state(viewClass != null, "No view class");
 
+		// 实例化视图类
 		AbstractUrlBasedView view = (AbstractUrlBasedView) BeanUtils.instantiateClass(viewClass);
+		// 设置视图的路径
 		view.setUrl(getPrefix() + viewName + getSuffix());
 
 		String contentType = getContentType();
@@ -552,17 +568,21 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 		}
 
 		view.setRequestContextAttribute(getRequestContextAttribute());
+		// 添加staticAttributes到视图属性
 		view.setAttributesMap(getAttributesMap());
 
 		Boolean exposePathVariables = getExposePathVariables();
+		// 设置是否需要暴露请求路径中的属性
 		if (exposePathVariables != null) {
 			view.setExposePathVariables(exposePathVariables);
 		}
 		Boolean exposeContextBeansAsAttributes = getExposeContextBeansAsAttributes();
+		// 设置是否需要暴露所有applicationContext的bean到视图属性
 		if (exposeContextBeansAsAttributes != null) {
 			view.setExposeContextBeansAsAttributes(exposeContextBeansAsAttributes);
 		}
 		String[] exposedContextBeanNames = getExposedContextBeanNames();
+		// 设置允许暴露的bean到视图属性，如果为空并且exposeContextBeansAsAttributes为true则所有bean都会被暴露
 		if (exposedContextBeanNames != null) {
 			view.setExposedContextBeanNames(exposedContextBeanNames);
 		}

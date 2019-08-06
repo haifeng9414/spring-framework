@@ -52,6 +52,7 @@ public class InternalResourceViewResolver extends UrlBasedViewResolver {
 			"javax.servlet.jsp.jstl.core.Config", InternalResourceViewResolver.class.getClassLoader());
 
 	@Nullable
+	// 要求返回的结果使用include方式而不是forward方式
 	private Boolean alwaysInclude;
 
 
@@ -61,6 +62,7 @@ public class InternalResourceViewResolver extends UrlBasedViewResolver {
 	 * is present.
 	 */
 	public InternalResourceViewResolver() {
+		// 获取视图类型，默认InternalResourceView
 		Class<?> viewClass = requiredViewClass();
 		if (InternalResourceView.class == viewClass && jstlPresent) {
 			viewClass = JstlView.class;

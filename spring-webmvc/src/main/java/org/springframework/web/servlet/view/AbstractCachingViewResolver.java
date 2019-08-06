@@ -48,6 +48,7 @@ public abstract class AbstractCachingViewResolver extends WebApplicationObjectSu
 	public static final int DEFAULT_CACHE_LIMIT = 1024;
 
 	/** Dummy marker object for unresolved views in the cache Maps */
+	// 表示一个无法解析的视图
 	private static final View UNRESOLVED_VIEW = new View() {
 		@Override
 		@Nullable
@@ -61,9 +62,11 @@ public abstract class AbstractCachingViewResolver extends WebApplicationObjectSu
 
 
 	/** The maximum number of entries in the cache */
+	// 缓存大小限制
 	private volatile int cacheLimit = DEFAULT_CACHE_LIMIT;
 
 	/** Whether we should refrain from resolving views again if unresolved once */
+	// 无法解析的视图是否也要缓存
 	private boolean cacheUnresolved = true;
 
 	/** Fast access cache for Views, returning already cached instances without a global lock */
@@ -71,6 +74,7 @@ public abstract class AbstractCachingViewResolver extends WebApplicationObjectSu
 
 	/** Map from view key to View instance, synchronized for View creation */
 	@SuppressWarnings("serial")
+	// 利用LinkedHashMap实现缓存
 	private final Map<Object, View> viewCreationCache =
 			new LinkedHashMap<Object, View>(DEFAULT_CACHE_LIMIT, 0.75f, true) {
 				@Override
@@ -146,7 +150,9 @@ public abstract class AbstractCachingViewResolver extends WebApplicationObjectSu
 	@Override
 	@Nullable
 	public View resolveViewName(String viewName, Locale locale) throws Exception {
+		// 如果没有开启缓存
 		if (!isCache()) {
+			// 创建视图，供子类实现
 			return createView(viewName, locale);
 		}
 		else {
@@ -155,8 +161,10 @@ public abstract class AbstractCachingViewResolver extends WebApplicationObjectSu
 			if (view == null) {
 				synchronized (this.viewCreationCache) {
 					view = this.viewCreationCache.get(cacheKey);
+					// double check
 					if (view == null) {
 						// Ask the subclass to create the View object.
+						// 创建视图，供子类实现
 						view = createView(viewName, locale);
 						if (view == null && this.cacheUnresolved) {
 							view = UNRESOLVED_VIEW;
