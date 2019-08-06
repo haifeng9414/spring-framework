@@ -236,7 +236,9 @@ public class HandlerExecutionChain {
 	private final Object handler;
 
 	@Nullable
-	// HandlerInterceptor接口定义了3个方法，分别是preHandle、postHandle和afterCompletion，在处理请求过程中的不同时间点执行
+	// HandlerInterceptor接口定义了3个方法，分别是preHandle、postHandle和afterCompletion，在处理请求过程中的不同时间点执行，
+	// 和Servlet自带的Filter接口有点像，都是对请求进行处理的，但是实际上应用场景是不同的，HandlerInterceptor通常用于实现和handler
+	// 相关的公共代码，如授权检查等等，而Filter是访问不到ApplicationContext的，所以适合实现请求内容的处理，如压缩等不涉及到Spring内容的功能
 	private HandlerInterceptor[] interceptors;
 
 	@Nullable
