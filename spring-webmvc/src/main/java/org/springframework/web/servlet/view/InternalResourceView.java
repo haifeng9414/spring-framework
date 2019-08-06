@@ -66,6 +66,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 
 	private boolean alwaysInclude = false;
 
+	// 是否检查循环转发
 	private boolean preventDispatchLoop = false;
 
 
@@ -138,15 +139,19 @@ public class InternalResourceView extends AbstractUrlBasedView {
 			Map<String, Object> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
 
 		// Expose the model object as request attributes.
+		// 将model添加到请求属性中
 		exposeModelAsRequestAttributes(model, request);
 
 		// Expose helpers as request attributes, if any.
+		// 供子类实现
 		exposeHelpers(request);
 
 		// Determine the path for the request dispatcher.
+		// 检查是否存在循环，返回url
 		String dispatcherPath = prepareForRendering(request, response);
 
 		// Obtain a RequestDispatcher for the target resource (typically a JSP).
+		// 从request获取RequestDispatcher对象，RequestDispatcher对象能够将请求指定的资源添加到response中
 		RequestDispatcher rd = getRequestDispatcher(request, dispatcherPath);
 		if (rd == null) {
 			throw new ServletException("Could not get RequestDispatcher for [" + getUrl() +
@@ -154,6 +159,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 		}
 
 		// If already included or response already committed, perform include, else forward.
+		// 如果使用include的调用RequestDispatcher的include方法访问资源
 		if (useInclude(request, response)) {
 			response.setContentType(getContentType());
 			if (logger.isDebugEnabled()) {
@@ -167,6 +173,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Forwarding to resource [" + getUrl() + "] in InternalResourceView '" + getBeanName() + "'");
 			}
+			// 否则使用正常的逻辑访问资源
 			rd.forward(request, response);
 		}
 	}
@@ -205,6 +212,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 
 		if (this.preventDispatchLoop) {
 			String uri = request.getRequestURI();
+			// 如果uri和path相等则表示发生了循环，如/home的handler返回视图名为home，此时报错
 			if (path.startsWith("/") ? uri.equals(path) : uri.equals(StringUtils.applyRelativePath(uri, path))) {
 				throw new ServletException("Circular view path [" + path + "]: would dispatch back " +
 						"to the current handler URL [" + uri + "] again. Check your ViewResolver setup! " +

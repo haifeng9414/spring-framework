@@ -48,6 +48,7 @@ import org.springframework.util.ClassUtils;
  */
 public class InternalResourceViewResolver extends UrlBasedViewResolver {
 
+	// 是否包含jstl的类
 	private static final boolean jstlPresent = ClassUtils.isPresent(
 			"javax.servlet.jsp.jstl.core.Config", InternalResourceViewResolver.class.getClassLoader());
 
@@ -62,7 +63,8 @@ public class InternalResourceViewResolver extends UrlBasedViewResolver {
 	 * is present.
 	 */
 	public InternalResourceViewResolver() {
-		// 获取视图类型，默认InternalResourceView
+		// 获取视图类型，默认InternalResourceView，如果包含jstl的类则使用JstlView，JstlView继承InternalResourceView，在其基础上
+		// 添加了applicationContext的messageSource到request的javax.servlet.jsp.jstl.fmt.localizationContext.request属性
 		Class<?> viewClass = requiredViewClass();
 		if (InternalResourceView.class == viewClass && jstlPresent) {
 			viewClass = JstlView.class;

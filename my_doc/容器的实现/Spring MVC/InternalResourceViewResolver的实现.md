@@ -476,8 +476,9 @@ public class InternalResourceViewResolver extends UrlBasedViewResolver {
   private Boolean alwaysInclude;
 
 	public InternalResourceViewResolver() {
-		// 获取视图类型，默认InternalResourceView
-		Class<?> viewClass = requiredViewClass();
+		// 获取视图类型，默认InternalResourceView，如果包含jstl的类则使用JstlView，JstlView继承InternalResourceView，在其基础上
+    // 添加了applicationContext的messageSource到request的javax.servlet.jsp.jstl.fmt.localizationContext.request属性
+    Class<?> viewClass = requiredViewClass();
 		if (InternalResourceView.class == viewClass && jstlPresent) {
 			viewClass = JstlView.class;
 		}
@@ -515,7 +516,556 @@ public class InternalResourceViewResolver extends UrlBasedViewResolver {
 [InternalResourceViewResolver]的作用主要是创建视图，而默认情况下视图的实现是[InternalResourceView]，这里再看一下[InternalResourceView]的实现，继承结构：
 ![InternalResourceView继承结构](../../img/InternalResourceView.png)
 
+[View]接口定义了定义了视图的基本行为，
+```java
+public interface View {
+	String RESPONSE_STATUS_ATTRIBUTE = View.class.getName() + ".responseStatus";
 
+	String PATH_VARIABLES = View.class.getName() + ".pathVariables";
+
+	String SELECTED_CONTENT_TYPE = View.class.getName() + ".selectedContentType";
+
+	@Nullable
+	default String getContentType() {
+		return null;
+	}
+  
+	void render(@Nullable Map<String, ?> model, HttpServletRequest request, HttpServletResponse response)
+			throws Exception;
+
+}
+```
+
+[AbstractView]在渲染视图之前为视图准备好了视图属性，代码：
+```java
+public abstract class AbstractView extends WebApplicationObjectSupport implements View, BeanNameAware {
+
+	/** Default content type. Overridable as bean property. */
+	public static final String DEFAULT_CONTENT_TYPE = "text/html;charset=ISO-8859-1";
+
+	/** Initial size for the temporary output byte array (if any) */
+	private static final int OUTPUT_BYTE_ARRAY_INITIAL_SIZE = 4096;
+
+
+	@Nullable
+	private String contentType = DEFAULT_CONTENT_TYPE;
+
+	@Nullable
+	// 表示视图属性中RequestContext对象的key，RequestContext包含HttpServletRequest、HttpServletResponse、ServletContext和model
+	private String requestContextAttribute;
+
+	private final Map<String, Object> staticAttributes = new LinkedHashMap<>();
+
+	// 是否将请求路径的参数暴露到视图属性中
+	private boolean exposePathVariables = true;
+
+	// 是否应该暴露bean到视图属性
+ private boolean exposeContextBeansAsAttributes = false;
+
+ @Nullable
+ // 应该被暴露的bean的name到视图属性
+ private Set<String> exposedContextBeanNames;
+	
+	@Nullable
+	private String beanName;
+
+	public void setContentType(@Nullable String contentType) {
+		this.contentType = contentType;
+	}
+  
+	@Override
+	@Nullable
+	public String getContentType() {
+		return this.contentType;
+	}
+  
+	public void setRequestContextAttribute(@Nullable String requestContextAttribute) {
+		this.requestContextAttribute = requestContextAttribute;
+	}
+  
+	@Nullable
+	public String getRequestContextAttribute() {
+		return this.requestContextAttribute;
+	}
+  
+	// 以csv的格式解析参数，将参数添加到staticAttributes中
+	public void setAttributesCSV(@Nullable String propString) throws IllegalArgumentException {
+		if (propString != null) {
+			StringTokenizer st = new StringTokenizer(propString, ",");
+			while (st.hasMoreTokens()) {
+				String tok = st.nextToken();
+				int eqIdx = tok.indexOf('=');
+				if (eqIdx == -1) {
+					throw new IllegalArgumentException("Expected = in attributes CSV string '" + propString + "'");
+				}
+				if (eqIdx >= tok.length() - 2) {
+					throw new IllegalArgumentException(
+							"At least 2 characters ([]) required in attributes CSV string '" + propString + "'");
+				}
+				String name = tok.substring(0, eqIdx);
+				String value = tok.substring(eqIdx + 1);
+
+				// Delete first and last characters of value: { and }
+				value = value.substring(1);
+				value = value.substring(0, value.length() - 1);
+
+				addStaticAttribute(name, value);
+			}
+		}
+	}
+  
+	public void setAttributes(Properties attributes) {
+		CollectionUtils.mergePropertiesIntoMap(attributes, this.staticAttributes);
+	}
+  
+	public void setAttributesMap(@Nullable Map<String, ?> attributes) {
+		if (attributes != null) {
+			attributes.forEach(this::addStaticAttribute);
+		}
+	}
+  
+	public Map<String, Object> getAttributesMap() {
+		return this.staticAttributes;
+	}
+  
+	public void addStaticAttribute(String name, Object value) {
+		this.staticAttributes.put(name, value);
+	}
+  
+	public Map<String, Object> getStaticAttributes() {
+		return Collections.unmodifiableMap(this.staticAttributes);
+	}
+  
+	public void setExposePathVariables(boolean exposePathVariables) {
+		this.exposePathVariables = exposePathVariables;
+	}
+  
+	public boolean isExposePathVariables() {
+		return this.exposePathVariables;
+	}
+  
+	public void setExposeContextBeansAsAttributes(boolean exposeContextBeansAsAttributes) {
+		this.exposeContextBeansAsAttributes = exposeContextBeansAsAttributes;
+	}
+  
+	public void setExposedContextBeanNames(String... exposedContextBeanNames) {
+		this.exposedContextBeanNames = new HashSet<>(Arrays.asList(exposedContextBeanNames));
+	}
+  
+	@Override
+	public void setBeanName(@Nullable String beanName) {
+		this.beanName = beanName;
+	}
+  
+	@Nullable
+	public String getBeanName() {
+		return this.beanName;
+	}
+  
+	@Override
+	public void render(@Nullable Map<String, ?> model, HttpServletRequest request,
+			HttpServletResponse response) throws Exception {
+
+		if (logger.isTraceEnabled()) {
+			logger.trace("Rendering view with name '" + this.beanName + "' with model " + model +
+				" and static attributes " + this.staticAttributes);
+		}
+
+		// 合并staticAttributes的值和动态的值
+		Map<String, Object> mergedModel = createMergedOutputModel(model, request, response);
+		// 添加了缓存相关的首部
+		prepareResponse(request, response);
+		// getRequestToExpose方法在需要暴露bean的情况下返回ContextExposingHttpServletRequest实例，在视图中获取属性前先判断
+		// 是否存在指定的bean，如果存在则作为属性值返回
+		// renderMergedOutputModel方法供子类实现
+		renderMergedOutputModel(mergedModel, getRequestToExpose(request), response);
+	}
+  
+	protected Map<String, Object> createMergedOutputModel(@Nullable Map<String, ?> model,
+			HttpServletRequest request, HttpServletResponse response) {
+
+		@SuppressWarnings("unchecked")
+		Map<String, Object> pathVars = (this.exposePathVariables ?
+				(Map<String, Object>) request.getAttribute(View.PATH_VARIABLES) : null);
+
+		// Consolidate static and dynamic model attributes.
+		int size = this.staticAttributes.size();
+		size += (model != null ? model.size() : 0);
+		size += (pathVars != null ? pathVars.size() : 0);
+
+		Map<String, Object> mergedModel = new LinkedHashMap<>(size);
+		// staticAttributes属性优先级最低，先添加
+		mergedModel.putAll(this.staticAttributes);
+		if (pathVars != null) {
+			mergedModel.putAll(pathVars);
+		}
+		if (model != null) {
+			mergedModel.putAll(model);
+		}
+
+		// Expose RequestContext?
+		if (this.requestContextAttribute != null) {
+			mergedModel.put(this.requestContextAttribute, createRequestContext(request, response, mergedModel));
+		}
+
+		return mergedModel;
+	}
+  
+	protected RequestContext createRequestContext(
+			HttpServletRequest request, HttpServletResponse response, Map<String, Object> model) {
+
+		return new RequestContext(request, response, getServletContext(), model);
+	}
+  
+	protected void prepareResponse(HttpServletRequest request, HttpServletResponse response) {
+		if (generatesDownloadContent()) {
+			// http 1.0中控制缓存的首部字段
+			response.setHeader("Pragma", "private");
+			// http 1.1中控制缓存的首部字段，private表示缓存只能提供给个人，不能保存在共享缓存中，如代理服务器，相当于指定缓存
+			// 只能在当前用户的电脑上，must-revalidate表示资源一定要向原服务器请求，而不能从代理服务器请求
+			response.setHeader("Cache-Control", "private, must-revalidate");
+		}
+	}
+  
+	protected boolean generatesDownloadContent() {
+		return false;
+	}
+  
+	protected HttpServletRequest getRequestToExpose(HttpServletRequest originalRequest) {
+		if (this.exposeContextBeansAsAttributes || this.exposedContextBeanNames != null) {
+			WebApplicationContext wac = getWebApplicationContext();
+			Assert.state(wac != null, "No WebApplicationContext");
+			return new ContextExposingHttpServletRequest(originalRequest, wac, this.exposedContextBeanNames);
+		}
+		return originalRequest;
+	}
+  
+	protected abstract void renderMergedOutputModel(
+			Map<String, Object> model, HttpServletRequest request, HttpServletResponse response) throws Exception;
+
+	// 将指定model添加到请求属性中
+  protected void exposeModelAsRequestAttributes(Map<String, Object> model,
+			HttpServletRequest request) throws Exception {
+
+		model.forEach((modelName, modelValue) -> {
+			if (modelValue != null) {
+				request.setAttribute(modelName, modelValue);
+				if (logger.isDebugEnabled()) {
+					logger.debug("Added model object '" + modelName + "' of type [" + modelValue.getClass().getName() +
+							"] to request in view with name '" + getBeanName() + "'");
+				}
+			}
+			else {
+				request.removeAttribute(modelName);
+				if (logger.isDebugEnabled()) {
+					logger.debug("Removed model object '" + modelName +
+							"' from request in view with name '" + getBeanName() + "'");
+				}
+			}
+		});
+	}
+  
+	protected ByteArrayOutputStream createTemporaryOutputStream() {
+		return new ByteArrayOutputStream(OUTPUT_BYTE_ARRAY_INITIAL_SIZE);
+	}
+  
+	// 将outputStream写入response
+	protected void writeToResponse(HttpServletResponse response, ByteArrayOutputStream baos) throws IOException {
+		// Write content type and also length (determined via byte array).
+		response.setContentType(getContentType());
+		response.setContentLength(baos.size());
+
+		// Flush byte array to servlet output stream.
+		ServletOutputStream out = response.getOutputStream();
+		baos.writeTo(out);
+		out.flush();
+	}
+  
+	protected void setResponseContentType(HttpServletRequest request, HttpServletResponse response) {
+		MediaType mediaType = (MediaType) request.getAttribute(View.SELECTED_CONTENT_TYPE);
+		if (mediaType != null && mediaType.isConcrete()) {
+			response.setContentType(mediaType.toString());
+		}
+		else {
+			response.setContentType(getContentType());
+		}
+	}
+
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder(getClass().getName());
+		if (getBeanName() != null) {
+			sb.append(": name '").append(getBeanName()).append("'");
+		}
+		else {
+			sb.append(": unnamed");
+		}
+		return sb.toString();
+	}
+
+}
+```
+
+[AbstractUrlBasedView]只是添加了一个url属性，代码：
+```java
+public abstract class AbstractUrlBasedView extends AbstractView implements InitializingBean {
+
+	@Nullable
+	private String url;
+
+	protected AbstractUrlBasedView() {
+	}
+  
+	protected AbstractUrlBasedView(String url) {
+		this.url = url;
+	}
+  
+	public void setUrl(@Nullable String url) {
+		this.url = url;
+	}
+  
+	@Nullable
+	public String getUrl() {
+		return this.url;
+	}
+
+	@Override
+	public void afterPropertiesSet() throws Exception {
+		if (isUrlRequired() && getUrl() == null) {
+			throw new IllegalArgumentException("Property 'url' is required");
+		}
+	}
+  
+	protected boolean isUrlRequired() {
+		return true;
+	}
+  
+	public boolean checkResource(Locale locale) throws Exception {
+		return true;
+	}
+
+	@Override
+	public String toString() {
+		return super.toString() + "; URL [" + getUrl() + "]";
+	}
+
+}
+```
+
+[InternalResourceView]使用[RequestDispatcher]实现了资源的访问，代码：
+```java
+public class InternalResourceView extends AbstractUrlBasedView {
+
+	private boolean alwaysInclude = false;
+
+	// 是否检查循环转发
+	private boolean preventDispatchLoop = false;
+
+	public InternalResourceView() {
+	}
+  
+	public InternalResourceView(String url) {
+		super(url);
+	}
+  
+	public InternalResourceView(String url, boolean alwaysInclude) {
+		super(url);
+		this.alwaysInclude = alwaysInclude;
+	}
+  
+	public void setAlwaysInclude(boolean alwaysInclude) {
+		this.alwaysInclude = alwaysInclude;
+	}
+  
+	public void setPreventDispatchLoop(boolean preventDispatchLoop) {
+		this.preventDispatchLoop = preventDispatchLoop;
+	}
+  
+	@Override
+	protected boolean isContextRequired() {
+		return false;
+	}
+  
+	@Override
+	protected void renderMergedOutputModel(
+			Map<String, Object> model, HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+		// Expose the model object as request attributes.
+		// 将model添加到请求属性中
+		exposeModelAsRequestAttributes(model, request);
+
+		// Expose helpers as request attributes, if any.
+		// 供子类实现
+		exposeHelpers(request);
+
+		// Determine the path for the request dispatcher.
+		// 检查是否存在循环，返回url
+		String dispatcherPath = prepareForRendering(request, response);
+
+		// Obtain a RequestDispatcher for the target resource (typically a JSP).
+		// 从request获取RequestDispatcher对象，RequestDispatcher对象能够将请求指定的资源添加到response中
+		RequestDispatcher rd = getRequestDispatcher(request, dispatcherPath);
+		if (rd == null) {
+			throw new ServletException("Could not get RequestDispatcher for [" + getUrl() +
+					"]: Check that the corresponding file exists within your web application archive!");
+		}
+
+		// If already included or response already committed, perform include, else forward.
+		// 如果使用include的调用RequestDispatcher的include方法访问资源
+		if (useInclude(request, response)) {
+			response.setContentType(getContentType());
+			if (logger.isDebugEnabled()) {
+				logger.debug("Including resource [" + getUrl() + "] in InternalResourceView '" + getBeanName() + "'");
+			}
+			rd.include(request, response);
+		}
+
+		else {
+			// Note: The forwarded resource is supposed to determine the content type itself.
+			if (logger.isDebugEnabled()) {
+				logger.debug("Forwarding to resource [" + getUrl() + "] in InternalResourceView '" + getBeanName() + "'");
+			}
+			// 否则使用正常的逻辑访问资源
+			rd.forward(request, response);
+		}
+	}
+  
+	protected void exposeHelpers(HttpServletRequest request) throws Exception {
+	}
+  
+	protected String prepareForRendering(HttpServletRequest request, HttpServletResponse response)
+			throws Exception {
+
+		String path = getUrl();
+		Assert.state(path != null, "'url' not set");
+
+		if (this.preventDispatchLoop) {
+			String uri = request.getRequestURI();
+			// 如果uri和path相等则表示发生了循环，如/home的handler返回视图名为home，此时报错
+			if (path.startsWith("/") ? uri.equals(path) : uri.equals(StringUtils.applyRelativePath(uri, path))) {
+				throw new ServletException("Circular view path [" + path + "]: would dispatch back " +
+						"to the current handler URL [" + uri + "] again. Check your ViewResolver setup! " +
+						"(Hint: This may be the result of an unspecified view, due to default view name generation.)");
+			}
+		}
+		return path;
+	}
+  
+	@Nullable
+	protected RequestDispatcher getRequestDispatcher(HttpServletRequest request, String path) {
+		return request.getRequestDispatcher(path);
+	}
+  
+	protected boolean useInclude(HttpServletRequest request, HttpServletResponse response) {
+		return (this.alwaysInclude || WebUtils.isIncludeRequest(request) || response.isCommitted());
+	}
+
+}
+```
+
+[RequestDispatcher]代表请求的派发者，它有2个动作：forward和include
+
+对于forward，这个方法将请求从一个Servlet or JSP目标资源上转发到服务器上的另一个资源（servlet、JSP 文件或HTML文件，这些资源必须是当前Web上下文中的），让其它的资源去生成响应数据，例如用户请求的是目标资源A，A接受到请求后，转发到B，真正产生响应数据是被转发的资源B，而A只是起个引导转发作用。浏览器的地址栏不会变，依然是A的URL。
+
+如：
+```java
+public class User{
+      private String name;
+      private int age;
+      public String getName(){
+            return name ;
+      }
+      public void setName( String name ){
+            this .name = name ;
+      }
+      public int getAge() {
+            return age ;
+      }
+      public void setAge( int age ){
+            this .age = age ;
+      }
+}
+
+public class UsersServlet extends HttpServlet {
+      private static final long serialVersionUID = 1L ;
+
+protected void doGet (HttpServletRequest request, HttpServletResponse response) throws ServletException , IOException {
+    List <User > users = new ArrayList <> ();
+    User u1 = new User () ;
+    u1 .setAge ( 20) ;
+    u1 .setName ( "Bob") ;
+    User u2 = new User () ;
+    u2 .setAge ( 21) ;
+    u2 .setName ( "Tony") ;
+    users .add ( u1) ;
+    users .add ( u2) ;
+
+    request .setAttribute ( "users", users) ;   //对request 进制预处理准备工作
+    request .getRequestDispatcher ( "users.jsp").forward( request , response );//转发到users.jsp，让他去具体响应
+  } 
+}
+```
+```jsp
+<%@ page   contentType= "text/html; charset=UTF-8" pageEncoding ="UTF-8" trimDirectiveWhitespaces= "true"
+          session ="true" %>
+<%@ taglib prefix= "c" uri = "http://java.sun.com/jsp/jstl/core"   %>
+
+<!DOCTYPE html>
+< html>
+<head>
+<meta http-equiv = "Content-Type" content ="text/html; charset=UTF-8">
+<title> 用户列表</title>
+</head>
+<body>
+
+<p> -----------------转发到的资源users.jsp产生的响应数据------------------ </p>
+
+< c:forEach var ="user" items= " ${users}" >
+用户姓名:${user.name}  用户年龄:${user.age}  <br />
+</ c:forEach>
+</body>
+</html>
+```
+这样页面上就能显示`users.jsp`的内容，并且包含users信息
+
+对于include，此方法用于包含响应中某个资源（servlet、JSP 页面和 HTML 文件）的内容。调用者指定一个被包含的资源，将这个包含的资源（JSP,Servlet，HTML）的响应数据包含到自己的响应体中。被包含的数据是在服务器上经过运行产生的，因此是动态包含，而不同于JSP中的include指令，它是JSP转译期的静态包含，类似于C语言中的宏一样，这个过程实质是用一个相同的Request再请求一次被包含的资源，将被包含的资源的响应数据包含到原本的资源中去，构成它的响应数据的一部分。
+
+如：
+```java
+public class TargetServlet extends HttpServlet {
+      private static final long serialVersionUID = 1L ;
+      protected void doGet( HttpServletRequest request , HttpServletResponse response) throws ServletException , IOException {
+        response .setContentType ( "text/html;charset=utf-8" );
+        PrintWriter out = response .getWriter () ;
+
+        out.println ( "----------来自TargetServlet----------------<br/>" ) ;
+        out.print ( "我偷懒了，下面的响应数据并不是我自己产生的，而是包含的其它资源产生的<br/>" ) ;
+        request .getRequestDispatcher ( "test.jsp") . include( request , response );
+
+        out.flush () ;
+        out.close () ;
+      }
+}
+```
+```jsp
+<%@ page    contentType= "text/html; charset=UTF-8" pageEncoding = "UTF-8" trimDirectiveWhitespaces = "true"
+          session = "false"
+%>
+
+<p> ------------------------来自test.jsp-------------------------- </p>
+<p> 我输出的响应数据将被其它的资源包含 </p>
+请的URL是 <%= request.getRequestURL().toString() %> ,可以看出客户端真正请求的不是我，我只是幕后工作者。
+```
+这样页面上显示的内容就是：
+```
+这样页面上就能显示`users.jsp`的内容，并且包含users信息
+----------来自TargetServlet----------------
+我偷懒了，下面的响应数据并不是我自己产生的，而是包含的其它资源产生的
+
+------------------------来自test.jsp--------------------------
+我输出的响应数据将被其它的资源包含 
+请的URL是http://localhost:8080/app/TargetServlet,可以看出客户端真正请求的不是我，我只是幕后工作者。
+```
 
 [ApplicationObjectSupport]: aaa
 [WebApplicationObjectSupport]: aaa

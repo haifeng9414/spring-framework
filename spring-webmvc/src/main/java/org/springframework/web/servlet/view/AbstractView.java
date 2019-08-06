@@ -73,15 +73,19 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	private String contentType = DEFAULT_CONTENT_TYPE;
 
 	@Nullable
+	// 表示视图属性中RequestContext对象的key，RequestContext包含HttpServletRequest、HttpServletResponse、ServletContext和model
 	private String requestContextAttribute;
 
 	private final Map<String, Object> staticAttributes = new LinkedHashMap<>();
 
+	// 是否将请求路径的参数暴露到视图属性中
 	private boolean exposePathVariables = true;
 
+	// 是否应该暴露bean到视图属性
 	private boolean exposeContextBeansAsAttributes = false;
 
 	@Nullable
+	// 应该被暴露的bean的name到视图属性
 	private Set<String> exposedContextBeanNames;
 	
 	@Nullable
@@ -131,6 +135,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * the View instance configuration. "Dynamic" attributes, on the other hand,
 	 * are values passed in as part of the model.
 	 */
+	// 以csv的格式解析参数，将参数添加到staticAttributes中
 	public void setAttributesCSV(@Nullable String propString) throws IllegalArgumentException {
 		if (propString != null) {
 			StringTokenizer st = new StringTokenizer(propString, ",");
@@ -309,8 +314,13 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 				" and static attributes " + this.staticAttributes);
 		}
 
+		// 合并staticAttributes的值和动态的值
 		Map<String, Object> mergedModel = createMergedOutputModel(model, request, response);
+		// 添加了缓存相关的首部
 		prepareResponse(request, response);
+		// getRequestToExpose方法在需要暴露bean的情况下返回ContextExposingHttpServletRequest实例，在视图中获取属性前先判断
+		// 是否存在指定的bean，如果存在则作为属性值返回
+		// renderMergedOutputModel方法供子类实现
 		renderMergedOutputModel(mergedModel, getRequestToExpose(request), response);
 	}
 
@@ -331,6 +341,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 		size += (pathVars != null ? pathVars.size() : 0);
 
 		Map<String, Object> mergedModel = new LinkedHashMap<>(size);
+		// staticAttributes属性优先级最低，先添加
 		mergedModel.putAll(this.staticAttributes);
 		if (pathVars != null) {
 			mergedModel.putAll(pathVars);
@@ -373,7 +384,10 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 */
 	protected void prepareResponse(HttpServletRequest request, HttpServletResponse response) {
 		if (generatesDownloadContent()) {
+			// http 1.0中控制缓存的首部字段
 			response.setHeader("Pragma", "private");
+			// http 1.1中控制缓存的首部字段，private表示缓存只能提供给个人，不能保存在共享缓存中，如代理服务器，相当于指定缓存
+			// 只能在当前用户的电脑上，must-revalidate表示资源一定要向原服务器请求，而不能从代理服务器请求
 			response.setHeader("Cache-Control", "private, must-revalidate");
 		}
 	}
@@ -434,6 +448,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * @param model Map of model objects to expose
 	 * @param request current HTTP request
 	 */
+	// 将指定model添加到请求属性中
 	protected void exposeModelAsRequestAttributes(Map<String, Object> model,
 			HttpServletRequest request) throws Exception {
 
@@ -470,6 +485,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 	 * @param baos the temporary OutputStream to write
 	 * @throws IOException if writing/flushing failed
 	 */
+	// 将outputStream写入response
 	protected void writeToResponse(HttpServletResponse response, ByteArrayOutputStream baos) throws IOException {
 		// Write content type and also length (determined via byte array).
 		response.setContentType(getContentType());
