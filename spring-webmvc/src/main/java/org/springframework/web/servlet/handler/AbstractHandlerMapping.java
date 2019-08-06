@@ -71,8 +71,10 @@ public abstract class AbstractHandlerMapping extends WebApplicationObjectSupport
 	// 默认handler
 	private Object defaultHandler;
 
+	// 用于解析request的请求路径
 	private UrlPathHelper urlPathHelper = new UrlPathHelper();
 
+	// 用于解析路径是否匹配指定格式的模版配置
 	private PathMatcher pathMatcher = new AntPathMatcher();
 
 	private final List<Object> interceptors = new ArrayList<>();

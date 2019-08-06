@@ -54,6 +54,7 @@ import org.springframework.util.CollectionUtils;
  */
 public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 
+	// 该属性能够在xml中用<property><property/>直接设置
 	private final Map<String, Object> urlMap = new LinkedHashMap<>();
 
 
@@ -99,6 +100,7 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 	 */
 	@Override
 	public void initApplicationContext() throws BeansException {
+		// 初始化容器后添加xml中配置的handler
 		super.initApplicationContext();
 		registerHandlers(this.urlMap);
 	}
@@ -116,10 +118,12 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 		else {
 			urlMap.forEach((url, handler) -> {
 				// Prepend with slash if not already present.
+				// 防止pattern不是/开头的
 				if (!url.startsWith("/")) {
 					url = "/" + url;
 				}
 				// Remove whitespace from handler bean name.
+				// handler表示的是beanName，这里删除多余的空格
 				if (handler instanceof String) {
 					handler = ((String) handler).trim();
 				}
