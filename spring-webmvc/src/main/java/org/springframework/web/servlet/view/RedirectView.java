@@ -87,11 +87,13 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 
 	private static final Pattern URI_TEMPLATE_VARIABLE_PATTERN = Pattern.compile("\\{([^/]+?)\\}");
 
-
+	// 解析以/开头的请求路径时是否解析为相对ServletContext的根目录
 	private boolean contextRelative = false;
 
+	// 是否兼容http 1.0
 	private boolean http10Compatible = true;
 
+	// 是否暴露model参数，model参数来自ModelAndView
 	private boolean exposeModelAttributes = true;
 
 	@Nullable
@@ -102,6 +104,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 
 	private boolean expandUriTemplateVariables = true;
 
+	// 是否暴露请求路径中的查询参数，既/app/test?a=b中的参数a
 	private boolean propagateQueryParams = false;
 
 	@Nullable
@@ -112,6 +115,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 	 * Constructor for use as a bean.
 	 */
 	public RedirectView() {
+		// 默认不暴露请求路径的参数
 		setExposePathVariables(false);
 	}
 
@@ -304,7 +308,9 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 	protected void renderMergedOutputModel(Map<String, Object> model, HttpServletRequest request,
 			HttpServletResponse response) throws IOException {
 
+		// 创建路径，根据配置对路径中的查询参数进行设置
 		String targetUrl = createTargetUrl(model, request);
+		// 获取名字叫requestDataValueProcessor的RequestDataValueProcessor类型的bean，并调用其processUrl方法
 		targetUrl = updateTargetUrl(targetUrl, model, request, response);
 
 		// Save flash attributes
@@ -329,6 +335,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 
 		if (this.contextRelative && getUrl().startsWith("/")) {
 			// Do not apply context path to relative URLs.
+			// 如果需要相对ServletContext根目录，则先设置ServletContext根目录到最终路径
 			targetUrl.append(getContextPath(request));
 		}
 		targetUrl.append(getUrl());
@@ -342,6 +349,8 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 		}
 
 		if (this.expandUriTemplateVariables && StringUtils.hasText(targetUrl)) {
+			// 可以看AbstractUrlHandlerMapping的buildPathExposingHandler方法的实现，这里获取的参数就是AbstractUrlHandlerMapping的
+			// lookupHandler方法解析到的请求路径中的参数
 			Map<String, String> variables = getCurrentRequestUriVariables(request);
 			targetUrl = replaceUriTemplateVariables(targetUrl.toString(), model, variables, enc);
 		}
@@ -625,10 +634,12 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 			}
 			else {
 				// Send status code 302 by default.
+				// 使用HttpServletResponse的实现，默认返回状态码302
 				response.sendRedirect(encodedURL);
 			}
 		}
 		else {
+			// 如果不需要兼容http 1.0，则直接返回303状态码
 			HttpStatus statusCode = getHttp11StatusCode(request, response, targetUrl);
 			response.setStatus(statusCode.value());
 			response.setHeader("Location", encodedURL);

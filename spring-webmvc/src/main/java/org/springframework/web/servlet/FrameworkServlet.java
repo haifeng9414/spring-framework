@@ -678,6 +678,8 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 		wac.setServletConfig(getServletConfig());
 		// 为容器设置namespace，也就是servlet配置文件的路径，默认是serveltname + -servlet
 		wac.setNamespace(getNamespace());
+		// ContextRefreshListener类监听容器刷新事件，事件发生时调用FrameworkServlet的onRefresh方法，SourceFilteringListener类只是
+		// 对事件源做了个过滤，事件源必须是构造函数的第一个参数
 		wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
 
 		// The wac environment's #initPropertySources will be called in any case when the context
