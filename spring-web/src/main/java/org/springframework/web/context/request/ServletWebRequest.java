@@ -224,29 +224,43 @@ public class ServletWebRequest extends ServletRequestAttributes implements Nativ
 		// Evaluate conditions in order of precedence.
 		// See https://tools.ietf.org/html/rfc7232#section-6
 
+		// 判断请求头是否有If-Unmodified-Since，该请求头表示在指定时间之后资源是否没有被修改，下面判断If-Unmodified-Since值是否小于lastModifiedTimestamp
+		// 如果是则说明已经被修改了，这里返回412状态码表示Precondition failed（预处理错误），这就说明If-Unmodified-Since的请求头是在文件没有被修改时才下载
+		// 这个If-Modified-Since的功能是相反的，If-Modified-Since是在文件被修改时才下载，If-Modified-Since的功能才符合缓存的定义，毕竟没有被修改就没有下载
+		// 的必要，而If-Unmodified-Since请求头的作用是用于支持断点续传，不是普通的缓存，断点续传功能当然希望正在下载的文件没有被修改，总结就是
+		// If-Unmodified-Since是没修改才下载资源，If-Modified-Since是修改了才下载资源
 		if (validateIfUnmodifiedSince(lastModifiedTimestamp)) {
+			// validateIfUnmodifiedSince方法会对notModified进行赋值，notModified默认为false，如果If-Unmodified-Since小于lastModifiedTimestamp，也就是
+			// 在指定时间之后文件变化了，则notModified为true，看上去在文件变化时应该设置为false，这里设置为true个人认为是因为DispatcherServlet的doDispatch方法
+			// 中对checkNotModified方法返回值的处理过程导致的
 			if (this.notModified && response != null) {
 				response.setStatus(HttpStatus.PRECONDITION_FAILED.value());
 			}
 			return this.notModified;
 		}
 
+		// 验证ETAG请求头，该请求头的值为缓存中资源的版本，这里当ETAG请求头的值和资源的版本相等，则返回true并且notModified被赋值为true
 		boolean validated = validateIfNoneMatch(etag);
+		// 如果ETAG没有验证过，则验证If-Modified-Since请求头
 		if (!validated) {
+			// 如果If-Modified-Since指定的时间之内没有被修改，则notModified会被设置为true
 			validateIfModifiedSince(lastModifiedTimestamp);
 		}
 
 		// Update response
 		if (response != null) {
 			boolean isHttpGetOrHead = SAFE_METHODS.contains(getRequest().getMethod());
+			// 如果文件没有被修改，则根据情况返回状态码
 			if (this.notModified) {
 				response.setStatus(isHttpGetOrHead ?
 						HttpStatus.NOT_MODIFIED.value() : HttpStatus.PRECONDITION_FAILED.value());
 			}
 			if (isHttpGetOrHead) {
+				// 添加Last-Modified请求头
 				if (lastModifiedTimestamp > 0 && parseDateValue(response.getHeader(LAST_MODIFIED)) == -1) {
 					response.setDateHeader(LAST_MODIFIED, lastModifiedTimestamp);
 				}
+				// 添加ETAG请求头
 				if (StringUtils.hasLength(etag) && response.getHeader(ETAG) == null) {
 					response.setHeader(ETAG, padEtagIfNecessary(etag));
 				}
