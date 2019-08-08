@@ -498,6 +498,8 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 			return new InternalResourceView(forwardUrl);
 		}
 		// Else fall back to superclass implementation: calling loadView.
+		// 如果既没有redirect前缀，也没有forward前缀，则调用父类的createView方法返回视图，而这里的createView就是AbstractCachingViewResolver
+		// 的createView方法，该方法会调用子类的loadView方法
 		return super.createView(viewName, locale);
 	}
 
@@ -532,6 +534,7 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 	 * @see org.springframework.beans.factory.InitializingBean#afterPropertiesSet
 	 */
 	@Override
+	// 对于没有redirect前缀，也没有forward前缀的请求，用该方法创建视图
 	protected View loadView(String viewName, Locale locale) throws Exception {
 		AbstractUrlBasedView view = buildView(viewName);
 		// 将视图作为bean添加到applicationContext中
@@ -557,9 +560,10 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 		Class<?> viewClass = getViewClass();
 		Assert.state(viewClass != null, "No view class");
 
-		// 实例化视图类
+		// 实例化视图类，默认实现是子类InternalResourceViewResolver的构造函数设置的InternalResourceViewResolver
 		AbstractUrlBasedView view = (AbstractUrlBasedView) BeanUtils.instantiateClass(viewClass);
-		// 设置视图的路径
+		// 设置视图的路径，这里的prefix和suffix就是通常的viewResolver配置，如/WEB-INF/jsp/和.jsp
+		// 这里设置的url就是请求需要转发的路径，如果是jsp的路径，实际上就会被编译后的jsp servlet处理
 		view.setUrl(getPrefix() + viewName + getSuffix());
 
 		String contentType = getContentType();

@@ -626,6 +626,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 			HttpStatus attributeStatusCode = (HttpStatus) request.getAttribute(View.RESPONSE_STATUS_ATTRIBUTE);
 			if (this.statusCode != null) {
 				response.setStatus(this.statusCode.value());
+				// 添加Location header，这个header也是重定向必备的，同于指定重定向的路径
 				response.setHeader("Location", encodedURL);
 			}
 			else if (attributeStatusCode != null) {
@@ -634,7 +635,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 			}
 			else {
 				// Send status code 302 by default.
-				// 使用HttpServletResponse的实现，默认返回状态码302
+				// 使用HttpServletResponse的实现，默认返回状态码302并添加Location header
 				response.sendRedirect(encodedURL);
 			}
 		}

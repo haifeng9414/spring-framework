@@ -168,7 +168,7 @@ public abstract class AbstractCachingViewResolver extends WebApplicationObjectSu
 }
 ```
 
-[UrlBasedViewResolver]实现了创建视图的逻辑，视图类型由`viewClass`属性指定，[UrlBasedViewResolver]还支持重定向和转发，当发送重定向和转发时将分别创建视图[RedirectView]和[InternalResourceView]，代码：
+[UrlBasedViewResolver]实现了创建视图的逻辑，视图类型由`viewClass`属性指定，[UrlBasedViewResolver]还支持重定向和转发，当发送重定向和转发时将分别创建视图[RedirectView]和[InternalResourceView]（下面会介绍重定向和转发的区别，还有这两个视图的实现），代码：
 ```java
 public class UrlBasedViewResolver extends AbstractCachingViewResolver implements Ordered {
 	// 重定向的前缀
@@ -397,6 +397,8 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 			return new InternalResourceView(forwardUrl);
 		}
 		// Else fall back to superclass implementation: calling loadView.
+		// 如果既没有redirect前缀，也没有forward前缀，则调用父类的createView方法返回视图，而这里的createView就是AbstractCachingViewResolver
+		// 的createView方法，该方法会调用子类的loadView方法
 		return super.createView(viewName, locale);
 	}
   
@@ -417,9 +419,10 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 		Class<?> viewClass = getViewClass();
 		Assert.state(viewClass != null, "No view class");
 
-		// 实例化视图类
+		// 实例化视图类，默认实现是子类InternalResourceViewResolver的构造函数设置的InternalResourceViewResolver
 		AbstractUrlBasedView view = (AbstractUrlBasedView) BeanUtils.instantiateClass(viewClass);
-		// 设置视图的路径
+		// 设置视图的路径，这里的prefix和suffix就是通常的viewResolver配置，如/WEB-INF/jsp/和.jsp
+		// 这里设置的url就是请求需要转发的路径，如果是jsp的路径，实际上就会被编译后的jsp servlet处理
 		view.setUrl(getPrefix() + viewName + getSuffix());
 
 		String contentType = getContentType();
@@ -464,7 +467,7 @@ public class UrlBasedViewResolver extends AbstractCachingViewResolver implements
 }
 ```
 
-[InternalResourceViewResolver]指定了默认视图的类型，并在创建视图后为视图设置了若干属性，代码：
+[InternalResourceViewResolver]指定了默认视图的类型（既[InternalResourceViewResolver]），并在创建视图后为视图设置了若干属性，代码：
 ```java
 public class InternalResourceViewResolver extends UrlBasedViewResolver {
 
@@ -852,7 +855,7 @@ public abstract class AbstractUrlBasedView extends AbstractView implements Initi
 }
 ```
 
-[InternalResourceView]使用[RequestDispatcher]实现了资源的访问，代码：
+[InternalResourceView]使用[RequestDispatcher]实现了视图逻辑，代码：
 ```java
 public class InternalResourceView extends AbstractUrlBasedView {
 
@@ -911,7 +914,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 		}
 
 		// If already included or response already committed, perform include, else forward.
-		// 如果使用include的调用RequestDispatcher的include方法访问资源
+		// include为true则调用RequestDispatcher的include方法访问资源
 		if (useInclude(request, response)) {
 			response.setContentType(getContentType());
 			if (logger.isDebugEnabled()) {
@@ -965,7 +968,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 
 [RequestDispatcher]代表请求的派发者，它有2个动作：forward和include
 
-对于forward，这个方法将请求从一个Servlet or JSP目标资源上转发到服务器上的另一个资源（servlet、JSP 文件或HTML文件，这些资源必须是当前Web上下文中的），让其它的资源去生成响应数据，例如用户请求的是目标资源A，A接受到请求后，转发到B，真正产生响应数据是被转发的资源B，而A只是起个引导转发作用。浏览器的地址栏不会变，依然是A的URL。
+对于forward，这个方法将请求从一个Servlet or JSP目标资源上转发到服务器上的另一个资源（servlet、JSP 文件或HTML文件，这些资源必须是当前Web上下文中的），让其它的资源去生成响应数据，例如用户请求的是目标资源A，A接受到请求后，转发到B（服务器内部处理的转发过程，浏览器上只能看到一个A请求，但是响应是B），真正产生响应数据是被转发的资源B，而A只是起个引导转发作用。浏览器的地址栏不会变，依然是A的URL。
 
 如：
 ```java
@@ -990,18 +993,18 @@ public class UsersServlet extends HttpServlet {
       private static final long serialVersionUID = 1L ;
 
 protected void doGet (HttpServletRequest request, HttpServletResponse response) throws ServletException , IOException {
-    List <User > users = new ArrayList <> ();
-    User u1 = new User () ;
-    u1 .setAge ( 20) ;
-    u1 .setName ( "Bob") ;
-    User u2 = new User () ;
-    u2 .setAge ( 21) ;
-    u2 .setName ( "Tony") ;
-    users .add ( u1) ;
-    users .add ( u2) ;
+    List<User> users = new ArrayList<>();
+    User u1 = new User();
+    u1.setAge(20);
+    u1.setName("Bob");
+    User u2 = new User();
+    u2.setAge(21);
+    u2.setName("Tony");
+    users.add(u1);
+    users.add(u2);
 
-    request .setAttribute ( "users", users) ;   //对request 进制预处理准备工作
-    request .getRequestDispatcher ( "users.jsp").forward( request , response );//转发到users.jsp，让他去具体响应
+    request.setAttribute("users", users);
+    request.getRequestDispatcher("users.jsp").forward(request, response);//转发到users.jsp，让他去具体响应
   } 
 }
 ```
@@ -1034,16 +1037,16 @@ protected void doGet (HttpServletRequest request, HttpServletResponse response) 
 ```java
 public class TargetServlet extends HttpServlet {
       private static final long serialVersionUID = 1L ;
-      protected void doGet( HttpServletRequest request , HttpServletResponse response) throws ServletException , IOException {
-        response .setContentType ( "text/html;charset=utf-8" );
-        PrintWriter out = response .getWriter () ;
+      protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException , IOException {
+        response.setContentType("text/html;charset=utf-8");
+        PrintWriter out = response.getWriter();
 
-        out.println ( "----------来自TargetServlet----------------<br/>" ) ;
-        out.print ( "我偷懒了，下面的响应数据并不是我自己产生的，而是包含的其它资源产生的<br/>" ) ;
-        request .getRequestDispatcher ( "test.jsp") . include( request , response );
+        out.println("----------来自TargetServlet----------------<br/>");
+        out.print("我偷懒了，下面的响应数据并不是我自己产生的，而是包含的其它资源产生的<br/>");
+        request.getRequestDispatcher("test.jsp").include(request, response);
 
-        out.flush () ;
-        out.close () ;
+        out.flush();
+        out.close();
       }
 }
 ```
@@ -1052,9 +1055,9 @@ public class TargetServlet extends HttpServlet {
           session = "false"
 %>
 
-<p> ------------------------来自test.jsp-------------------------- </p>
-<p> 我输出的响应数据将被其它的资源包含 </p>
-请的URL是 <%= request.getRequestURL().toString() %> ,可以看出客户端真正请求的不是我，我只是幕后工作者。
+<p>------------------------来自test.jsp--------------------------</p>
+<p>我输出的响应数据将被其它的资源包含</p>
+请的URL是<%= request.getRequestURL().toString()%>,可以看出客户端真正请求的不是我，我只是幕后工作者。
 ```
 这样页面上显示的内容就是：
 ```
@@ -1067,6 +1070,136 @@ public class TargetServlet extends HttpServlet {
 请的URL是http://localhost:8080/app/TargetServlet,可以看出客户端真正请求的不是我，我只是幕后工作者。
 ```
 
+这里再说一下redirect和forward，上面的[UrlBasedViewResolver]在创建视图时先判断了路径是否以redirect或forward开头，如果是redirect开头的，则创建[RedirectView]返回，如果是forward开头的，则创建[InternalResourceView]返回，如果都不是，则调用`super.createView(viewName, locale)`，实际上就是其调用`loadView()`方法创建视图，该方法的实现可以看[UrlBasedViewResolver]类的注释，这里对redirect和forward进行分析，[维基百科](https://en.wikipedia.org/wiki/Post/Redirect/Get)的这篇文章有两个图能很好的描述redirect和forward的区别
+
+首先是redirect，先看测试代码：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:component-scan base-package="com.dhf"/>
+    <mvc:annotation-driven/>
+</beans>
+```
+
+```java
+@Controller
+public class UserController {
+    @RequestMapping(value = "showForm", method = RequestMethod.GET)
+    public String showForm(@ModelAttribute("user") User user) {
+        user.setName("test");
+        return "add_user";
+    }
+
+    @RequestMapping(value = "addUser", method = RequestMethod.POST)
+    public String addUser(@ModelAttribute("user") User user,
+                          final RedirectAttributes redirectAttributes) {
+
+        redirectAttributes.addFlashAttribute("user", user);
+        redirectAttributes.addAttribute("message", "Added successfully.");
+
+        return "redirect:showUser";
+    }
+
+    @RequestMapping(value = "showUser", method = RequestMethod.GET)
+    public ModelAndView showUser(@ModelAttribute("user") User user) {
+        System.out.println("user:" + user.getName() + "," + user.getAge());
+        Map<String, String> model = new HashMap<>();
+        model.put("demo", "demo");
+        return new ModelAndView("show_user", model);
+    }
+}
+```
+
+`add_user.jsp`文件
+```jsp
+<%@taglib uri="http://www.springframework.org/tags/form" prefix="form" %>
+<html>
+<body>
+<h1>Add New User</h1>
+<form:form action="addUser" method="post" modelAttribute="user">
+    <table>
+        <tr>
+            <td><form:label path="name">Name</form:label></td>
+            <td><form:input path="name"/></td>
+        </tr>
+        <tr>
+            <td><form:label path="age">Age</form:label></td>
+            <td><form:input path="age"/></td>
+        </tr>
+        <tr>
+            <td colspan="2"><input type="submit" value="Add User"/>
+            </td>
+        </tr>
+    </table>
+</form:form>
+</body>
+</html>
+```
+
+`show_user.jsp`文件
+```jsp
+<%@taglib uri="http://www.springframework.org/tags/form" prefix="form" %>
+<html>
+<body>
+<h1><%= request.getParameter("message") %></h1>
+${user.name}, ${user.age}, ${demo}
+</body>
+</html>
+```
+当请求`/showForm`时，可以看到`add_user.jsp`文件的内容，也就是一个表单，当填写表单后点击按钮，`addUser()`方法响应请求，返回一个重定向，浏览器将会收到一个状态码为302，带有一个名为`Location`，值为`showUser?message=Added+successfully.`的响应，对于302的响应码，浏览器的实现是发送一个GET请求到`Location`，此时浏览器的地址栏将变成`/showUser?message=Added+successfully.`，并且controller中的`showUser()`方法将会接收到请求，所以浏览器会看到`show_user.jsp`的内容:
+```
+Added successfully.
+test, 1, demo
+```
+
+此时刷新页面只会重复发送`/showUser?message=Added+successfully.`的GET请求，而对于上面例子中用到的`addFlashAttribute()`和`addAttribute()`方法，可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)中关于[FlashMap]的介绍。
+
+对于forward，先看测试代码：
+```java
+@Controller
+public class UserController {
+    @RequestMapping(value = "showForm", method = RequestMethod.GET)
+    public String showForm(@ModelAttribute("user") User user) {
+        user.setName("test");
+        return "add_user";
+    }
+
+    @RequestMapping(value = "addUser", method = RequestMethod.POST)
+    public String addUser(@ModelAttribute("user") User user,
+                          final RedirectAttributes redirectAttributes) {
+
+        redirectAttributes.addFlashAttribute("user", user);
+        redirectAttributes.addAttribute("message", "Added successfully.");
+
+//        return "redirect:showUser";
+        return "forward:showUser";
+    }
+
+//    @RequestMapping(value = "showUser", method = RequestMethod.GET)
+    @RequestMapping(value = "showUser", method = RequestMethod.POST)
+    public ModelAndView showUser(@ModelAttribute("user") User user) {
+        System.out.println("user:" + user.getName() + "," + user.getAge());
+        Map<String, String> model = new HashMap<>();
+        model.put("demo", "demo");
+        return new ModelAndView("show_user", model);
+    }
+}
+```
+
+jsp文件不变，当请求`/showForm`时，可以看到`add_user.jsp`文件的内容，当填写表单后点击按钮，请求到`addUser()`方法，返回一个转发响应，Spring内部收到这个响应后调用[RequestDispatcher]的`forward()`方法，将请求转发到`showUser()`，而浏览器是感知不到这一过程的，此时浏览器还在等待响应，由于是转发到`showUser()`方法的，请求还是POST，所以`showUser()`方法的method改为和`addUser()`方法相同，在`showUser()`方法返回后，浏览器会看到`show_user.jsp`的内容:
+```
+null
+test, 1, demo
+```
+
+此时刷新页面只会重复发送`/addUser`的POST请求（请求体为第一个POST时提交的数据，也就是`add_user.jsp`中填写的用户信息），这也就是[维基百科](https://en.wikipedia.org/wiki/Post/Redirect/Get)中说到的重复提交的问题
+
+下面再Spring中redirect和forward的实现进行分析
+
 [ApplicationObjectSupport]: aaa
 [WebApplicationObjectSupport]: aaa
 [ViewResolver]: aaa
@@ -1074,3 +1207,4 @@ public class TargetServlet extends HttpServlet {
 [UrlBasedViewResolver]: aaa
 [InternalResourceViewResolver]: aaa
 [InternalResourceView]: aaa
+[FlashMap]: aaa
