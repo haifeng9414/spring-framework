@@ -151,7 +151,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 		String dispatcherPath = prepareForRendering(request, response);
 
 		// Obtain a RequestDispatcher for the target resource (typically a JSP).
-		// 从request获取RequestDispatcher对象，RequestDispatcher对象能够将请求指定的资源添加到response中
+		// 从request获取RequestDispatcher对象，RequestDispatcher对象能够在指定的路径资源执行include或forward操作
 		RequestDispatcher rd = getRequestDispatcher(request, dispatcherPath);
 		if (rd == null) {
 			throw new ServletException("Could not get RequestDispatcher for [" + getUrl() +
@@ -173,7 +173,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Forwarding to resource [" + getUrl() + "] in InternalResourceView '" + getBeanName() + "'");
 			}
-			// 否则使用正常的逻辑访问资源
+			// 否则使用正常的逻辑访问资源，既调用转发
 			rd.forward(request, response);
 		}
 	}

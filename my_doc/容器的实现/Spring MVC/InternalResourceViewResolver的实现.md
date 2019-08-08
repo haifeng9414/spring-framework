@@ -908,7 +908,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 		String dispatcherPath = prepareForRendering(request, response);
 
 		// Obtain a RequestDispatcher for the target resource (typically a JSP).
-		// 从request获取RequestDispatcher对象，RequestDispatcher对象能够将请求指定的资源添加到response中
+		// 从request获取RequestDispatcher对象，RequestDispatcher对象能够在指定的路径资源执行include或forward操作
 		RequestDispatcher rd = getRequestDispatcher(request, dispatcherPath);
 		if (rd == null) {
 			throw new ServletException("Could not get RequestDispatcher for [" + getUrl() +
@@ -930,7 +930,7 @@ public class InternalResourceView extends AbstractUrlBasedView {
 			if (logger.isDebugEnabled()) {
 				logger.debug("Forwarding to resource [" + getUrl() + "] in InternalResourceView '" + getBeanName() + "'");
 			}
-			// 否则使用正常的逻辑访问资源
+			// 否则使用正常的逻辑访问资源，既调用转发
 			rd.forward(request, response);
 		}
 	}
@@ -1118,6 +1118,7 @@ public class UserController {
         System.out.println("user:" + user.getName() + "," + user.getAge());
         Map<String, String> model = new HashMap<>();
         model.put("demo", "demo");
+			 	System.out.println(test);
         return new ModelAndView("show_user", model);
     }
 }
@@ -1199,6 +1200,7 @@ public class UserController {
         System.out.println("user:" + user.getName() + "," + user.getAge());
         Map<String, String> model = new HashMap<>();
         model.put("demo", "demo");
+				System.out.println(test); // 这里的test输出是{test}而不是demo
         return new ModelAndView("show_user", model);
     }
 }
@@ -1668,6 +1670,8 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 
 [RedirectView]的`createTargetUrl()`方法实现了例子代码中请求路径参数传递等过程，详情可以看上面的源码注释，[RedirectView]实现简单来说就是，在做好属性相关的工作后，设置响应的状态码为30X，并且添加`Location`响应首部
 
+对于对于forward的实现，可以看到[UrlBasedViewResolver]直接创建[InternalResourceView]类返回，[InternalResourceView]源码上面已经说过了，简单来说就是调用[HttpServletRequest]对象的`getRequestDispatcher()`方法，方法参数为需要转发的路径，获取[RequestDispatcher]对象，再调用[RequestDispatcher]的`forward()`方法转发请求，这里面没有做[RedirectView]类中请求参数设置的操作，所以对于转发操作，`showUser()`方法的test参数值为{test}而不是demo
+
 [ApplicationObjectSupport]: aaa
 [WebApplicationObjectSupport]: aaa
 [ViewResolver]: aaa
@@ -1677,3 +1681,5 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 [InternalResourceView]: aaa
 [FlashMap]: aaa
 [RedirectView]: aaa
+[HttpServletRequest]: aaa
+[RequestDispatcher]: aaa
