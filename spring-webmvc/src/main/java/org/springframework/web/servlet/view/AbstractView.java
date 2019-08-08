@@ -314,7 +314,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 				" and static attributes " + this.staticAttributes);
 		}
 
-		// 合并staticAttributes的值和动态的值
+		// 合并staticAttributes、model和请求路径的参数值
 		Map<String, Object> mergedModel = createMergedOutputModel(model, request, response);
 		// 添加了缓存相关的首部
 		prepareResponse(request, response);
@@ -352,6 +352,8 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 
 		// Expose RequestContext?
 		if (this.requestContextAttribute != null) {
+			// 暴露RequestContext到视图属性，RequestContext包含HttpServletRequest、HttpServletResponse、ServletContext和model
+			// 通过RequestContext还可以获取到theme、timeZone等信息
 			mergedModel.put(this.requestContextAttribute, createRequestContext(request, response, mergedModel));
 		}
 

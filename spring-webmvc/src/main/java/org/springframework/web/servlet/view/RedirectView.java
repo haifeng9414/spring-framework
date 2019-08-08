@@ -102,6 +102,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 	@Nullable
 	private HttpStatus statusCode;
 
+	// 是否将原请求路径中的参数替换到重定向后的请求路径中
 	private boolean expandUriTemplateVariables = true;
 
 	// 是否暴露请求路径中的查询参数，既/app/test?a=b中的参数a
@@ -352,11 +353,15 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 			// 可以看AbstractUrlHandlerMapping的buildPathExposingHandler方法的实现，这里获取的参数就是AbstractUrlHandlerMapping的
 			// lookupHandler方法解析到的请求路径中的参数
 			Map<String, String> variables = getCurrentRequestUriVariables(request);
+			// 替换请求路径中的参数，如原请求路径的controller定义的路径为/{test}/addUser，原请求路径为/demo/addUser，当重定向到/{test}/showUser
+			// 时，也就是这里的targetUrl的值为/{test}/showUser时，将其替换为/demo/showUser
 			targetUrl = replaceUriTemplateVariables(targetUrl.toString(), model, variables, enc);
 		}
+		// 是否需要保留原请求路径中的查询参数，既/app?a=b&c=d中的a=b&c=d
 		if (isPropagateQueryProperties()) {
 		 	appendCurrentQueryParams(targetUrl, request);
 		}
+		// 是否将model的参数也保存到重定向后的请求路径中
 		if (this.exposeModelAttributes) {
 			appendQueryProperties(targetUrl, model, enc);
 		}
@@ -417,10 +422,12 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 	 * @since 4.1
 	 */
 	protected void appendCurrentQueryParams(StringBuilder targetUrl, HttpServletRequest request) {
+		// 获取请求的查询参数，既/app?a=b&c=d中的a=b&c=d
 		String query = request.getQueryString();
 		if (StringUtils.hasText(query)) {
 			// Extract anchor fragment, if any.
 			String fragment = null;
+			// 如果存在锚点，则先将其保存下来，因为锚点一定要放到url的最后
 			int anchorIndex = targetUrl.indexOf("#");
 			if (anchorIndex > -1) {
 				fragment = targetUrl.substring(anchorIndex);
@@ -434,6 +441,7 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 				targetUrl.append('&').append(query);
 			}
 			// Append anchor fragment, if any, to end of URL.
+			// 设置锚点
 			if (fragment != null) {
 				targetUrl.append(fragment);
 			}
@@ -640,7 +648,12 @@ public class RedirectView extends AbstractUrlBasedView implements SmartView {
 			}
 		}
 		else {
-			// 如果不需要兼容http 1.0，则直接返回303状态码
+			// 如果不需要兼容http 1.0，则直接返回303状态码，重定向相关的状态码有301、302、303、307，其中303、307是http 1.1新增的
+			// 303、307的出现是为了解决302的歧义，302状态码在规范中的定义是原请求是post，则不能自动进行重定向；原请求是get，可以自动重定向
+			// 浏览器和服务器的实现并没有严格遵守HTTP中302的规范，服务器不加遵守的返回302，浏览器即便原请求是post也会自动重定向，导致规范和
+			// 实现出现了二义性，由此衍生了一些问题，譬如302劫持，因此在HTTP 1.1中将302的规范细化成了303和307，希望以此来消除二义性
+			// 303继承了HTTP 1.0中302的实现（即原请求是post，也允许自动进行重定向，结果是无论原请求是get还是post，都可以自动进行重定向），
+			// 而307则继承了HTTP 1.0中302的规范（即如果原请求是post，则不允许进行自动重定向，结果是post不重定向，get可以自动重定向）
 			HttpStatus statusCode = getHttp11StatusCode(request, response, targetUrl);
 			response.setStatus(statusCode.value());
 			response.setHeader("Location", encodedURL);

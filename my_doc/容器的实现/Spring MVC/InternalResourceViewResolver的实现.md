@@ -539,7 +539,7 @@ public interface View {
 }
 ```
 
-[AbstractView]在渲染视图之前为视图准备好了视图属性，代码：
+[AbstractView]在渲染视图之前为视图准备好了视图属性，[AbstractView]的`render()`方法整合了视图属性，将model、请求路径中的参数、[RequestContext]对象等属性保存到Map中交给子类创建视图，这是渲染视图时很重要的一步，代码：
 ```java
 public abstract class AbstractView extends WebApplicationObjectSupport implements View, BeanNameAware {
 
@@ -674,7 +674,7 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 				" and static attributes " + this.staticAttributes);
 		}
 
-		// 合并staticAttributes的值和动态的值
+		// 合并staticAttributes、model和请求路径的参数值
 		Map<String, Object> mergedModel = createMergedOutputModel(model, request, response);
 		// 添加了缓存相关的首部
 		prepareResponse(request, response);
@@ -708,6 +708,8 @@ public abstract class AbstractView extends WebApplicationObjectSupport implement
 
 		// Expose RequestContext?
 		if (this.requestContextAttribute != null) {
+			// 暴露RequestContext到视图属性，RequestContext包含HttpServletRequest、HttpServletResponse、ServletContext和model
+			// 通过RequestContext还可以获取到theme、timeZone等信息
 			mergedModel.put(this.requestContextAttribute, createRequestContext(request, response, mergedModel));
 		}
 
@@ -1072,7 +1074,7 @@ public class TargetServlet extends HttpServlet {
 
 这里再说一下redirect和forward，上面的[UrlBasedViewResolver]在创建视图时先判断了路径是否以redirect或forward开头，如果是redirect开头的，则创建[RedirectView]返回，如果是forward开头的，则创建[InternalResourceView]返回，如果都不是，则调用`super.createView(viewName, locale)`，实际上就是其调用`loadView()`方法创建视图，该方法的实现可以看[UrlBasedViewResolver]类的注释，这里对redirect和forward进行分析，[维基百科](https://en.wikipedia.org/wiki/Post/Redirect/Get)的这篇文章有两个图能很好的描述redirect和forward的区别
 
-首先是redirect，先看测试代码：
+首先是redirect，先看测试代码（下面的测试代码使用了一些redirect和forward无关的功能，如@ModelAttribute注解，请求路径参数等，这里加上这些功能是因为下面讲源码时可能会涉及到）：
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -1094,18 +1096,25 @@ public class UserController {
         return "add_user";
     }
 
-    @RequestMapping(value = "addUser", method = RequestMethod.POST)
+    @RequestMapping(value = "/{test}/addUser", method = RequestMethod.POST)
     public String addUser(@ModelAttribute("user") User user,
-                          final RedirectAttributes redirectAttributes) {
+                          final RedirectAttributes redirectAttributes, @PathVariable String test) {
 
         redirectAttributes.addFlashAttribute("user", user);
         redirectAttributes.addAttribute("message", "Added successfully.");
+        System.out.println(test);
 
-        return "redirect:showUser";
+        // 重定向地址应该以/开头，否则是相对向前路径，那么如果当前请求路径是/demo/addUser，则不加/，重定向后地址为/demo/demo/showUser
+        // 如果加/，则是/demo/showUser
+        // 这里写{test}，在重定向时将会被解析成当前请求路径中test的值，这一步是RedirectView类的replaceUriTemplateVariables方法实现的，
+        // 能够将原请求路径的值转到重定向后的路径，而这里的{test}不能写成其他的{xxx}，因为解析时是以test作为参数名称匹配，写成其他名称将报错
+        return "redirect:/{test}/showUser";
+//        return "forward:/{test}/showUser";
     }
 
-    @RequestMapping(value = "showUser", method = RequestMethod.GET)
-    public ModelAndView showUser(@ModelAttribute("user") User user) {
+    @RequestMapping(value = "/{test}/showUser", method = RequestMethod.GET)
+//    @RequestMapping(value = "/{test}/showUser", method = RequestMethod.POST)
+    public ModelAndView showUser(@ModelAttribute("user") User user, @PathVariable String test) {
         System.out.println("user:" + user.getName() + "," + user.getAge());
         Map<String, String> model = new HashMap<>();
         model.put("demo", "demo");
@@ -1120,7 +1129,7 @@ public class UserController {
 <html>
 <body>
 <h1>Add New User</h1>
-<form:form action="addUser" method="post" modelAttribute="user">
+<form:form action="/demo/addUser" method="post" modelAttribute="user">
     <table>
         <tr>
             <td><form:label path="name">Name</form:label></td>
@@ -1150,13 +1159,13 @@ ${user.name}, ${user.age}, ${demo}
 </body>
 </html>
 ```
-当请求`/showForm`时，可以看到`add_user.jsp`文件的内容，也就是一个表单，当填写表单后点击按钮，`addUser()`方法响应请求，返回一个重定向，浏览器将会收到一个状态码为302，带有一个名为`Location`，值为`showUser?message=Added+successfully.`的响应，对于302的响应码，浏览器的实现是发送一个GET请求到`Location`，此时浏览器的地址栏将变成`/showUser?message=Added+successfully.`，并且controller中的`showUser()`方法将会接收到请求，所以浏览器会看到`show_user.jsp`的内容:
+当请求`/showForm`时，可以看到`add_user.jsp`文件的内容，也就是一个表单，当填写表单后点击按钮，`addUser()`方法响应请求，返回一个重定向，浏览器将会收到一个状态码为302，带有一个名为`Location`，值为`/demo/showUser?message=Added+successfully.`的响应，对于302的响应码，浏览器的实现是发送一个GET请求到`Location`，此时浏览器的地址栏将变成`/demo/showUser?message=Added+successfully.`，并且controller中的`showUser()`方法将会接收到请求，所以浏览器会看到`show_user.jsp`的内容:
 ```
 Added successfully.
 test, 1, demo
 ```
 
-此时刷新页面只会重复发送`/showUser?message=Added+successfully.`的GET请求，而对于上面例子中用到的`addFlashAttribute()`和`addAttribute()`方法，可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)中关于[FlashMap]的介绍。
+此时刷新页面只会重复发送`/demo/showUser?message=Added+successfully.`的GET请求，而对于上面例子中用到的`addFlashAttribute()`和`addAttribute()`方法，可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)中关于[FlashMap]的介绍。
 
 对于forward，先看测试代码：
 ```java
@@ -1168,20 +1177,25 @@ public class UserController {
         return "add_user";
     }
 
-    @RequestMapping(value = "addUser", method = RequestMethod.POST)
+    @RequestMapping(value = "/{test}/addUser", method = RequestMethod.POST)
     public String addUser(@ModelAttribute("user") User user,
-                          final RedirectAttributes redirectAttributes) {
+                          final RedirectAttributes redirectAttributes, @PathVariable String test) {
 
         redirectAttributes.addFlashAttribute("user", user);
         redirectAttributes.addAttribute("message", "Added successfully.");
+        System.out.println(test);
 
-//        return "redirect:showUser";
-        return "forward:showUser";
+        // 重定向地址应该以/开头，否则是相对向前路径，那么如果当前请求路径是/demo/addUser，则不加/，重定向后地址为/demo/demo/showUser
+        // 如果加/，则是/demo/showUser
+        // 这里写{test}，在重定向时将会被解析成当前请求路径中test的值，这一步是RedirectView类的replaceUriTemplateVariables方法实现的，
+        // 能够将原请求路径的值转到重定向后的路径，而这里的{test}不能写成其他的{xxx}，因为解析时是以test作为参数名称匹配，写成其他名称将报错
+//        return "redirect:/{test}/showUser";
+        return "forward:/{test}/showUser";
     }
 
-//    @RequestMapping(value = "showUser", method = RequestMethod.GET)
-    @RequestMapping(value = "showUser", method = RequestMethod.POST)
-    public ModelAndView showUser(@ModelAttribute("user") User user) {
+//    @RequestMapping(value = "/{test}/showUser", method = RequestMethod.GET)
+    @RequestMapping(value = "/{test}/showUser", method = RequestMethod.POST)
+    public ModelAndView showUser(@ModelAttribute("user") User user, @PathVariable String test) {
         System.out.println("user:" + user.getName() + "," + user.getAge());
         Map<String, String> model = new HashMap<>();
         model.put("demo", "demo");
@@ -1196,9 +1210,463 @@ null
 test, 1, demo
 ```
 
-此时刷新页面只会重复发送`/addUser`的POST请求（请求体为第一个POST时提交的数据，也就是`add_user.jsp`中填写的用户信息），这也就是[维基百科](https://en.wikipedia.org/wiki/Post/Redirect/Get)中说到的重复提交的问题
+此时刷新页面只会重复发送`/demo/addUser`的POST请求（请求体为第一个POST时提交的数据，也就是`add_user.jsp`中填写的用户信息），这也就是[维基百科](https://en.wikipedia.org/wiki/Post/Redirect/Get)中说到的重复提交的问题
 
-下面再Spring中redirect和forward的实现进行分析
+下面再Spring中redirect和forward的实现进行分析，从上面的分析可以看出，对redirect和forward的处理在[UrlBasedViewResolver]的`createView()`，代码：
+```java
+@Override
+protected View createView(String viewName, Locale locale) throws Exception {
+	// If this resolver is not supposed to handle the given view,
+	// return null to pass on to the next resolver in the chain.
+	// 如果viewNames属性不为空，则根据viewNames属性判断当前视图名称是否能被解析
+	if (!canHandle(viewName, locale)) {
+		return null;
+	}
+	// Check for special "redirect:" prefix.
+	// 如果是重定向请求
+	if (viewName.startsWith(REDIRECT_URL_PREFIX)) {
+		String redirectUrl = viewName.substring(REDIRECT_URL_PREFIX.length());
+		// 创建重定向视图
+		RedirectView view = new RedirectView(redirectUrl, isRedirectContextRelative(), isRedirectHttp10Compatible());
+		// 获取能够被重定向的域名，可以为空
+		String[] hosts = getRedirectHosts();
+		if (hosts != null) {
+			view.setHosts(hosts);
+		}
+		// 将创建的视图作为bean添加到applicationContext
+		return applyLifecycleMethods(viewName, view);
+	}
+	// Check for special "forward:" prefix.
+	// 如果是转发请求则创建对应的视图，该视图没有被添加到applicationContext
+	if (viewName.startsWith(FORWARD_URL_PREFIX)) {
+		String forwardUrl = viewName.substring(FORWARD_URL_PREFIX.length());
+		return new InternalResourceView(forwardUrl);
+	}
+	// Else fall back to superclass implementation: calling loadView.
+	// 如果既没有redirect前缀，也没有forward前缀，则调用父类的createView方法返回视图，而这里的createView就是AbstractCachingViewResolver
+	// 的createView方法，该方法会调用子类的loadView方法
+	return super.createView(viewName, locale);
+}
+```
+
+在碰到`redirect:`开头的请求路径时，[UrlBasedViewResolver]直接创建[RedirectView]类返回，[RedirectView]类继承自[AbstractView]，[AbstractView]上面已经介绍过了，下面是[RedirectView]类的代码：
+```java
+public class RedirectView extends AbstractUrlBasedView implements SmartView {
+
+	private static final Pattern URI_TEMPLATE_VARIABLE_PATTERN = Pattern.compile("\\{([^/]+?)\\}");
+
+	// 解析以/开头的请求路径时是否解析为相对ServletContext的根目录
+	private boolean contextRelative = false;
+
+	// 是否兼容http 1.0
+	private boolean http10Compatible = true;
+
+	// 是否暴露model参数，model参数来自ModelAndView
+	private boolean exposeModelAttributes = true;
+
+	@Nullable
+	private String encodingScheme;
+
+	@Nullable
+	private HttpStatus statusCode;
+
+	// 是否将原请求路径中的参数替换到重定向后的请求路径中
+	private boolean expandUriTemplateVariables = true;
+
+	// 是否暴露请求路径中的查询参数，既/app/test?a=b中的参数a
+	private boolean propagateQueryParams = false;
+
+	@Nullable
+	private String[] hosts;
+
+	public RedirectView() {
+		// 默认不暴露请求路径的参数
+		setExposePathVariables(false);
+	}
+	
+	public RedirectView(String url) {
+		super(url);
+		setExposePathVariables(false);
+	}
+	
+	public RedirectView(String url, boolean contextRelative) {
+		super(url);
+		this.contextRelative = contextRelative;
+		setExposePathVariables(false);
+	}
+	
+	public RedirectView(String url, boolean contextRelative, boolean http10Compatible) {
+		super(url);
+		this.contextRelative = contextRelative;
+		this.http10Compatible = http10Compatible;
+		setExposePathVariables(false);
+	}
+	
+	public RedirectView(String url, boolean contextRelative, boolean http10Compatible, boolean exposeModelAttributes) {
+		super(url);
+		this.contextRelative = contextRelative;
+		this.http10Compatible = http10Compatible;
+		this.exposeModelAttributes = exposeModelAttributes;
+		setExposePathVariables(false);
+	}
+	
+	public void setContextRelative(boolean contextRelative) {
+		this.contextRelative = contextRelative;
+	}
+	
+	public void setHttp10Compatible(boolean http10Compatible) {
+		this.http10Compatible = http10Compatible;
+	}
+	
+	public void setExposeModelAttributes(final boolean exposeModelAttributes) {
+		this.exposeModelAttributes = exposeModelAttributes;
+	}
+	
+	public void setEncodingScheme(String encodingScheme) {
+		this.encodingScheme = encodingScheme;
+	}
+	
+	public void setStatusCode(HttpStatus statusCode) {
+		this.statusCode = statusCode;
+	}
+	
+	public void setExpandUriTemplateVariables(boolean expandUriTemplateVariables) {
+		this.expandUriTemplateVariables = expandUriTemplateVariables;
+	}
+	
+	public void setPropagateQueryParams(boolean propagateQueryParams) {
+		this.propagateQueryParams = propagateQueryParams;
+	}
+	
+	public boolean isPropagateQueryProperties() {
+		return this.propagateQueryParams;
+	}
+	
+	public void setHosts(@Nullable String... hosts) {
+		this.hosts = hosts;
+	}
+	
+	@Nullable
+	public String[] getHosts() {
+		return this.hosts;
+	}
+	
+	@Override
+	public boolean isRedirectView() {
+		return true;
+	}
+	
+	@Override
+	protected boolean isContextRequired() {
+		return false;
+	}
+	
+	@Override
+	protected void renderMergedOutputModel(Map<String, Object> model, HttpServletRequest request,
+			HttpServletResponse response) throws IOException {
+
+		// 创建路径，根据配置对路径中的查询参数进行设置
+		String targetUrl = createTargetUrl(model, request);
+		// 获取名字叫requestDataValueProcessor的RequestDataValueProcessor类型的bean，并调用其processUrl方法
+		targetUrl = updateTargetUrl(targetUrl, model, request, response);
+
+		// Save flash attributes
+		RequestContextUtils.saveOutputFlashMap(targetUrl, request, response);
+
+		// Redirect
+		sendRedirect(request, response, targetUrl, this.http10Compatible);
+	}
+	
+	protected final String createTargetUrl(Map<String, Object> model, HttpServletRequest request)
+			throws UnsupportedEncodingException {
+
+		// Prepare target URL.
+		StringBuilder targetUrl = new StringBuilder();
+		String url = getUrl();
+		Assert.state(url != null, "'url' not set");
+
+		if (this.contextRelative && getUrl().startsWith("/")) {
+			// Do not apply context path to relative URLs.
+			// 如果需要相对ServletContext根目录，则先设置ServletContext根目录到最终路径
+			targetUrl.append(getContextPath(request));
+		}
+		targetUrl.append(getUrl());
+
+		String enc = this.encodingScheme;
+		if (enc == null) {
+			enc = request.getCharacterEncoding();
+		}
+		if (enc == null) {
+			enc = WebUtils.DEFAULT_CHARACTER_ENCODING;
+		}
+
+		if (this.expandUriTemplateVariables && StringUtils.hasText(targetUrl)) {
+			// 可以看AbstractUrlHandlerMapping的buildPathExposingHandler方法的实现，这里获取的参数就是AbstractUrlHandlerMapping的
+			// lookupHandler方法解析到的请求路径中的参数
+			Map<String, String> variables = getCurrentRequestUriVariables(request);
+			// 替换请求路径中的参数，如原请求路径的controller定义的路径为/{test}/addUser，原请求路径为/demo/addUser，当重定向到/{test}/showUser
+			// 时，也就是这里的targetUrl的值为/{test}/showUser时，将其替换为/demo/showUser
+			targetUrl = replaceUriTemplateVariables(targetUrl.toString(), model, variables, enc);
+		}
+		// 是否需要保留原请求路径中的查询参数，既/app?a=b&c=d中的a=b&c=d
+		if (isPropagateQueryProperties()) {
+		 	appendCurrentQueryParams(targetUrl, request);
+		}
+		// 是否将model的参数也保存到重定向后的请求路径中
+		if (this.exposeModelAttributes) {
+			appendQueryProperties(targetUrl, model, enc);
+		}
+
+		return targetUrl.toString();
+	}
+
+	private String getContextPath(HttpServletRequest request) {
+		String contextPath = request.getContextPath();
+		while (contextPath.startsWith("//")) {
+			contextPath = contextPath.substring(1);
+		}
+		return contextPath;
+	}
+	
+	protected StringBuilder replaceUriTemplateVariables(
+			String targetUrl, Map<String, Object> model, Map<String, String> currentUriVariables, String encodingScheme)
+			throws UnsupportedEncodingException {
+
+		StringBuilder result = new StringBuilder();
+		Matcher matcher = URI_TEMPLATE_VARIABLE_PATTERN.matcher(targetUrl);
+		int endLastMatch = 0;
+		while (matcher.find()) {
+			String name = matcher.group(1);
+			Object value = (model.containsKey(name) ? model.remove(name) : currentUriVariables.get(name));
+			if (value == null) {
+				throw new IllegalArgumentException("Model has no value for key '" + name + "'");
+			}
+			result.append(targetUrl.substring(endLastMatch, matcher.start()));
+			result.append(UriUtils.encodePathSegment(value.toString(), encodingScheme));
+			endLastMatch = matcher.end();
+		}
+		result.append(targetUrl.substring(endLastMatch, targetUrl.length()));
+		return result;
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, String> getCurrentRequestUriVariables(HttpServletRequest request) {
+		String name = HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE;
+		Map<String, String> uriVars = (Map<String, String>) request.getAttribute(name);
+		return (uriVars != null) ? uriVars : Collections.<String, String> emptyMap();
+	}
+	
+	protected void appendCurrentQueryParams(StringBuilder targetUrl, HttpServletRequest request) {
+		// 获取请求的查询参数，既/app?a=b&c=d中的a=b&c=d
+		String query = request.getQueryString();
+		if (StringUtils.hasText(query)) {
+			// Extract anchor fragment, if any.
+			String fragment = null;
+			// 如果存在锚点，则先将其保存下来，因为锚点一定要放到url的最后
+			int anchorIndex = targetUrl.indexOf("#");
+			if (anchorIndex > -1) {
+				fragment = targetUrl.substring(anchorIndex);
+				targetUrl.delete(anchorIndex, targetUrl.length());
+			}
+
+			if (targetUrl.toString().indexOf('?') < 0) {
+				targetUrl.append('?').append(query);
+			}
+			else {
+				targetUrl.append('&').append(query);
+			}
+			// Append anchor fragment, if any, to end of URL.
+			// 设置锚点
+			if (fragment != null) {
+				targetUrl.append(fragment);
+			}
+		}
+	}
+	
+	@SuppressWarnings("unchecked")
+	protected void appendQueryProperties(StringBuilder targetUrl, Map<String, Object> model, String encodingScheme)
+			throws UnsupportedEncodingException {
+
+		// Extract anchor fragment, if any.
+		String fragment = null;
+		int anchorIndex = targetUrl.indexOf("#");
+		if (anchorIndex > -1) {
+			fragment = targetUrl.substring(anchorIndex);
+			targetUrl.delete(anchorIndex, targetUrl.length());
+		}
+
+		// If there aren't already some parameters, we need a "?".
+		boolean first = (targetUrl.toString().indexOf('?') < 0);
+		for (Map.Entry<String, Object> entry : queryProperties(model).entrySet()) {
+			Object rawValue = entry.getValue();
+			Iterator<Object> valueIter;
+			if (rawValue != null && rawValue.getClass().isArray()) {
+				valueIter = Arrays.asList(ObjectUtils.toObjectArray(rawValue)).iterator();
+			}
+			else if (rawValue instanceof Collection) {
+				valueIter = ((Collection<Object>) rawValue).iterator();
+			}
+			else {
+				valueIter = Collections.singleton(rawValue).iterator();
+			}
+			while (valueIter.hasNext()) {
+				Object value = valueIter.next();
+				if (first) {
+					targetUrl.append('?');
+					first = false;
+				}
+				else {
+					targetUrl.append('&');
+				}
+				String encodedKey = urlEncode(entry.getKey(), encodingScheme);
+				String encodedValue = (value != null ? urlEncode(value.toString(), encodingScheme) : "");
+				targetUrl.append(encodedKey).append('=').append(encodedValue);
+			}
+		}
+
+		// Append anchor fragment, if any, to end of URL.
+		if (fragment != null) {
+			targetUrl.append(fragment);
+		}
+	}
+	
+	protected Map<String, Object> queryProperties(Map<String, Object> model) {
+		Map<String, Object> result = new LinkedHashMap<>();
+		model.forEach((name, value) -> {
+			if (isEligibleProperty(name, value)) {
+				result.put(name, value);
+			}
+		});
+		return result;
+	}
+	
+	protected boolean isEligibleProperty(String key, @Nullable Object value) {
+		if (value == null) {
+			return false;
+		}
+		if (isEligibleValue(value)) {
+			return true;
+		}
+		if (value.getClass().isArray()) {
+			int length = Array.getLength(value);
+			if (length == 0) {
+				return false;
+			}
+			for (int i = 0; i < length; i++) {
+				Object element = Array.get(value, i);
+				if (!isEligibleValue(element)) {
+					return false;
+				}
+			}
+			return true;
+		}
+		if (value instanceof Collection) {
+			Collection<?> coll = (Collection<?>) value;
+			if (coll.isEmpty()) {
+				return false;
+			}
+			for (Object element : coll) {
+				if (!isEligibleValue(element)) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+	
+	protected boolean isEligibleValue(@Nullable Object value) {
+		return (value != null && BeanUtils.isSimpleValueType(value.getClass()));
+	}
+	
+	protected String urlEncode(String input, String encodingScheme) throws UnsupportedEncodingException {
+		return URLEncoder.encode(input, encodingScheme);
+	}
+	
+	protected String updateTargetUrl(String targetUrl, Map<String, Object> model,
+			HttpServletRequest request, HttpServletResponse response) {
+
+		WebApplicationContext wac = getWebApplicationContext();
+		if (wac == null) {
+			wac = RequestContextUtils.findWebApplicationContext(request, getServletContext());
+		}
+
+		if (wac != null && wac.containsBean(RequestContextUtils.REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME)) {
+			RequestDataValueProcessor processor = wac.getBean(
+					RequestContextUtils.REQUEST_DATA_VALUE_PROCESSOR_BEAN_NAME, RequestDataValueProcessor.class);
+			return processor.processUrl(request, targetUrl);
+		}
+
+		return targetUrl;
+	}
+	
+	protected void sendRedirect(HttpServletRequest request, HttpServletResponse response,
+			String targetUrl, boolean http10Compatible) throws IOException {
+
+		String encodedURL = (isRemoteHost(targetUrl) ? targetUrl : response.encodeRedirectURL(targetUrl));
+		if (http10Compatible) {
+			HttpStatus attributeStatusCode = (HttpStatus) request.getAttribute(View.RESPONSE_STATUS_ATTRIBUTE);
+			if (this.statusCode != null) {
+				response.setStatus(this.statusCode.value());
+				// 添加Location header，这个header也是重定向必备的，同于指定重定向的路径
+				response.setHeader("Location", encodedURL);
+			}
+			else if (attributeStatusCode != null) {
+				response.setStatus(attributeStatusCode.value());
+				response.setHeader("Location", encodedURL);
+			}
+			else {
+				// Send status code 302 by default.
+				// 使用HttpServletResponse的实现，默认返回状态码302并添加Location header
+				response.sendRedirect(encodedURL);
+			}
+		}
+		else {
+			// 如果不需要兼容http 1.0，则直接返回303状态码，重定向相关的状态码有301、302、303、307，其中303、307是http 1.1新增的
+			// 303、307的出现是为了解决302的歧义，302状态码在规范中的定义是原请求是post，则不能自动进行重定向；原请求是get，可以自动重定向
+			// 浏览器和服务器的实现并没有严格遵守HTTP中302的规范，服务器不加遵守的返回302，浏览器即便原请求是post也会自动重定向，导致规范和
+			// 实现出现了二义性，由此衍生了一些问题，譬如302劫持，因此在HTTP 1.1中将302的规范细化成了303和307，希望以此来消除二义性
+			// 303继承了HTTP 1.0中302的实现（即原请求是post，也允许自动进行重定向，结果是无论原请求是get还是post，都可以自动进行重定向），
+			// 而307则继承了HTTP 1.0中302的规范（即如果原请求是post，则不允许进行自动重定向，结果是post不重定向，get可以自动重定向）
+			HttpStatus statusCode = getHttp11StatusCode(request, response, targetUrl);
+			response.setStatus(statusCode.value());
+			response.setHeader("Location", encodedURL);
+		}
+	}
+	
+	protected boolean isRemoteHost(String targetUrl) {
+		if (ObjectUtils.isEmpty(getHosts())) {
+			return false;
+		}
+		String targetHost = UriComponentsBuilder.fromUriString(targetUrl).build().getHost();
+		if (StringUtils.isEmpty(targetHost)) {
+			return false;
+		}
+		for (String host : getHosts()) {
+			if (targetHost.equals(host)) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	protected HttpStatus getHttp11StatusCode(
+			HttpServletRequest request, HttpServletResponse response, String targetUrl) {
+
+		if (this.statusCode != null) {
+			return this.statusCode;
+		}
+		HttpStatus attributeStatusCode = (HttpStatus) request.getAttribute(View.RESPONSE_STATUS_ATTRIBUTE);
+		if (attributeStatusCode != null) {
+			return attributeStatusCode;
+		}
+		return HttpStatus.SEE_OTHER;
+	}
+
+}
+```
+
+[RedirectView]的`createTargetUrl()`方法实现了例子代码中请求路径参数传递等过程，详情可以看上面的源码注释，[RedirectView]实现简单来说就是，在做好属性相关的工作后，设置响应的状态码为30X，并且添加`Location`响应首部
 
 [ApplicationObjectSupport]: aaa
 [WebApplicationObjectSupport]: aaa
@@ -1208,3 +1676,4 @@ test, 1, demo
 [InternalResourceViewResolver]: aaa
 [InternalResourceView]: aaa
 [FlashMap]: aaa
+[RedirectView]: aaa
