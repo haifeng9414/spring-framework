@@ -1100,8 +1100,10 @@ public class UserController {
     public String addUser(@ModelAttribute("user") User user,
                           final RedirectAttributes redirectAttributes, @PathVariable String test) {
 
-        redirectAttributes.addFlashAttribute("user", user);
-        redirectAttributes.addAttribute("message", "Added successfully.");
+        // addFlashAttribute方法添加的属性不会出现在url的查询参数，但是可以通过ModelAttribute注解获取到，既下面showUser方法中的用法
+				redirectAttributes.addFlashAttribute("user", user);
+				// addAttribute方法添加的属性会出现在url的查询参数，jsp中可以通过request.getParameter("message")获取到
+				redirectAttributes.addAttribute("message", "Added successfully.");
         System.out.println(test);
 
         // 重定向地址应该以/开头，否则是相对向前路径，那么如果当前请求路径是/demo/addUser，则不加/，重定向后地址为/demo/demo/showUser
@@ -1182,8 +1184,10 @@ public class UserController {
     public String addUser(@ModelAttribute("user") User user,
                           final RedirectAttributes redirectAttributes, @PathVariable String test) {
 
-        redirectAttributes.addFlashAttribute("user", user);
-        redirectAttributes.addAttribute("message", "Added successfully.");
+        // addFlashAttribute方法添加的属性不会出现在url的查询参数，但是可以通过ModelAttribute注解获取到，既下面showUser方法中的用法
+				redirectAttributes.addFlashAttribute("user", user);
+				// addAttribute方法添加的属性会出现在url的查询参数，jsp中可以通过request.getParameter("message")获取到
+				redirectAttributes.addAttribute("message", "Added successfully.");
         System.out.println(test);
 
         // 重定向地址应该以/开头，否则是相对向前路径，那么如果当前请求路径是/demo/addUser，则不加/，重定向后地址为/demo/demo/showUser
