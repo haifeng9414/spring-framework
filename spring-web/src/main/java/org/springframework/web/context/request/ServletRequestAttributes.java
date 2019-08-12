@@ -178,6 +178,7 @@ public class ServletRequestAttributes extends AbstractRequestAttributes {
 			this.request.setAttribute(name, value);
 		}
 		else {
+			// 这里获取session，如果没有则创建一个，如果用的是tomcat，则sessionId为JSESSIONID，值为随机数+时间+jvmid
 			HttpSession session = obtainSession();
 			this.sessionAttributesToUpdate.remove(name);
 			session.setAttribute(name, value);
