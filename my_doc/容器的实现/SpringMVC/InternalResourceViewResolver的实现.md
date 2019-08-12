@@ -1098,13 +1098,19 @@ public class UserController {
 
     @RequestMapping(value = "/{test}/addUser", method = RequestMethod.POST)
     public String addUser(@ModelAttribute("user") User user,
+                          HttpServletRequest request,
                           final RedirectAttributes redirectAttributes, @PathVariable String test) {
 
         // addFlashAttribute方法添加的属性不会出现在url的查询参数，但是可以通过ModelAttribute注解获取到，既下面showUser方法中的用法
-				redirectAttributes.addFlashAttribute("user", user);
-				// addAttribute方法添加的属性会出现在url的查询参数，jsp中可以通过request.getParameter("message")获取到
-				redirectAttributes.addAttribute("message", "Added successfully.");
+        redirectAttributes.addFlashAttribute("user", user);
+        // addAttribute方法添加的属性会出现在url的查询参数，jsp中可以通过request.getParameter("message")获取到
+        redirectAttributes.addAttribute("message", "Added successfully.");
         System.out.println(test);
+
+        // 默认情况下重定向返回的状态码为302，对于这个状态码，浏览器执行的重定向操作是，原请求不论是GET还是POST，重定向请求都是GET
+        // 所以下面的showUser方法用的是RequestMethod.GET，如果想要原请求是啥，重定向后还是啥，则可以添加下面的语句实现，既用307替换302
+//        request.setAttribute(
+//                View.RESPONSE_STATUS_ATTRIBUTE, HttpStatus.TEMPORARY_REDIRECT);
 
         // 重定向地址应该以/开头，否则是相对向前路径，那么如果当前请求路径是/demo/addUser，则不加/，重定向后地址为/demo/demo/showUser
         // 如果加/，则是/demo/showUser
@@ -1120,7 +1126,7 @@ public class UserController {
         System.out.println("user:" + user.getName() + "," + user.getAge());
         Map<String, String> model = new HashMap<>();
         model.put("demo", "demo");
-			 	System.out.println(test);
+        System.out.println(test);
         return new ModelAndView("show_user", model);
     }
 }
@@ -1168,7 +1174,7 @@ Added successfully.
 test, 1, demo
 ```
 
-此时刷新页面只会重复发送`/demo/showUser?message=Added+successfully.`的GET请求，而对于上面例子中用到的`addFlashAttribute()`和`addAttribute()`方法，可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)中关于[FlashMap]的介绍。
+此时刷新页面只会重复发送`/demo/showUser?message=Added+successfully.`的GET请求，而对于上面例子中用到的`addFlashAttribute()`和`addAttribute()`方法，可以看笔记[基于注解的SpringMVC的实现.md](基于注解的SpringMVC的实现.md.md)中关于[FlashMap]的介绍。
 
 对于forward，先看测试代码：
 ```java
