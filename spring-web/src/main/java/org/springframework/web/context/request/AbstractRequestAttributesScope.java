@@ -39,10 +39,14 @@ public abstract class AbstractRequestAttributesScope implements Scope {
 
 	@Override
 	public Object get(String name, ObjectFactory<?> objectFactory) {
+		// 获取当前请求对应的RequestAttributes
 		RequestAttributes attributes = RequestContextHolder.currentRequestAttributes();
+		// RequestAttributes支持根据scope的值将bean保存到不同的地方，这里先尝试获取bean是否已经创建
 		Object scopedObject = attributes.getAttribute(name, getScope());
 		if (scopedObject == null) {
+			// 没有创建则创建一个
 			scopedObject = objectFactory.getObject();
+			// 通过RequestAttributes保存bean
 			attributes.setAttribute(name, scopedObject, getScope());
 			// Retrieve object again, registering it for implicit session attribute updates.
 			// As a bonus, we also allow for potential decoration at the getAttribute level.
@@ -80,6 +84,7 @@ public abstract class AbstractRequestAttributesScope implements Scope {
 	@Nullable
 	public Object resolveContextualObject(String key) {
 		RequestAttributes attributes = RequestContextHolder.currentRequestAttributes();
+		// resolveReference方法在参数为"request"时返回request，在参数为"session"时返回session
 		return attributes.resolveReference(key);
 	}
 
@@ -91,6 +96,7 @@ public abstract class AbstractRequestAttributesScope implements Scope {
 	 * @see RequestAttributes#SCOPE_REQUEST
 	 * @see RequestAttributes#SCOPE_SESSION
 	 */
+	// 供子类实现，返回scope对应的标识
 	protected abstract int getScope();
 
 }

@@ -1003,6 +1003,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 
 		// 获取request中的WebAsyncManager，如果没有则创建一个返回
 		WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+		// 添加RequestBindingInterceptor，RequestBindingInterceptor的作用是执行请求时更新LocaleContext和RequestAttributes
 		asyncManager.registerCallableInterceptor(FrameworkServlet.class.getName(), new RequestBindingInterceptor());
 
 		// 保存localeContext和requestAttributes到对应的ThreadLocal
