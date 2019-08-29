@@ -207,6 +207,8 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 		parserContext.pushContainingComponent(compDefinition);
 
 		// 获取xml配置的content-negotiation-manager属性并返回bean引用，如果没有则添加并返回ContentNegotiationManagerFactoryBean的bean引用
+		// ContentNegotiationManagerFactoryBean返回ContentNegotiationManager实例，ContentNegotiationManager用于返回指定request对应的MediaType
+		// 如application/json
 		RuntimeBeanReference contentNegotiationManager = getContentNegotiationManager(element, source, parserContext);
 
 		// 创建RequestMappingHandlerMapping bean

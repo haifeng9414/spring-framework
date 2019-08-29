@@ -60,11 +60,14 @@ public abstract class MethodIntrospector {
 			specificHandlerType = ClassUtils.getUserClass(targetType);
 			handlerTypes.add(specificHandlerType);
 		}
+		// 获取targetType及其父类的所有接口
 		handlerTypes.addAll(ClassUtils.getAllInterfacesForClassAsSet(targetType));
 
+		// 遍历targetType及所有接口
 		for (Class<?> currentHandlerType : handlerTypes) {
 			final Class<?> targetClass = (specificHandlerType != null ? specificHandlerType : currentHandlerType);
 
+			// 保存方法和T的关系，T实际上就是方法上的注解
 			ReflectionUtils.doWithMethods(currentHandlerType, method -> {
 				Method specificMethod = ClassUtils.getMostSpecificMethod(method, targetClass);
 				T result = metadataLookup.inspect(specificMethod);
@@ -74,7 +77,7 @@ public abstract class MethodIntrospector {
 						methodMap.put(specificMethod, result);
 					}
 				}
-			}, ReflectionUtils.USER_DECLARED_METHODS);
+			}, ReflectionUtils.USER_DECLARED_METHODS); // ReflectionUtils.USER_DECLARED_METHODS过滤掉了桥接方法和Object类上的方法
 		}
 
 		return methodMap;

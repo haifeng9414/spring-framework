@@ -101,6 +101,8 @@ public class ContentNegotiationManagerFactoryBean
 
 	private boolean ignoreAcceptHeader = false;
 
+	// mediaTypes保存了一些MediaType的映射关系，如AnnotationDrivenBeanDefinitionParse在创建ContentNegotiationManagerFactoryBean
+	// 是默认添加了json -> application/json等映射关系
 	private Map<String, MediaType> mediaTypes = new HashMap<>();
 
 	private boolean ignoreUnknownPathExtensions = true;
@@ -305,6 +307,8 @@ public class ContentNegotiationManagerFactoryBean
 		}
 		else {
 			if (this.favorPathExtension) {
+				// PathExtensionContentNegotiationStrategy的实现是根据请求路径作为MediaType的key，如/products/index.html
+				// 则key为html，根据key从传入的mediaTypes中返回MediaType
 				PathExtensionContentNegotiationStrategy strategy;
 				if (this.servletContext != null && !useRegisteredExtensionsOnly()) {
 					strategy = new ServletPathExtensionContentNegotiationStrategy(this.servletContext, this.mediaTypes);
@@ -320,6 +324,7 @@ public class ContentNegotiationManagerFactoryBean
 			}
 
 			if (this.favorParameter) {
+				// ParameterContentNegotiationStrategy则是使用request的指定参数的值作为MediaType的key
 				ParameterContentNegotiationStrategy strategy = new ParameterContentNegotiationStrategy(this.mediaTypes);
 				strategy.setParameterName(this.parameterName);
 				if (this.useRegisteredExtensionsOnly != null) {
@@ -332,6 +337,7 @@ public class ContentNegotiationManagerFactoryBean
 			}
 
 			if (!this.ignoreAcceptHeader) {
+				// 从Accept请求头的值作为MediaType
 				strategies.add(new HeaderContentNegotiationStrategy());
 			}
 

@@ -85,7 +85,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		ALLOW_CORS_CONFIG.setAllowCredentials(true);
 	}
 
-
+	// 获取handler时是否考虑parent beanFactory
 	private boolean detectHandlerMethodsInAncestorContexts = false;
 
 	@Nullable
@@ -198,6 +198,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		if (logger.isDebugEnabled()) {
 			logger.debug("Looking for request mappings in application context: " + getApplicationContext());
 		}
+		// 获取所有的bean
 		String[] beanNames = (this.detectHandlerMethodsInAncestorContexts ?
 				BeanFactoryUtils.beanNamesForTypeIncludingAncestors(obtainApplicationContext(), Object.class) :
 				obtainApplicationContext().getBeanNamesForType(Object.class));
@@ -214,11 +215,13 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 						logger.debug("Could not resolve target class for bean with name '" + beanName + "'", ex);
 					}
 				}
+				// isHandler判断指定类型是否是一个handler，供子类实现
 				if (beanType != null && isHandler(beanType)) {
 					detectHandlerMethods(beanName);
 				}
 			}
 		}
+		// 空方法，供子类实现
 		handlerMethodsInitialized(getHandlerMethods());
 	}
 
@@ -231,10 +234,12 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				obtainApplicationContext().getType((String) handler) : handler.getClass());
 
 		if (handlerType != null) {
+			// 如果是内部类，既类名包含$$，则返回其父类，既外部类
 			final Class<?> userType = ClassUtils.getUserClass(handlerType);
 			Map<Method, T> methods = MethodIntrospector.selectMethods(userType,
 					(MethodIntrospector.MetadataLookup<T>) method -> {
 						try {
+							// 供子类实现
 							return getMappingForMethod(method, userType);
 						}
 						catch (Throwable ex) {
@@ -246,7 +251,9 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				logger.debug(methods.size() + " request handler methods found on " + userType + ": " + methods);
 			}
 			methods.forEach((method, mapping) -> {
+				// 返回返回真正定义了method的那个类上的method对象
 				Method invocableMethod = AopUtils.selectInvocableMethod(method, userType);
+				// 保存映射关系到mappingRegistry对象
 				registerHandlerMethod(handler, invocableMethod, mapping);
 			});
 		}
@@ -540,7 +547,9 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		public void register(T mapping, Object handler, Method method) {
 			this.readWriteLock.writeLock().lock();
 			try {
+				// HandlerMethod维护了handler和method
 				HandlerMethod handlerMethod = createHandlerMethod(handler, method);
+				// 确保HandlerMethod对象唯一
 				assertUniqueMethodMapping(handlerMethod, mapping);
 
 				if (logger.isInfoEnabled()) {
@@ -548,8 +557,10 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				}
 				this.mappingLookup.put(mapping, handlerMethod);
 
+				// 获取mapping对应的请求路径，即其能够处理的请求路径
 				List<String> directUrls = getDirectUrls(mapping);
 				for (String url : directUrls) {
+					// 保存路径及映射关系
 					this.urlLookup.add(url, mapping);
 				}
 
@@ -564,6 +575,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 					this.corsLookup.put(handlerMethod, corsConfig);
 				}
 
+				// MappingRegistration对象维护了上面获取到的所有当前handler和method的相关信息
 				this.registry.put(mapping, new MappingRegistration<>(mapping, handlerMethod, directUrls, name));
 			}
 			finally {
@@ -583,6 +595,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 
 		private List<String> getDirectUrls(T mapping) {
 			List<String> urls = new ArrayList<>(1);
+			// getMappingPathPatterns解析mapping对象对应的请求路径，供子类实现
 			for (String path : getMappingPathPatterns(mapping)) {
 				if (!getPathMatcher().isPattern(path)) {
 					urls.add(path);
