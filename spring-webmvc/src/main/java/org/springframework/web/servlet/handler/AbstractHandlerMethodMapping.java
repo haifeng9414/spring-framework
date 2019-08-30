@@ -347,17 +347,21 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	 */
 	@Nullable
 	protected HandlerMethod lookupHandlerMethod(String lookupPath, HttpServletRequest request) throws Exception {
+		// Match对象持有HandlerMethod对象和mapping对象
 		List<Match> matches = new ArrayList<>();
 		List<T> directPathMatches = this.mappingRegistry.getMappingsByUrl(lookupPath);
 		if (directPathMatches != null) {
+			// 遍历请求路径对应的Mapping，符合条件则创建Match对象并保存到matches中
 			addMatchingMappings(directPathMatches, matches, request);
 		}
+		// 如果没有找到符合条件的则在所有的mapping中再找一次
 		if (matches.isEmpty()) {
 			// No choice but to go through all mappings...
 			addMatchingMappings(this.mappingRegistry.getMappings().keySet(), matches, request);
 		}
 
 		if (!matches.isEmpty()) {
+			// getMappingComparator方法返回一个能够针对mapping，也就是T的Comparator
 			Comparator<Match> comparator = new MatchComparator(getMappingComparator(request));
 			matches.sort(comparator);
 			if (logger.isTraceEnabled()) {
@@ -365,10 +369,12 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 			}
 			Match bestMatch = matches.get(0);
 			if (matches.size() > 1) {
+				// preflight request的请求什么都不用做，返回EmptyHandler
 				if (CorsUtils.isPreFlightRequest(request)) {
 					return PREFLIGHT_AMBIGUOUS_MATCH;
 				}
 				Match secondBestMatch = matches.get(1);
+				// 如果有多个匹配则判断是否存在相等优先级的Match
 				if (comparator.compare(bestMatch, secondBestMatch) == 0) {
 					Method m1 = bestMatch.handlerMethod.getMethod();
 					Method m2 = secondBestMatch.handlerMethod.getMethod();
@@ -376,16 +382,19 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 							request.getRequestURL() + "': {" + m1 + ", " + m2 + "}");
 				}
 			}
+			// 排序后默认使用第一个作为结果，这里的handleMatch用于在找到匹配结果时执行回调，默认实现是将lookupPath保存到request的属性中
 			handleMatch(bestMatch.mapping, lookupPath, request);
 			return bestMatch.handlerMethod;
 		}
 		else {
+			// 如果没有匹配的则执行下面的方法返回一个默认值，默认为空
 			return handleNoMatch(this.mappingRegistry.getMappings().keySet(), lookupPath, request);
 		}
 	}
 
 	private void addMatchingMappings(Collection<T> mappings, List<Match> matches, HttpServletRequest request) {
 		for (T mapping : mappings) {
+			// 供子类实现，用于判断mapping是否匹配当前请求
 			T match = getMatchingMapping(mapping, request);
 			if (match != null) {
 				matches.add(new Match(match, this.mappingRegistry.getMappings().get(mapping)));
@@ -422,10 +431,12 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		CorsConfiguration corsConfig = super.getCorsConfiguration(handler, request);
 		if (handler instanceof HandlerMethod) {
 			HandlerMethod handlerMethod = (HandlerMethod) handler;
+			// 和lookupHandlerMethod方法想对应，当HandlerMethod是PREFLIGHT_AMBIGUOUS_MATCH时，表示允许所有的cors访问
 			if (handlerMethod.equals(PREFLIGHT_AMBIGUOUS_MATCH)) {
 				return AbstractHandlerMethodMapping.ALLOW_CORS_CONFIG;
 			}
 			else {
+				// 对于其他HandlerMethod，获取mappingRegistry中保存的cors配置
 				CorsConfiguration corsConfigFromMethod = this.mappingRegistry.getCorsConfiguration(handlerMethod);
 				corsConfig = (corsConfig != null ? corsConfig.combine(corsConfigFromMethod) : corsConfigFromMethod);
 			}
