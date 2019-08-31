@@ -985,7 +985,7 @@ public class DispatcherServlet extends FrameworkServlet {
 				}
 
 				// Determine handler adapter for the current request.
-				// 用handlerAdapter转换，HandlerAdapter的作用是对LastModified提供支持
+				// 用handlerAdapter转换，HandlerAdapter的作用是对LastModified提供支持，并调用handler的方法处理请求
 				HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
 
 				// Process last-modified header, if supported by the handler.

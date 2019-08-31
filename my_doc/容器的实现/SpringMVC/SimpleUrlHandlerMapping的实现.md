@@ -696,7 +696,7 @@ public interface MatchableHandlerMapping extends HandlerMapping {
 }
 ```
 
-[AbstractUrlHandlerMapping]已经实现了获取[HandlerExecutionChain]的基本逻辑，对请求的路径进行解析并根据路径后去handler，再创建[HandlerExecutionChain]，代码：
+[AbstractUrlHandlerMapping]已经实现了获取[HandlerExecutionChain]的基本逻辑，对请求的路径进行解析并根据路径获取handler，再创建[HandlerExecutionChain]，代码：
 ```java
 public abstract class AbstractUrlHandlerMapping extends AbstractHandlerMapping implements MatchableHandlerMapping {
 
@@ -1089,6 +1089,46 @@ public class SimpleUrlHandlerMapping extends AbstractUrlHandlerMapping {
 }
 ```
 
+综上所诉，[SimpleUrlHandlerMapping]的工作机制是，在xml中为[SimpleUrlHandlerMapping]配置好`urlMap`，如果有必要的话，也可以在xml中为[SimpleUrlHandlerMapping]配置[HandlerInterceptor]以在请求执行过程的不同阶段执行相应的逻辑，`urlMap`以请求路径为key，controller为value，当请求到来时，[SimpleUrlHandlerMapping]根据`urlMap`获取对应的controller对象，创建[HandlerExecutionChain]对象，并将获取到的controller设置到[HandlerExecutionChain]对象作为handler，同时还会将[HandlerInterceptor]对象添加到[HandlerExecutionChain]对象中，这样一个[HandlerExecutionChain]对象就创建完成了，[DispatcherServlet]对象的`doDispatch()`方法在获取到[HandlerExecutionChain]对象后，根据[HandlerExecutionChain]对象的handler创建[HandlerAdapter]对象，[DispatcherServlet]默认已经配置了若干个[HandlerAdapter]对象，每个[HandlerAdapter]对象都支持一个类型的handler，如[SimpleControllerHandlerAdapter]对象能够调用类型为[Controller]的handler的方法，代码：
+```java
+public class SimpleControllerHandlerAdapter implements HandlerAdapter {
+
+	@Override
+	public boolean supports(Object handler) {
+		return (handler instanceof Controller);
+	}
+
+	@Override
+	@Nullable
+	public ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler)
+			throws Exception {
+
+		return ((Controller) handler).handleRequest(request, response);
+	}
+
+	@Override
+	public long getLastModified(HttpServletRequest request, Object handler) {
+		if (handler instanceof LastModified) {
+			return ((LastModified) handler).getLastModified(request);
+		}
+		return -1L;
+	}
+
+}
+```
+
+[DispatcherServlet]对象的`doDispatch()`方法根据handler获取到[HandlerAdapter]后，执行相应的逻辑，具体的看笔记[基于注解的SpringMVC的实现.md](基于注解的SpringMVC的实现.md)
+
+[ApplicationObjectSupport]: aaa
+[ApplicationContextAware]: aaa
+[ApplicationContext]: aaa
+[MessageSourceAccessor]: aaa
+[WebApplicationObjectSupport]: aaa
+[HandlerMapping]: aaa
+[HttpServletRequest]: aaa
+[AbstractHandlerMapping]: aaa
+[AbstractUrlHandlerMapping]: aaa
+[MatchableHandlerMapping]: aaa
 [SimpleUrlHandlerMapping]: aaa
 [HandlerExecutionChain]: aaa
 [ServletContextAware]: aaa
