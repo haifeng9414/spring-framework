@@ -12,7 +12,7 @@
 ```
 
 下面分析[SimpleUrlHandlerMapping]的实现原理，先看[SimpleUrlHandlerMapping]的继承结构：
-[SimpleUrlHandlerMapping继承结构](../../img/SimpleUrlHandlerMapping.png)
+![SimpleUrlHandlerMapping继承结构](../../img/SimpleUrlHandlerMapping.png)
 
 [ServletContextAware]接口用于在bean创建时设置[ServletContext]，这使得[SimpleUrlHandlerMapping]在创建出来后就能够访问到[ServletContext]，而为[ServletContextAware]设置[ServletContext]是[ServletContextAwareProcessor]实现的，该[BeanPostProcessor]在[AbstractRefreshableWebApplicationContext]中被添加到容器的，[ServletContextAware]代码：
 ```java

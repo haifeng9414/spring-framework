@@ -56,12 +56,36 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfoHandlerMappi
 public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMapping
 		implements MatchableHandlerMapping, EmbeddedValueResolverAware {
 
+	// 是否在路径匹配模式后添加.*，即/login或者/login.do等请求是否都映射到/login
 	private boolean useSuffixPatternMatch = true;
 
+	/*
+	使用@PathVariable注解时如果参数中有.点号，那么参数会被截断，如
+
+	@Controller
+	@RequestMapping("/example")
+	public class ExampleController {
+
+	    @RequestMapping("/{param}")
+	    public void test(@PathVariable("param") String param){
+	        System.out.println(param);
+	    }
+	}
+
+	对于不同的url，@PathVariable得到的参数为：
+
+	/example/test          => text
+	/example/test.ext      => text
+	/example/test.ext.ext2 => text.ext
+
+	将useRegisteredSuffixPatternMatch设置为true即可解决这个问题
+	 */
 	private boolean useRegisteredSuffixPatternMatch = false;
 
+	// 方法声明为/users时是否也匹配/users/请求
 	private boolean useTrailingSlashMatch = true;
 
+	// ContentNegotiationManager用于获取请求对应的MediaType
 	private ContentNegotiationManager contentNegotiationManager = new ContentNegotiationManager();
 
 	@Nullable
@@ -174,6 +198,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 */
 	@Override
 	protected boolean isHandler(Class<?> beanType) {
+		// 如果类上存在下面两个注解中的一个则认为是handler
 		return (AnnotatedElementUtils.hasAnnotation(beanType, Controller.class) ||
 				AnnotatedElementUtils.hasAnnotation(beanType, RequestMapping.class));
 	}
@@ -208,7 +233,9 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 */
 	@Nullable
 	private RequestMappingInfo createRequestMappingInfo(AnnotatedElement element) {
+		// 获取方法或类上的RequestMapping注解，如果是方法上的注解，则会合并类上RequestMapping注解信息
 		RequestMapping requestMapping = AnnotatedElementUtils.findMergedAnnotation(element, RequestMapping.class);
+		// 获取自定义的RequestCondition，默认为空
 		RequestCondition<?> condition = (element instanceof Class ?
 				getCustomTypeCondition((Class<?>) element) : getCustomMethodCondition((Method) element));
 		return (requestMapping != null ? createRequestMappingInfo(requestMapping, condition) : null);
@@ -255,6 +282,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	protected RequestMappingInfo createRequestMappingInfo(
 			RequestMapping requestMapping, @Nullable RequestCondition<?> customCondition) {
 
+		// 保存RequestMapping注解对应的相关信息
 		RequestMappingInfo.Builder builder = RequestMappingInfo
 				.paths(resolveEmbeddedValuesInPatterns(requestMapping.path()))
 				.methods(requestMapping.method())
@@ -266,6 +294,9 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		if (customCondition != null) {
 			builder.customCondition(customCondition);
 		}
+
+		// 创建RequestMappingInfo对象，RequestMappingInfo对象包含了RequestMapping注解对应的所有信息，对于RequestMapping的每个属性，
+		// RequestMappingInfo对象都会创建一个RequestCondition对象，如ParamsRequestCondition
 		return builder.options(this.config).build();
 	}
 
@@ -302,6 +333,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	protected CorsConfiguration initCorsConfiguration(Object handler, Method method, RequestMappingInfo mappingInfo) {
 		HandlerMethod handlerMethod = createHandlerMethod(handler, method);
 		Class<?> beanType = handlerMethod.getBeanType();
+		// 获取类和方法上的CrossOrigin注解
 		CrossOrigin typeAnnotation = AnnotatedElementUtils.findMergedAnnotation(beanType, CrossOrigin.class);
 		CrossOrigin methodAnnotation = AnnotatedElementUtils.findMergedAnnotation(method, CrossOrigin.class);
 
@@ -309,6 +341,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 			return null;
 		}
 
+		// 合并两个注解信息
 		CorsConfiguration config = new CorsConfiguration();
 		updateCorsConfig(config, typeAnnotation);
 		updateCorsConfig(config, methodAnnotation);
@@ -318,6 +351,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 				config.addAllowedMethod(allowedMethod.name());
 			}
 		}
+		// 为CorsConfiguration设置默认值
 		return config.applyPermitDefaultValues();
 	}
 
