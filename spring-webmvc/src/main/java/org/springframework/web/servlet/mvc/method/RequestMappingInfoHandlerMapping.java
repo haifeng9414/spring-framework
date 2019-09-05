@@ -108,6 +108,7 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 	 * @see HandlerMapping#PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE
 	 */
 	@Override
+	// 在找到匹配到的mapping时执行
 	protected void handleMatch(RequestMappingInfo info, String lookupPath, HttpServletRequest request) {
 		super.handleMatch(info, lookupPath, request);
 
@@ -116,6 +117,7 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 		Map<String, String> decodedUriVariables;
 
 		Set<String> patterns = info.getPatternsCondition().getPatterns();
+		// 如果mapping配置的路径为空
 		if (patterns.isEmpty()) {
 			bestPattern = lookupPath;
 			uriVariables = Collections.emptyMap();
@@ -123,19 +125,26 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 		}
 		else {
 			bestPattern = patterns.iterator().next();
+			// 按照ant风格解析mapping路径，获取路径中的变量，如这里的为参数/{test}/addUser和/demo/addUser，则返回test -> demo
 			uriVariables = getPathMatcher().extractUriTemplateVariables(bestPattern, lookupPath);
+			// 对参数进行url解码，默认不进行解码
 			decodedUriVariables = getUrlPathHelper().decodePathVariables(request, uriVariables);
 		}
 
 		request.setAttribute(BEST_MATCHING_PATTERN_ATTRIBUTE, bestPattern);
 		request.setAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE, decodedUriVariables);
 
+		// 是否移除请求路径中的分号，默认为true，对于为true的情况下，可以设置enable-matrix-variables为true以开启MatrixVariable的支持，如
+		// <mvc:annotation-driven enable-matrix-variables="true"/>
 		if (isMatrixVariableContentAvailable()) {
+			// extractMatrixVariables方法解析请求路径中的matrixVariables，保存每个请求路径后面的matrixVariables到map，并将请求路径
+			// 参数名作为key，map作为value返回
 			Map<String, MultiValueMap<String, String>> matrixVars = extractMatrixVariables(request, uriVariables);
 			request.setAttribute(HandlerMapping.MATRIX_VARIABLES_ATTRIBUTE, matrixVars);
 		}
 
 		if (!info.getProducesCondition().getProducibleMediaTypes().isEmpty()) {
+			// 如果RequestMapping注解设置了produces属性限制请求的MediaType，则在这里保存到request中
 			Set<MediaType> mediaTypes = info.getProducesCondition().getProducibleMediaTypes();
 			request.setAttribute(PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE, mediaTypes);
 		}
@@ -162,7 +171,9 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 				matrixVariables = uriVarValue;
 			}
 			else {
+				// 保存请求路径参数后面的matrixVariables
 				matrixVariables = uriVarValue.substring(semicolonIndex + 1);
+				// 截掉请求路径参数后面的matrixVariables
 				uriVariables.put(uriVarKey, uriVarValue.substring(0, semicolonIndex));
 			}
 
@@ -184,21 +195,47 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 	protected HandlerMethod handleNoMatch(
 			Set<RequestMappingInfo> infos, String lookupPath, HttpServletRequest request) throws ServletException {
 
+		/*
+		 PartialMatchHelper对象在构造函数中遍历所有的RequestMappingInfo，如果RequestMappingInfo对应的路径能够匹配当前的请求路径
+		 则添加到PartialMatchHelper对象的partialMatches中，在判断是否匹配的过程中，会将RequestMappingInfo对应的路径，既pattern
+		 分别用4中判断是否匹配：
+		 1.直接匹配，既pattern是否等于请求路径
+		 2.在pattern后加上.*，需要useSuffixPatternMatch属性为true
+		 3.按照ant风格解析进行匹配 既将pattern理解为ant表达式
+		 4.在pattern后加上/进行匹配 需要useTrailingSlashMatch属性为true
+
+		 每个RequestMappingInfo的所有pattern都会用上面4尝试匹配（如果useSuffixPatternMatch和useTrailingSlashMatch都为true），如果某种情况成功
+		 匹配上了，则跟其RequestMappingInfo一块保存到PartialMatchHelper对象的partialMatches属性中
+		 */
+
 		PartialMatchHelper helper = new PartialMatchHelper(infos, request);
 		if (helper.isEmpty()) {
 			return null;
 		}
 
+		// 如果partialMatches中包含的RequestMappingInfo中没有和当前请求的method相对应的
 		if (helper.hasMethodsMismatch()) {
+			// 取所有RequestMappingInfo的method属性的并集
 			Set<String> methods = helper.getAllowedMethods();
+			// 如果当前请求是option请求，则直接返回HttpOptionsHandler，并将从RequestMappingInfo中找到的method属性的并集保存到HttpOptionsHandler
+			// 中用于响应
 			if (HttpMethod.OPTIONS.matches(request.getMethod())) {
 				HttpOptionsHandler handler = new HttpOptionsHandler(methods);
 				return new HandlerMethod(handler, HTTP_OPTIONS_HANDLE_METHOD);
 			}
+			// 如果当前请求是不option的，而partialMatches中包含的RequestMappingInfo中又没有method与当前请求的method相匹配，则抛出异常
 			throw new HttpRequestMethodNotSupportedException(request.getMethod(), methods);
 		}
 
+		/*
+		HTTP协议Header中有两个东西：ContentType和Accept，在请求中，ContentType用来告诉服务器当前发送的数据是什么格式，
+		Accept用来告诉服务器，客户端能认识哪些格式，而在RequestMapping注解中可以对请求的这两个参数进行限制，consumes用来限制ContentType，produces用来限制Accept
+		 */
+
+		// 如果partialMatches中包含的RequestMappingInfo中存在method和consumes指定的ContentType与当前请求的method和ContentType相匹配，则这里返回false
+		// 如果这里返回true，说明没有RequestMappingInfo的consumes与当前请求的ContentType相匹配，也就是不支持当前请求的ContentType中定义的格式
 		if (helper.hasConsumesMismatch()) {
+			// 获取method与当前请求的method相匹配的RequestMappingInfo配置的consumes属性值，也就是其支持的ContentType对应的MediaType列表
 			Set<MediaType> mediaTypes = helper.getConsumableMediaTypes();
 			MediaType contentType = null;
 			if (StringUtils.hasLength(request.getContentType())) {
@@ -209,14 +246,17 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 					throw new HttpMediaTypeNotSupportedException(ex.getMessage());
 				}
 			}
+			// 将所有找到的MediaType作为异常抛出，提示客户端应该使用什么MediaType作为ContentType
 			throw new HttpMediaTypeNotSupportedException(contentType, new ArrayList<>(mediaTypes));
 		}
 
+		// 同上，这里针对的是Accept
 		if (helper.hasProducesMismatch()) {
 			Set<MediaType> mediaTypes = helper.getProducibleMediaTypes();
 			throw new HttpMediaTypeNotAcceptableException(new ArrayList<>(mediaTypes));
 		}
 
+		// 最后是判断RequestMappingInfo中是否存在param与当前请求的请求头相匹配的
 		if (helper.hasParamsMismatch()) {
 			List<String[]> conditions = helper.getParamConditions();
 			throw new UnsatisfiedServletRequestParameterException(conditions, request.getParameterMap());

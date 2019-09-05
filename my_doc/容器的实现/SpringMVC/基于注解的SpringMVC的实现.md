@@ -383,7 +383,7 @@ public class AppController {
     // 开始SessionAttributes、RequestParam注解测试
     //---------------------------------------------------------------------
 
-    @RequestMapping(value="/add-session-value")
+    @RequestMapping(value = "/add-session-value")
     public ModelAndView addSessionValue() {
         ModelAndView modelAndView = new ModelAndView();
         modelAndView.setViewName("forward:show-value?a=1&b=2");
@@ -392,7 +392,7 @@ public class AppController {
         return modelAndView;
     }
 
-    @GetMapping(value="/show-value")
+    @GetMapping(value = "/show-value")
     public ModelAndView showSessionValue(@ModelAttribute("key1") String key1,
                                          @ModelAttribute("key2") String key2,
                                          @RequestHeader("User-Agent") String userAgent,
@@ -410,9 +410,8 @@ public class AppController {
     //---------------------------------------------------------------------
 
 
-
     //---------------------------------------------------------------------
-    // 开始ResponseBody、ModelAttribute、PathVariable注解测试
+    // 开始ResponseBody、ModelAttribute、PathVariable、MatrixVariable注解测试
     //---------------------------------------------------------------------
 
     // 这里只在方法上添加了ModelAttribute注解，这将使得当前类上所有请求方法在被执行前都会调用一次nameModelReturnString方法，调用的效果是，会创建一个名叫
@@ -420,7 +419,7 @@ public class AppController {
     // 如/app/index?test=abc
     @ModelAttribute("demoModelKey1")
     public String nameModelReturnString(
-            @RequestParam(value = "test", required = false) String test){
+            @RequestParam(value = "test", required = false) String test) {
         return test;
     }
 
@@ -429,14 +428,14 @@ public class AppController {
     @ModelAttribute
     public void nameModelReturnVoid(
             @RequestParam(value = "test", required = false) String test,
-            Model model){
+            Model model) {
         model.addAttribute("demoModelKey2", test);
         model.addAttribute("age", 123);
     }
 
     // 这里也是做的差不多的事，model属性的名称等于返回值的类型名，这里就是string
     @ModelAttribute
-    public String nameModelReturnString(){
+    public String nameModelReturnString() {
         return "dhf";
     }
 
@@ -446,14 +445,14 @@ public class AppController {
     // 视图WEB-INF/jsp/app/model-with-request-mapping.jsp
     @ModelAttribute(value = "demoModelKey3")
     @RequestMapping(value = "/model-with-request-mapping")
-    public String nameModelWithRequestMapping(){
+    public String nameModelWithRequestMapping() {
         return "demoModelValue3";
     }
 
     // 这里的作用是添加一个名叫userModel的User到model，和showUser方法相呼应，showUser方法也有一个ModelAttribute注解，值为userModel，
     // 这将使得showUser方法被调用时user参数被赋值为这里创建的user
     @ModelAttribute("userModel")
-    public User nameModelReturnUser(){
+    public User nameModelReturnUser() {
         User user = new User();
         // 这里设置了customs，在showUser中不用再设置了，同时这里也只设置了customs，没有设置name和age，允许测试调用http://localhost:8080/app/show-post-form
         // 后填写表单提交后可以发现，showUser的userModel值会同时拥有这里设置的customs属性和页面设置的name、age属性
@@ -462,7 +461,7 @@ public class AppController {
     }
 
     // 必须添加一个user到model，否则post-form.jsp报错
-    @GetMapping(value="/show-post-form")
+    @GetMapping(value = "/show-post-form")
     public String showPostForm(@ModelAttribute("userModel") User user, @ModelAttribute("age") Integer age) {
         user.setAge(age);
         return "post-form";
@@ -475,11 +474,68 @@ public class AppController {
         return userModel;
     }
 
+    // MatrixVariable注解需要和PathVariable注解一块使用，只有跟在PathVariable所表示的请求路径参数后面的MatrixVariable才有效，既
+    // /matrix/test;a=b/example，这样MatrixVariable的注解才能正常工作，如果是/matrix/test/example;a=b则MatrixVariable注解的值获取不到
+    @RequestMapping(value = "matrix/{type}/example", method = RequestMethod.GET)
+    public String matrixVariable1(@PathVariable String type, @MatrixVariable(required = false) String a) {
+        System.out.println(String.format("type: %s", type));
+        System.out.println(String.format("a: %s", a));
+        return "index";
+    }
+
+    /*
+     MatrixVariable注解的其他使用形式
+     下面输入请求http://localhost:8080/app/matrix/test;a=1;b=2，将打印
+     type: test
+     a: 1
+     b: 2
+     */
+    @RequestMapping(value = "matrix/{type}", method = RequestMethod.GET)
+    public String matrixVariable2(@PathVariable String type, @MatrixVariable String a, @MatrixVariable String b) {
+        System.out.println(String.format("type: %s", type));
+        System.out.println(String.format("a: %s", a));
+        System.out.println(String.format("b: %s", b));
+        return "index";
+    }
+
+    /*
+    MatrixVariable注解的值是和请求路径中的变量绑定的，下面演示如何进行绑定，输入请求
+    http://localhost:8080/app/employee/Steve;id=101/dept/Sales;id=2，下面的方法将输出
+    empId: 101
+    deptId: 2
+     */
+    @RequestMapping("/employee/{empName}/dept/{deptName}")
+    public String matrixVariable3(@MatrixVariable(value = "id", pathVar = "empName") int empId,
+                             @MatrixVariable(value = "id", pathVar = "deptName") int deptId) {
+
+        System.out.println(String.format("empId: %s", empId));
+        System.out.println(String.format("deptId: %s", deptId));
+        return "index";
+    }
+
+    /*
+    MatrixVariable还可以用map接收，输入请求
+    http://localhost:8080/app/employee/map/Steve;id=101;salary=2500/dept/Sales;id=2;type=internal，下面的方法将输出
+    allMatrixVars: {id=101, salary=2500, type=internal}
+    empMatrixVar: {id=101, salary=2500}
+    deptMatrixVar: {id=2, type=internal}
+     */
+    @RequestMapping("/employee/map/{empName}/dept/{deptName}")
+    public String matrixVariable4(
+            @MatrixVariable Map<String, String> allMatrixVars,
+            @MatrixVariable(pathVar="empName") Map<String, String> empMatrixVar,
+            @MatrixVariable(pathVar="deptName") Map<String, String> deptMatrixVar) {
+
+        System.out.println(String.format("allMatrixVars: %s", allMatrixVars));
+        System.out.println(String.format("empMatrixVar: %s", empMatrixVar));
+        System.out.println(String.format("deptMatrixVar: %s", deptMatrixVar));
+        return "index";
+    }
+
     //---------------------------------------------------------------------
-    // 结束ResponseBody、ModelAttribute、PathVariable注解测试
+    // 结束ResponseBody、ModelAttribute、PathVariable、MatrixVariable注解测试
     //---------------------------------------------------------------------
 }
 ```
-
 
 [AppController]: aaa
