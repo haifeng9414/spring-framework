@@ -392,8 +392,8 @@ public class AppController {
         return modelAndView;
     }
 
-    @GetMapping(value = "/show-value")
-    public ModelAndView showSessionValue(@ModelAttribute("key1") String key1,
+    @GetMapping(value = "/show-value", params = {"a=1", "c=3"})
+    public ModelAndView showSessionValue1(@ModelAttribute("key1") String key1,
                                          @ModelAttribute("key2") String key2,
                                          @RequestHeader("User-Agent") String userAgent,
                                          @CookieValue("JSESSIONID") String jSessionId,

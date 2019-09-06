@@ -192,6 +192,7 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 	 * but not by consumable/producible media types
 	 */
 	@Override
+	// handleNoMatch方法在没有找到合适的mapping时被执行，执行的主要目的是告诉客户端，为什么没有找到匹配的mapping
 	protected HandlerMethod handleNoMatch(
 			Set<RequestMappingInfo> infos, String lookupPath, HttpServletRequest request) throws ServletException {
 
@@ -256,7 +257,8 @@ public abstract class RequestMappingInfoHandlerMapping extends AbstractHandlerMe
 			throw new HttpMediaTypeNotAcceptableException(new ArrayList<>(mediaTypes));
 		}
 
-		// 最后是判断RequestMappingInfo中是否存在param与当前请求的请求头相匹配的
+		// 最后是判断RequestMappingInfo中是否存在param与当前请求的请求路径参数是否匹配，如有如下RequestMapping注解配置：
+		// @GetMapping(value = "/show-value", params = {"a=1", "c=3"})，对于请求show-value?a=1&b=2将会被拒绝，show-value?a=1&c=3才可以
 		if (helper.hasParamsMismatch()) {
 			List<String[]> conditions = helper.getParamConditions();
 			throw new UnsatisfiedServletRequestParameterException(conditions, request.getParameterMap());
