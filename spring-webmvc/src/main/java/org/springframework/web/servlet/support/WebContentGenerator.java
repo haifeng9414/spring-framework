@@ -128,12 +128,14 @@ public abstract class WebContentGenerator extends WebApplicationObjectSupport {
 	 * or {@code false} if it should be unrestricted
 	 */
 	public WebContentGenerator(boolean restrictDefaultSupportedMethods) {
+		// 默认情况下支持GET, HEAD and POST方法
 		if (restrictDefaultSupportedMethods) {
 			this.supportedMethods = new LinkedHashSet<>(4);
 			this.supportedMethods.add(METHOD_GET);
 			this.supportedMethods.add(METHOD_HEAD);
 			this.supportedMethods.add(METHOD_POST);
 		}
+		// 根据supportedMethods的配置设置allowHeader
 		initAllowHeader();
 	}
 
@@ -373,6 +375,7 @@ public abstract class WebContentGenerator extends WebApplicationObjectSupport {
 	 * @throws ServletException if the request cannot be handled because a check failed
 	 * @since 4.2
 	 */
+	// 判断请求方法是否在支持的方法中
 	protected final void checkRequest(HttpServletRequest request) throws ServletException {
 		// Check whether we should support the request method.
 		String method = request.getMethod();
@@ -381,6 +384,7 @@ public abstract class WebContentGenerator extends WebApplicationObjectSupport {
 		}
 
 		// Check whether a session is required.
+		// 如果requireSession为true并且当前请求没有session则报错
 		if (this.requireSession && request.getSession(false) == null) {
 			throw new HttpSessionRequiredException("Pre-existing session required but none found");
 		}
@@ -392,6 +396,7 @@ public abstract class WebContentGenerator extends WebApplicationObjectSupport {
 	 * @param response current HTTP response
 	 * @since 4.2
 	 */
+	// 为response设置缓存相关的头部
 	protected final void prepareResponse(HttpServletResponse response) {
 		if (this.cacheControl != null) {
 			applyCacheControl(response, this.cacheControl);
