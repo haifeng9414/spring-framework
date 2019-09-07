@@ -601,14 +601,61 @@ public abstract class WebContentGenerator extends WebApplicationObjectSupport {
 	}
 
 
+	/*
+	 该方法处理vary header，对于vary header的作用：
+	 源自：https://imququ.com/post/vary-header-in-http.html
+
+	 要了解 Vary 的作用，先得了解 HTTP 的内容协商机制。有时候，同一个 URL 可以提供多份不同的文档，这就要求服务端和客户端之间有一个选择最合适版本的机制，这就是内容协商
+
+	 协商方式有两种，一种是服务端把文档可用版本列表发给客户端让用户选，这可以使用 300 Multiple Choices 状态码来实现。这种方案有不少问题，首先多一次网络往返；其次服务端同一
+	 文档的某些版本可能是为拥有某些技术特征的客户端准备的，而普通用户不一定了解这些细节。举个例子，服务端通常可以将静态资源输出为压缩和未压缩两个版本，压缩版显然是为支持压缩的
+	 客户端而准备的，但如果让普通用户选，很可能选择错误的版本。
+
+	 所以 HTTP 的内容协商通常使用另外一种方案：服务端根据客户端发送的请求头中某些字段自动发送最合适的版本。可以用于这个机制的请求头字段又分两种：内容协商专用字段（Accept 字段）、其他字段
+
+	 请求头字段			说明						响应头字段
+	 Accept				告知服务器发送何种媒体类型	Content-Type
+	 Accept-Language	告知服务器发送何种语言		Content-Language
+	 Accept-Charset		告知服务器发送何种字符集	Content-Type
+	 Accept-Encoding	告知服务器采用何种压缩方式	Content-Encoding
+
+	 例如客户端发送以下请求头：
+	 Accept:* / *
+	 Accept-Encoding:gzip,deflate,sdch
+	 Accept-Language:zh-CN,en-US;q=0.8,en;q=0.6
+
+	 表示它可以接受任何 MIME 类型的资源；支持采用 gzip、deflate 或 sdch 压缩过的资源；可以接受 zh-CN、en-US 和 en 三种语言，并且 zh-CN 的权重最高（q 取值 0 - 1，最高为 1，最低为 0，默认为 1），
+	 服务端应该优先返回语言等于 zh-CN 的版本。
+
+	 浏览器的响应头可能是这样的：
+	 Content-Type: text/javascript
+	 Content-Encoding: gzip
+
+	 表示这个文档确切的 MIME 类型是 text/javascript；文档内容进行了 gzip 压缩；响应头没有 Content-Language 字段，通常说明返回版本的语言正好是请求头 Accept-Language 中权重最高的那个
+
+	 有时候，上面四个 Accept 字段并不够用，例如要针对特定浏览器如 IE6 输出不一样的内容，就需要用到请求头中的 User-Agent 字段。类似的，请求头中的 Cookie 也可能被服务端用做输出差异化内容的依据。
+
+	 由于客户端和服务端之间可能存在一个或多个中间实体（如缓存服务器），而缓存服务最基本的要求是给用户返回正确的文档。如果服务端根据不同 User-Agent 返回不同内容，而缓存服务器把 IE6 用户的响应缓存下来，
+	 并返回给使用其他浏览器的用户，肯定会出问题 。
+
+	 所以 HTTP 协议规定，如果服务端提供的内容取决于 User-Agent 这样「常规 Accept 协商字段之外」的请求头字段，那么响应头中必须包含 Vary 字段，且 Vary 的内容必须包含 User-Agent。同理，如果服务端同时使
+	 用请求头中 User-Agent 和 Cookie 这两个字段来生成内容，那么响应中的 Vary 字段看上去应该是这样的：
+	 Vary: User-Agent, Cookie
+
+	 也就是说 Vary 字段用于列出一个响应字段列表，告诉缓存服务器遇到同一个 URL 对应着不同版本文档的情况时，如何缓存和筛选合适的版本。
+	 */
+
 	private Collection<String> getVaryRequestHeadersToAdd(HttpServletResponse response, String[] varyByRequestHeaders) {
+		// 如果response的header中没有vary，则直接将varyByRequestHeaders中的值作为vary的值
 		if (!response.containsHeader(HttpHeaders.VARY)) {
 			return Arrays.asList(varyByRequestHeaders);
 		}
 		Collection<String> result = new ArrayList<>(varyByRequestHeaders.length);
 		Collections.addAll(result, varyByRequestHeaders);
+		// 否则遍历response中已有的vary，从varyByRequestHeaders中删除掉vary中已有的vary值
 		for (String header : response.getHeaders(HttpHeaders.VARY)) {
 			for (String existing : StringUtils.tokenizeToStringArray(header, ",")) {
+				// 如果已有的vary值中有*则不需要再添加额外的vary了，*表示所有的请求都被视为唯一并且非缓存的，既缓存服务器不应该对响应进行缓存
 				if ("*".equals(existing)) {
 					return Collections.emptyList();
 				}

@@ -40,6 +40,7 @@ public abstract class AbstractHandlerMethodAdapter extends WebContentGenerator i
 
 	public AbstractHandlerMethodAdapter() {
 		// no restriction of HTTP methods by default
+		// 默认不对请求的method进行限制，也就是HttpMethod枚举的值中除了TRACE，其他的都是支持的
 		super(false);
 	}
 
@@ -66,6 +67,7 @@ public abstract class AbstractHandlerMethodAdapter extends WebContentGenerator i
 	 */
 	@Override
 	public final boolean supports(Object handler) {
+		// HandlerMethod对象对应的是AbstractHandlerMethodMapping类创建的handler，supportsInternal为抽象方法
 		return (handler instanceof HandlerMethod && supportsInternal((HandlerMethod) handler));
 	}
 
@@ -84,6 +86,7 @@ public abstract class AbstractHandlerMethodAdapter extends WebContentGenerator i
 	public final ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler)
 			throws Exception {
 
+		// handleInternal为抽象方法，供子类实现
 		return handleInternal(request, response, (HandlerMethod) handler);
 	}
 
@@ -106,6 +109,7 @@ public abstract class AbstractHandlerMethodAdapter extends WebContentGenerator i
 	 */
 	@Override
 	public final long getLastModified(HttpServletRequest request, Object handler) {
+		// 供子类实现
 		return getLastModifiedInternal(request, (HandlerMethod) handler);
 	}
 

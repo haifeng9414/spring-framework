@@ -107,10 +107,15 @@ public final class ModelFactory {
 			throws Exception {
 
 		Map<String, ?> sessionAttributes = this.sessionAttributesHandler.retrieveAttributes(request);
+		// 添加session的属性到container的model属性集合中
 		container.mergeAttributes(sessionAttributes);
+		// 调用有ModelAttribute注解的方法，添加其返回值到container的model属性集合中
 		invokeModelAttributeMethods(request, container);
 
+		// 遍历将执行请求的方法的带有ModelAttribute注解的参数，返回所有这些参数的ModelAttribute注解的value值
 		for (String name : findSessionAttributeArguments(handlerMethod)) {
+			// 如果属性名称在container中不存在则尝试调用sessionAttributesHandler.retrieveAttribute获取属性值，默认实现是从request的
+			// scope为session的参数中获取
 			if (!container.containsAttribute(name)) {
 				Object value = this.sessionAttributesHandler.retrieveAttribute(request, name);
 				if (value == null) {
