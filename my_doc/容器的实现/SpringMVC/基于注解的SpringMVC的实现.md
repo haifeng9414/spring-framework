@@ -110,7 +110,7 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
     // 同上，默认为null
     RuntimeBeanReference messageCodesResolver = getMessageCodesResolver(element);
 
-    // ConfigurableWebBindingInitializer用于维护上面配置的3个bean，方便获取
+    // ConfigurableWebBindingInitializer用于维护上面配置的3个bean，并能够初始化WebDataBinder对象的若干属性
     RootBeanDefinition bindingDef = new RootBeanDefinition(ConfigurableWebBindingInitializer.class);
     bindingDef.setSource(source);
     bindingDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
@@ -186,7 +186,9 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
     String uriContributorName = MvcUriComponentsBuilder.MVC_URI_COMPONENTS_CONTRIBUTOR_BEAN_NAME;
     readerContext.getRegistry().registerBeanDefinition(uriContributorName, uriContributorDef);
 
-    // 添加ConversionServiceExposingInterceptor和MappedInterceptor bean
+    // 添加ConversionServiceExposingInterceptor和MappedInterceptor bean，ConversionServiceExposingInterceptor类继承自HandlerInterceptorAdapter
+    // 在处理请求之前将conversionService添加到请求的属性中，MappedInterceptor的作用是在HandlerInterceptor接口的基础上添加了matches方法，能够根据配置判断
+    // 是否需要将其维护的HandlerInterceptor添加到HandlerExecutionChain中，MappedInterceptor的使用可以看AbstractHandlerMapping类的getHandlerExecutionChain方法
     RootBeanDefinition csInterceptorDef = new RootBeanDefinition(ConversionServiceExposingInterceptor.class);
     csInterceptorDef.setSource(source);
     csInterceptorDef.getConstructorArgumentValues().addIndexedArgumentValue(0, conversionService);
@@ -194,16 +196,18 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
     mappedInterceptorDef.setSource(source);
     mappedInterceptorDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
     mappedInterceptorDef.getConstructorArgumentValues().addIndexedArgumentValue(0, (Object) null);
+    // 将ConversionServiceExposingInterceptor添加到创建出来的MappedInterceptor中
     mappedInterceptorDef.getConstructorArgumentValues().addIndexedArgumentValue(1, csInterceptorDef);
     // 将mappedInterceptorDef添加到beanFactory，beanName自动生成
     String mappedInterceptorName = readerContext.registerWithGeneratedName(mappedInterceptorDef);
 
-    // 添加ExceptionHandlerExceptionResolver bean
+    // 添加ExceptionHandlerExceptionResolver bean，ExceptionHandlerExceptionResolver用于处理执行请求时发生的异常
     RootBeanDefinition methodExceptionResolver = new RootBeanDefinition(ExceptionHandlerExceptionResolver.class);
     methodExceptionResolver.setSource(source);
     methodExceptionResolver.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
     methodExceptionResolver.getPropertyValues().add("contentNegotiationManager", contentNegotiationManager);
     methodExceptionResolver.getPropertyValues().add("messageConverters", messageConverters);
+    // 该异常处理优先级最高
     methodExceptionResolver.getPropertyValues().add("order", 0);
     addResponseBodyAdvice(methodExceptionResolver);
     if (argumentResolvers != null) {
@@ -214,17 +218,20 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
     }
     String methodExResolverName = readerContext.registerWithGeneratedName(methodExceptionResolver);
 
-    // 添加ResponseStatusExceptionResolver bean
+    // 添加ResponseStatusExceptionResolver bean，ResponseStatusExceptionResolver类对ResponseStatus注解提供了支持，ResponseStatus的作用
+    // 是设置发生指定异常时的状态码和异常原因
     RootBeanDefinition statusExceptionResolver = new RootBeanDefinition(ResponseStatusExceptionResolver.class);
     statusExceptionResolver.setSource(source);
     statusExceptionResolver.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
+    // 该异常处理优先级小于ExceptionHandlerExceptionResolver
     statusExceptionResolver.getPropertyValues().add("order", 1);
     String statusExResolverName = readerContext.registerWithGeneratedName(statusExceptionResolver);
 
-    // 添加DefaultHandlerExceptionResolver bean
+    // 添加DefaultHandlerExceptionResolver bean，DefaultHandlerExceptionResolver类支持常见的异常的处理
     RootBeanDefinition defaultExceptionResolver = new RootBeanDefinition(DefaultHandlerExceptionResolver.class);
     defaultExceptionResolver.setSource(source);
     defaultExceptionResolver.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
+    // 该异常处理优先级小于ResponseStatusExceptionResolver
     defaultExceptionResolver.getPropertyValues().add("order", 2);
     String defaultExResolverName = readerContext.registerWithGeneratedName(defaultExceptionResolver);
 
@@ -246,21 +253,13 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
 
     return null;
 }
-
 ```
 
 [AnnotationDrivenBeanDefinitionParser]添加了若干个bean，每个bean都有不同的功能，涉及到的类很多，这里对重要的类进行分析：
 - [RequestMappingHandlerMapping的实现](RequestMappingHandlerMapping的实现.md)
 - [RequestMappingHandlerAdapter的实现](RequestMappingHandlerAdapter的实现.md)
 
-
-
-
-
-
-
-
-下面是例子：
+由于[AnnotationDrivenBeanDefinitionParser]中涉及到的类非常多，所有下面用一个例子分析[AnnotationDrivenBeanDefinitionParser]中涉及到的类的作用，同时也分析常见的Spring MVC注解的实现原理，首先看例子代码整体内容：
 
 文件结构：
 ![spring-webmvc-test文件结构](../../img/spring-webmvc-test文件结构.png)
@@ -537,5 +536,120 @@ public class AppController {
     //---------------------------------------------------------------------
 }
 ```
+
+上面的例子涉及到了常用的Spring MVC的注解，这里先分析一个比较简单的例子的实现原理，代码：
+```java
+// 这里的作用是添加一个属性到model，属性的名称默认等于返回值的类型名，这里就是string
+@ModelAttribute
+public String nameModelReturnString() {
+    return "dhf";
+}
+
+// 这里的作用也是添加一个名叫userModel的User到model，和showUser方法相呼应，showUser方法也有一个ModelAttribute注解，值为userModel，
+// 这将使得showUser方法被调用时user参数被赋值为这里创建的user
+@ModelAttribute("userModel")
+public User nameModelReturnUser() {
+    User user = new User();
+    // 这里设置了customs，在showUser中不用再设置了，同时这里也只设置了customs，没有设置name和age，允许测试调用http://localhost:8080/app/show-post-form
+    // 后填写表单提交后可以发现，showUser的userModel值会同时拥有这里设置的customs属性和页面设置的name、age属性
+    user.setCustoms(new ArrayList<>(Arrays.asList("demo1", "demo2")));
+    return user;
+}
+
+// 必须添加一个user到model，否则post-form.jsp报错
+@GetMapping(value = "/show-post-form")
+public String showPostForm(@ModelAttribute("userModel") User user, @ModelAttribute("age") Integer age) {
+    user.setAge(age);
+    return "post-form";
+}
+
+@ResponseBody
+@RequestMapping(value = "/{test}/show-post-body", method = RequestMethod.POST)
+public User showUser(@ModelAttribute("userModel") User userModel, @PathVariable String test, @ModelAttribute("string") String string) {
+    userModel.getCustoms().addAll(Arrays.asList(test, string));
+    return userModel;
+}
+```
+
+在浏览器输入`http://localhost:8080/app/show-post-form`，页面将会显示一个表单，填写表单点击按钮后，浏览器将发送POST请求，并在请求返回后显示填写的表单的内容，由于`nameModelReturnString()`和`nameModelReturnUser()`方法的存在，页面上显示的`customs`内容为`["demo1","demo2","test","dhf"]`
+
+下面对这个简单例子涉及到的注解进行分析，首先是[AppController]类上的[Controller]注解，该注解标记指定类为一个bean（这一过程可以看笔记[ComponentScans注解的实现过程.md](../ComponentScans注解的实现过程.md)），同时也是一个handler，能够处理某些请求，[RequestMappingHandlerMapping]在其方法`isHandler()`中认为带有该注解的bean是一个handler，代码：
+```java
+@Override
+protected boolean isHandler(Class<?> beanType) {
+    // 如果类上存在下面两个注解中的一个则认为是handler
+    return (AnnotatedElementUtils.hasAnnotation(beanType, Controller.class) ||
+            AnnotatedElementUtils.hasAnnotation(beanType, RequestMapping.class));
+}
+```
+
+根据笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)的内容可知，在[DispatcherServlet]分发请求时，会获取handler，代码：
+```java
+protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    //...
+    mappedHandler = getHandler(processedRequest);
+    //...
+}
+
+protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+    if (this.handlerMappings != null) {
+        for (HandlerMapping hm : this.handlerMappings) {
+            if (logger.isTraceEnabled()) {
+                logger.trace(
+                        "Testing handler map [" + hm + "] in DispatcherServlet with name '" + getServletName() + "'");
+            }
+            HandlerExecutionChain handler = hm.getHandler(request);
+            if (handler != null) {
+                return handler;
+            }
+        }
+    }
+    return null;
+}
+```
+
+上面用到的`handlerMappings`的初始化在[DispatcherServlet]的`initHandlerMappings`方法，代码：
+```java
+private void initHandlerMappings(ApplicationContext context) {
+    this.handlerMappings = null;
+
+    if (this.detectAllHandlerMappings) {
+        // 获取所有实现了HandlerMapping接口的bean
+        // Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
+        Map<String, HandlerMapping> matchingBeans =
+                BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+        if (!matchingBeans.isEmpty()) {
+            this.handlerMappings = new ArrayList<>(matchingBeans.values());
+            // We keep HandlerMappings in sorted order.
+            AnnotationAwareOrderComparator.sort(this.handlerMappings);
+        }
+    }
+    else {
+        try {
+            HandlerMapping hm = context.getBean(HANDLER_MAPPING_BEAN_NAME, HandlerMapping.class);
+            this.handlerMappings = Collections.singletonList(hm);
+        }
+        catch (NoSuchBeanDefinitionException ex) {
+            // Ignore, we'll add a default HandlerMapping later.
+        }
+    }
+
+    // Ensure we have at least one HandlerMapping, by registering
+    // a default HandlerMapping if no other mappings are found.
+    if (this.handlerMappings == null) {
+        this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
+        if (logger.isDebugEnabled()) {
+            logger.debug("No HandlerMappings found in servlet '" + getServletName() + "': using default");
+        }
+    }
+}
+```
+
+默认情况下`detectAllHandlerMappings`为true，所以所有实现了[HandlerMapping]接口的bean都会被添加到`handlerMappings`中，[AnnotationDrivenBeanDefinitionParser]类的`parse()`方法添加的[RequestMappingHandlerMapping]就实现了该方法，即使`detectAllHandlerMappings`为false，`initHandlerMappings()`方法也会获取beanName为`HANDLER_MAPPING_BEAN_NAME`的bean添加到`handlerMappings`，而[AnnotationDrivenBeanDefinitionParser]类在添加[RequestMappingHandlerMapping]作为bean时，设置的beanName就是`HANDLER_MAPPING_BEAN_NAME`，代码：
+```java
+readerContext.getRegistry().registerBeanDefinition(HANDLER_MAPPING_BEAN_NAME , handlerMappingDef);
+```
+
+这样当分发请求时获取的handler就来自[RequestMappingHandlerMapping]类
 
 [AppController]: aaa
