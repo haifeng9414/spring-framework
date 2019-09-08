@@ -192,6 +192,7 @@ public class WebDataBinder extends DataBinder {
 	 */
 	@Override
 	protected void doBind(MutablePropertyValues mpvs) {
+		// 在执行属性设置之前检查默认值
 		checkFieldDefaults(mpvs);
 		checkFieldMarkers(mpvs);
 		super.doBind(mpvs);
@@ -208,10 +209,13 @@ public class WebDataBinder extends DataBinder {
 	protected void checkFieldDefaults(MutablePropertyValues mpvs) {
 		String fieldDefaultPrefix = getFieldDefaultPrefix();
 		if (fieldDefaultPrefix != null) {
+			// 遍历所有即将被设置的属性，如果属性名以fieldDefaultPrefix开头，则说明其为指定属性的默认值，这里找到这些默认值，将其
+			// 添加到mpvs作为真正的值
 			PropertyValue[] pvArray = mpvs.getPropertyValues();
 			for (PropertyValue pv : pvArray) {
 				if (pv.getName().startsWith(fieldDefaultPrefix)) {
 					String field = pv.getName().substring(fieldDefaultPrefix.length());
+					// 确保去掉fieldDefaultPrefix前缀后的属性是可写的并且mpvs中没有该属性
 					if (getPropertyAccessor().isWritableProperty(field) && !mpvs.contains(field)) {
 						mpvs.add(field, pv.getValue());
 					}
@@ -235,6 +239,8 @@ public class WebDataBinder extends DataBinder {
 	protected void checkFieldMarkers(MutablePropertyValues mpvs) {
 		String fieldMarkerPrefix = getFieldMarkerPrefix();
 		if (fieldMarkerPrefix != null) {
+			// 遍历所有待设置的属性，如果属性名以fieldMarkerPrefix开头则表示该属性需要设置为一个默认对象，如Boolean被设置为false，数组被设置为
+			// 长度为0的数组对象
 			PropertyValue[] pvArray = mpvs.getPropertyValues();
 			for (PropertyValue pv : pvArray) {
 				if (pv.getName().startsWith(fieldMarkerPrefix)) {

@@ -258,7 +258,7 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 		// 同上，默认为null
 		RuntimeBeanReference messageCodesResolver = getMessageCodesResolver(element);
 
-		// ConfigurableWebBindingInitializer用于维护上面配置的3个bean，方便获取
+		// ConfigurableWebBindingInitializer用于维护上面配置的3个bean，并能够初始化WebDataBinder对象的若干属性
 		RootBeanDefinition bindingDef = new RootBeanDefinition(ConfigurableWebBindingInitializer.class);
 		bindingDef.setSource(source);
 		bindingDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
@@ -334,7 +334,9 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 		String uriContributorName = MvcUriComponentsBuilder.MVC_URI_COMPONENTS_CONTRIBUTOR_BEAN_NAME;
 		readerContext.getRegistry().registerBeanDefinition(uriContributorName, uriContributorDef);
 
-		// 添加ConversionServiceExposingInterceptor和MappedInterceptor bean
+		// 添加ConversionServiceExposingInterceptor和MappedInterceptor bean，ConversionServiceExposingInterceptor类继承自HandlerInterceptorAdapter
+		// 在处理请求之前将conversionService添加到请求的属性中，MappedInterceptor的作用是在HandlerInterceptor接口的基础上添加了matches方法，能够根据配置判断
+		// 是否需要将其维护的HandlerInterceptor添加到HandlerExecutionChain中，MappedInterceptor的使用可以看AbstractHandlerMapping类的getHandlerExecutionChain方法
 		RootBeanDefinition csInterceptorDef = new RootBeanDefinition(ConversionServiceExposingInterceptor.class);
 		csInterceptorDef.setSource(source);
 		csInterceptorDef.getConstructorArgumentValues().addIndexedArgumentValue(0, conversionService);
@@ -342,16 +344,18 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 		mappedInterceptorDef.setSource(source);
 		mappedInterceptorDef.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
 		mappedInterceptorDef.getConstructorArgumentValues().addIndexedArgumentValue(0, (Object) null);
+		// 将ConversionServiceExposingInterceptor添加到创建出来的MappedInterceptor中
 		mappedInterceptorDef.getConstructorArgumentValues().addIndexedArgumentValue(1, csInterceptorDef);
 		// 将mappedInterceptorDef添加到beanFactory，beanName自动生成
 		String mappedInterceptorName = readerContext.registerWithGeneratedName(mappedInterceptorDef);
 
-		// 添加ExceptionHandlerExceptionResolver bean
+		// 添加ExceptionHandlerExceptionResolver bean，ExceptionHandlerExceptionResolver用于处理执行请求时发生的异常
 		RootBeanDefinition methodExceptionResolver = new RootBeanDefinition(ExceptionHandlerExceptionResolver.class);
 		methodExceptionResolver.setSource(source);
 		methodExceptionResolver.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
 		methodExceptionResolver.getPropertyValues().add("contentNegotiationManager", contentNegotiationManager);
 		methodExceptionResolver.getPropertyValues().add("messageConverters", messageConverters);
+		// 该异常处理优先级最高
 		methodExceptionResolver.getPropertyValues().add("order", 0);
 		addResponseBodyAdvice(methodExceptionResolver);
 		if (argumentResolvers != null) {
@@ -362,17 +366,20 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 		}
 		String methodExResolverName = readerContext.registerWithGeneratedName(methodExceptionResolver);
 
-		// 添加ResponseStatusExceptionResolver bean
+		// 添加ResponseStatusExceptionResolver bean，ResponseStatusExceptionResolver类对ResponseStatus注解提供了支持，ResponseStatus的作用
+		// 是设置发生指定异常时的状态码和异常原因
 		RootBeanDefinition statusExceptionResolver = new RootBeanDefinition(ResponseStatusExceptionResolver.class);
 		statusExceptionResolver.setSource(source);
 		statusExceptionResolver.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
+		// 该异常处理优先级小于ExceptionHandlerExceptionResolver
 		statusExceptionResolver.getPropertyValues().add("order", 1);
 		String statusExResolverName = readerContext.registerWithGeneratedName(statusExceptionResolver);
 
-		// 添加DefaultHandlerExceptionResolver bean
+		// 添加DefaultHandlerExceptionResolver bean，DefaultHandlerExceptionResolver类支持常见的异常的处理
 		RootBeanDefinition defaultExceptionResolver = new RootBeanDefinition(DefaultHandlerExceptionResolver.class);
 		defaultExceptionResolver.setSource(source);
 		defaultExceptionResolver.setRole(BeanDefinition.ROLE_INFRASTRUCTURE);
+		// 该异常处理优先级小于ResponseStatusExceptionResolver
 		defaultExceptionResolver.getPropertyValues().add("order", 2);
 		String defaultExResolverName = readerContext.registerWithGeneratedName(defaultExceptionResolver);
 

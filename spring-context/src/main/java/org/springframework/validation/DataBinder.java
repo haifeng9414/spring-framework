@@ -126,15 +126,18 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	private final String objectName;
 
 	@Nullable
+	// 默认实现是BeanPropertyBindingResult类
 	private AbstractPropertyBindingResult bindingResult;
 
 	@Nullable
+	// 默认实现是SimpleTypeConverter
 	private SimpleTypeConverter typeConverter;
 
 	private boolean ignoreUnknownFields = true;
 
 	private boolean ignoreInvalidFields = false;
 
+	// 为空的属性设置属性时是否自动初始化一个默认值，或对于集合类型，是否自动扩容
 	private boolean autoGrowNestedPaths = true;
 
 	private int autoGrowCollectionLimit = DEFAULT_AUTO_GROW_COLLECTION_LIMIT;
@@ -730,8 +733,11 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	 * @see #applyPropertyValues
 	 */
 	protected void doBind(MutablePropertyValues mpvs) {
+		// 判断即将被设置的属性是否允许被设置
 		checkAllowedFields(mpvs);
+		// 判断即将被设置的属性属否包含了所有的require属性并且require属性的值不为空，如果某个属性不满足条件则会记录一个error到bindingResult
 		checkRequiredFields(mpvs);
+		// 调用保存在bindingResult的ConfigurablePropertyAccessor为targer设置属性，ConfigurablePropertyAccessor实际上就是bean对应的BeanWrapper对象
 		applyPropertyValues(mpvs);
 	}
 
