@@ -414,7 +414,7 @@ public class AppController {
     //---------------------------------------------------------------------
 
     // 这里只在方法上添加了ModelAttribute注解，这将使得当前类上所有请求方法在被执行前都会调用一次nameModelReturnString方法，调用的效果是，会创建一个名叫
-    // name的model属性，值为nameModelReturnString方法的返回值，这里nameModelReturnString方法的返回值是RequestParam注解的值，也就是请求路径中的查询参数test的值，
+    // demoModelKey1的model属性，值为nameModelReturnString方法的返回值，这里nameModelReturnString方法的返回值是RequestParam注解的值，也就是请求路径中的查询参数test的值，
     // 如/app/index?test=abc
     @ModelAttribute("demoModelKey1")
     public String nameModelReturnString(
@@ -439,7 +439,7 @@ public class AppController {
     }
 
     // 这里就和上面的只有ModelAttribute注解的方法不一样了，该方法还有一个RequestMapping注解，所以这也是一个请求方法，该方法的特点是，会
-    // 创建一个key为demoModelKey的model，值为方法的返回值，并且最后还会访问RequestMapping注解的值对应的视图，视图路径是请求的相对路径，
+    // 创建一个key为demoModelKey3的model，值为方法的返回值，并且最后还会访问RequestMapping注解的值对应的视图，视图路径是请求的相对路径，
     // 既/app/model-with-request-mapping，所以效果是，浏览器访问/app/model-with-request-mapping，该请求被执行，创建一个model，并返回
     // 视图WEB-INF/jsp/app/model-with-request-mapping.jsp
     @ModelAttribute(value = "demoModelKey3")
@@ -686,6 +686,168 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
 
 上面分析了[Controller]和[RequestMapping]注解是如何帮组SpringMVC实现请求分发的，这是SpringMVC的基本功能，在这基础之上，SpringMVC还提供了丰富的注解实现请求执行过程中的其他功能，下面再逐个分析例子中用到的注解：
 - [ModelAttribute]：该注解如果标记在方法上，则能够在controller处理请求之前，添加属性到model，如果标记在处理请求的方法参数上，则能够在处理请求的方法中访问model中的对应属性，该注解的实现原理是：
+  在[DispatcherServlet]从[RequestMappingHandlerMapping]获取到[HandlerExecutionChain]后，会使用[RequestMappingHandlerAdapter]作为[HandlerAdapter]处理请求，而[RequestMappingHandlerAdapter]的`handler()`方法实现如下：
+  ```java
+  public final ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler)
+          throws Exception {
+
+      return handleInternal(request, response, (HandlerMethod) handler);
+  }
+
+  protected ModelAndView handleInternal(HttpServletRequest request,
+          HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
+
+      ModelAndView mav;
+      // 判断当前请求的method是否被支持，如果requireSession为true，还会判断当前请求是否存在session
+      checkRequest(request);
+
+      // Execute invokeHandlerMethod in synchronized block if required.
+      // 如果synchronizeOnSession为true则在调用invokeHandlerMethod执行请求时需要加锁
+      if (this.synchronizeOnSession) {
+          HttpSession session = request.getSession(false);
+          if (session != null) {
+              Object mutex = WebUtils.getSessionMutex(session);
+              synchronized (mutex) {
+                  mav = invokeHandlerMethod(request, response, handlerMethod);
+              }
+          }
+          else {
+              // No HttpSession available -> no mutex necessary
+              mav = invokeHandlerMethod(request, response, handlerMethod);
+          }
+      }
+      else {
+          // No synchronization on session demanded at all...
+          mav = invokeHandlerMethod(request, response, handlerMethod);
+      }
+
+      // 如果response中没有配置Cache-Control
+      if (!response.containsHeader(HEADER_CACHE_CONTROL)) {
+          // 如果处理当前请求的controller配置了SessionAttributes注解，添加相应的缓存相关的header用于设置SessionAttributes的有效时间，cacheSecondsForSessionAttributeHandlers参数表示缓存的有效时间
+          if (getSessionAttributesHandler(handlerMethod).hasSessionAttributes()) {
+              applyCacheSeconds(response, this.cacheSecondsForSessionAttributeHandlers);
+          }
+          else {
+              // 如果没有配置SessionAttributes注解，则根据cacheControl属性或cacheSeconds属性对缓存header进行配置，同时对vary header进行设置
+              prepareResponse(response);
+          }
+      }
+
+      return mav;
+  }
+  ```
+
+  可以看到，真正处理请求的方法是`invokeHandlerMethod()`，代码：
+  ```java
+  @Nullable
+  protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
+          HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
+
+      // ServletWebRequest对象封装了request和response
+      ServletWebRequest webRequest = new ServletWebRequest(request, response);
+      try {
+          // WebDataBinderFactory能够创建WebDataBinder对象，而WebDataBinder对象能够为指定的对象设置属性
+          WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);
+          // ModelFactory能够在调用执行请求的方法之前准备好Model，并且通过ModelFactory能够更新Model
+          ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
+
+          // createInvocableHandlerMethod方法直接返回一个ServletInvocableHandlerMethod实例，ServletInvocableHandlerMethod对象
+          // 代表的就是即将执行请求的方法
+          ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
+          // 为invocableMethod设置各种属性
+          if (this.argumentResolvers != null) {
+              invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
+          }
+          if (this.returnValueHandlers != null) {
+              invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
+          }
+          invocableMethod.setDataBinderFactory(binderFactory);
+          invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
+
+          // ModelAndViewContainer对象持有和创建了真正的Model对象，Model实际上就是一个map
+          ModelAndViewContainer mavContainer = new ModelAndViewContainer();
+          // 添加request中名字为DispatcherServlet.INPUT_FLASH_MAP_ATTRIBUTE的属性，既FlashMap对象
+          mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+          // 保存session的属性到mavContainer，并调用带有ModelAttribute注解的方法，获取model的属性
+          modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+          // 当是redirect请求时，或者mavContainer的redirectModel为空是，是否使用defaultModel
+          mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
+
+          // createAsyncWebRequest方法默认返回StandardServletAsyncWebRequest实例
+          AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);
+          asyncWebRequest.setTimeout(this.asyncRequestTimeout);
+
+          // getAsyncManager方法默认返回WebAsyncManager实例，并将该实例保存到request的WEB_ASYNC_MANAGER_ATTRIBUTE属性
+          WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+          asyncManager.setTaskExecutor(this.taskExecutor);
+          asyncManager.setAsyncWebRequest(asyncWebRequest);
+          asyncManager.registerCallableInterceptors(this.callableInterceptors);
+          asyncManager.registerDeferredResultInterceptors(this.deferredResultInterceptors);
+
+          // 如果设置了并发调用的返回值
+          if (asyncManager.hasConcurrentResult()) {
+              Object result = asyncManager.getConcurrentResult();
+              mavContainer = (ModelAndViewContainer) asyncManager.getConcurrentResultContext()[0];
+              asyncManager.clearConcurrentResult();
+              if (logger.isDebugEnabled()) {
+                  logger.debug("Found concurrent result value [" + result + "]");
+              }
+              // wrapConcurrentResult方法返回一个ConcurrentResultHandlerMethod实例
+              invocableMethod = invocableMethod.wrapConcurrentResult(result);
+          }
+
+          // 执行方法，并处理方法返回值
+          invocableMethod.invokeAndHandle(webRequest, mavContainer);
+          if (asyncManager.isConcurrentHandlingStarted()) {
+              return null;
+          }
+
+          // 如果有必要，创建ModelAndView对象
+          return getModelAndView(mavContainer, modelFactory, webRequest);
+      }
+      finally {
+          webRequest.requestCompleted();
+      }
+  }
+  ```
+  
+  针对[ModelAttribute]注解，需要关注的是`invokeHandlerMethod()`方法中调用的`getModelFactory()`方法，该方法返回[ModelFactory]对象，该对象能够初始化model属性到[ModelAndViewContainer]对象，而[ModelAndViewContainer]对象实际上就是model的容器，保存的model的数据，`getModelFactory()`方法代码：
+  ```java
+  // getModelFactory方法中用到的方法筛选器
+  public static final MethodFilter MODEL_ATTRIBUTE_METHODS = method ->
+  ((AnnotationUtils.findAnnotation(method, RequestMapping.class) == null) &&
+  (AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null));
+  
+  private ModelFactory getModelFactory(HandlerMethod handlerMethod, WebDataBinderFactory binderFactory) {
+      SessionAttributesHandler sessionAttrHandler = getSessionAttributesHandler(handlerMethod);
+      Class<?> handlerType = handlerMethod.getBeanType();
+      Set<Method> methods = this.modelAttributeCache.get(handlerType);
+      if (methods == null) {
+          // 获取所有没有RequestMapping注解但是有ModelAttribute注解的方法
+          methods = MethodIntrospector.selectMethods(handlerType, MODEL_ATTRIBUTE_METHODS);
+          this.modelAttributeCache.put(handlerType, methods);
+      }
+      List<InvocableHandlerMethod> attrMethods = new ArrayList<>();
+      // Global methods first
+      // modelAttributeAdviceCache的key为所有实现了ControllerAdvice接口的bean，value为该bean上没有RequestMapping注解但是有ModelAttribute注解的方法集合
+      this.modelAttributeAdviceCache.forEach((clazz, methodSet) -> {
+          if (clazz.isApplicableToBeanType(handlerType)) {
+              Object bean = clazz.resolveBean();
+              for (Method method : methodSet) {
+                  // 为每个方法都创建一个InvocableHandlerMethod对象，注意这里的InvocableHandlerMethod对象和createInitBinderMethod方法中创建的InvocableHandlerMethod对象
+                  // 传入的HandlerMethodArgumentResolverComposite不同，用的是argumentResolvers
+                  attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
+              }
+          }
+      });
+      // 遍历当前bean上没有RequestMapping注解但是有ModelAttribute注解的方法，同样为这些方法创建InvocableHandlerMethod对象
+      for (Method method : methods) {
+          Object bean = handlerMethod.getBean();
+          attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
+      }
+      return new ModelFactory(attrMethods, binderFactory, sessionAttrHandler);
+  }
+  ```
 
 [AppController]: aaa
 [AnnotationDrivenBeanDefinitionParser]: aaa

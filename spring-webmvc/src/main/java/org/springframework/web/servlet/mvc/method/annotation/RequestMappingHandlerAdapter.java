@@ -779,7 +779,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		checkRequest(request);
 
 		// Execute invokeHandlerMethod in synchronized block if required.
-		// 如果synchronizeOnSession为true则在调用invokeHandlerMethod执行请求是加锁
+		// 如果synchronizeOnSession为true则在调用invokeHandlerMethod执行请求时需要加锁
 		if (this.synchronizeOnSession) {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
