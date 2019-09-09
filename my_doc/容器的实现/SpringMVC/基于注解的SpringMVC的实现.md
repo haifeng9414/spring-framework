@@ -583,10 +583,11 @@ protected boolean isHandler(Class<?> beanType) {
 }
 ```
 
-根据笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)的内容可知，在[DispatcherServlet]分发请求时，会获取handler，代码：
+根据笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)的内容可知，在[DispatcherServlet]分发请求时，会获取[HandlerExecutionChain]对象，该对象包含了能够执行请求的handler对象，同时还包含了针对该handler的[HandlerInterceptor]，[HandlerInterceptor]能够实现在处理请求的不同阶段执行方法，代码：
 ```java
 protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
     //...
+    HandlerExecutionChain mappedHandler = null;
     mappedHandler = getHandler(processedRequest);
     //...
 }
@@ -650,6 +651,46 @@ private void initHandlerMappings(ApplicationContext context) {
 readerContext.getRegistry().registerBeanDefinition(HANDLER_MAPPING_BEAN_NAME , handlerMappingDef);
 ```
 
-这样当分发请求时获取的handler就来自[RequestMappingHandlerMapping]类
+这样当分发请求时获取的[HandlerExecutionChain]就来自[RequestMappingHandlerMapping]类，对于[RequestMappingHandlerMapping]类如何根据[RequestMapping]注解创建[HandlerExecutionChain]的，可以看笔记[RequestMappingHandlerMapping的实现](RequestMappingHandlerMapping的实现.md)，简单来说就是，[RequestMappingHandlerMapping]在其`afterPropertiesSet()`方法中遍历了所有bean并调用`isHandler()`方法过滤不满足条件的bean，对于满足条件的bean，遍历每个bean的所有方法，根据方法及bean上的[RequestMapping]注解，创建[RequestMappingInfo]对象，该对象包含了[RequestMapping]注解的所有信息，而bean本身被认为是handler保存下来，在创建[HandlerExecutionChain]时，[RequestMappingHandlerMapping]从[RequestMappingInfo]中获取handler，并添加需要的[HandlerInterceptor]到[HandlerExecutionChain]对象
+
+[DispatcherServlet]的`doDispatch()`方法在获取到[HandlerExecutionChain]后，并没有直接调用handler的方法处理请求，因为对于handler可能是任意类型的对象，处理请求的方法也各不相同，所以[DispatcherServlet]在获取到[HandlerExecutionChain]后，又获取了[HandlerAdapter]，顾名思义，[HandlerAdapter]屏蔽了handler之间的差异，一个[HandlerAdapter]能够针对某种类型的handler实现请求的处理，获取[HandlerAdapter]的过程很简单，遍历所有的[HandlerAdapter]，找到适配当前handler的[HandlerAdapter]之后返回，代码：
+```java
+protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    //...
+    HandlerExecutionChain mappedHandler = null;
+    mappedHandler = getHandler(processedRequest);
+
+    HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+    //...
+}
+
+protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletException {
+    if (this.handlerAdapters != null) {
+        for (HandlerAdapter ha : this.handlerAdapters) {
+            if (logger.isTraceEnabled()) {
+                logger.trace("Testing handler adapter [" + ha + "]");
+            }
+            if (ha.supports(handler)) {
+                return ha;
+            }
+        }
+    }
+    throw new ServletException("No adapter for handler [" + handler +
+            "]: The DispatcherServlet configuration needs to include a HandlerAdapter that supports this handler");
+}
+```
+
+上面用到的`handlerAdapters`的初始化和之前说到的`handlerMappings`的初始化一样，也是遍历所有实现了[HandlerAdapter]接口的bean，或者获取beanName为`HANDLER_ADAPTER_BEAN_NAME`的bean，而[AnnotationDrivenBeanDefinitionParser]类的`parse()`方法就添加了实现了[HandlerAdapter]接口的[RequestMappingHandlerAdapter]类作为bean，并设置beanName为`HANDLER_ADAPTER_BEAN_NAME`
+
+所以可以看到，[Controller]让一个类成为了bean，能是也满足了成功handler的条件，而[RequestMapping]注解配置了该handler所能处理的方法，[RequestMappingHandlerMapping]类通过解析[RequestMapping]注解实现了请求路径和handler的映射，在请求到来时，根据请求路径返回对应的标记了[Controller]注解的bean作为handler，从而实现了请求的基于注解的请求分发，请求分发的其他细节可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)
+
+上面分析了[Controller]和[RequestMapping]注解是如何帮组SpringMVC实现请求分发的，这是SpringMVC的基本功能，在这基础之上，SpringMVC还提供了丰富的注解实现请求执行过程中的其他功能，下面再逐个分析例子中用到的注解：
+- [ModelAttribute]：该注解如果标记在方法上，则能够在controller处理请求之前，添加属性到model，如果标记在处理请求的方法参数上，则能够在处理请求的方法中访问model中的对应属性，该注解的实现原理是：
 
 [AppController]: aaa
+[AnnotationDrivenBeanDefinitionParser]: aaa
+[RequestMappingHandlerMapping]: aaa
+[RequestMapping]: aaa
+[RequestMappingInfo]: aaa
+[DispatcherServlet]: aaa
+[HandlerExecutionChain]: aaa
