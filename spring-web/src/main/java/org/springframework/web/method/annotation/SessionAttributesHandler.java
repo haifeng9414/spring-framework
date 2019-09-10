@@ -48,12 +48,16 @@ import org.springframework.web.context.request.WebRequest;
  */
 public class SessionAttributesHandler {
 
+	// 保存从SessionAttributes注解中获取到的属性名称
 	private final Set<String> attributeNames = new HashSet<>();
 
+	// 保存从SessionAttributes注解中获取到的属性类型
 	private final Set<Class<?>> attributeTypes = new HashSet<>();
 
+	// 保存已知的当前session中存在的属性名称
 	private final Set<String> knownAttributeNames = Collections.newSetFromMap(new ConcurrentHashMap<>(4));
 
+	// session的属性存储介质
 	private final SessionAttributeStore sessionAttributeStore;
 
 
@@ -68,6 +72,7 @@ public class SessionAttributesHandler {
 		Assert.notNull(sessionAttributeStore, "SessionAttributeStore may not be null");
 		this.sessionAttributeStore = sessionAttributeStore;
 
+		// 获取类上的SessionAttributes注解，将注解的值保存下来
 		SessionAttributes ann = AnnotatedElementUtils.findMergedAnnotation(handlerType, SessionAttributes.class);
 		if (ann != null) {
 			Collections.addAll(this.attributeNames, ann.names());

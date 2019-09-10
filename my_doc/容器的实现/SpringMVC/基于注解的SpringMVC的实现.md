@@ -737,7 +737,7 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
   }
   ```
 
-  可以看到，真正处理请求的方法是`invokeHandlerMethod()`，代码：
+  可以看到，真正处理请求的方法是`invokeHandlerMethod()`，该方法包括了执行请求前model的准备、请求的执行和请求结果的处理，代码：
   ```java
   @Nullable
   protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
@@ -819,6 +819,10 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
   (AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null));
   
   private ModelFactory getModelFactory(HandlerMethod handlerMethod, WebDataBinderFactory binderFactory) {
+      // SessionAttributesHandler能够解析handler上的SessionAttributes注解，并将该注解配置的属性保存到sessionAttributeStore
+      // 对象上，SessionAttributesHandler通过sessionAttributeStore可以实现session属性的读写，sessionAttributeStore的默认实现
+      // 是DefaultSessionAttributeStore，实现原理就是将属性保存到request中，scope设置为WebRequest.SCOPE_SESSION，即：
+      // request.setAttribute(storeAttributeName, attributeValue, WebRequest.SCOPE_SESSION);
       SessionAttributesHandler sessionAttrHandler = getSessionAttributesHandler(handlerMethod);
       Class<?> handlerType = handlerMethod.getBeanType();
       Set<Method> methods = this.modelAttributeCache.get(handlerType);
@@ -848,6 +852,10 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
       return new ModelFactory(attrMethods, binderFactory, sessionAttrHandler);
   }
   ```
+
+  `getModelFactory()`方法遍历每个满足条件的method，调用`createModelAttributeMethod()`方法创建[InvocableHandlerMethod]对象，该对象持有指定的方法和该方法所属bean，同时还持有多个[HandlerMethodArgumentResolver]，能够对各种类型的方法参数进行解析，SpringMVC中方法参数上的各种注解就是不同的[HandlerMethodArgumentResolver]提供支持的，[InvocableHandlerMethod]对象和[HandlerMethodArgumentResolver]的下面会说，这里先跳过
+
+  创建完[ModelFactory]对象后，`invokeHandlerMethod()`方法为将执行请求的方法创建[ServletInvocableHandlerMethod]对象，[ServletInvocableHandlerMethod]继承自[InvocableHandlerMethod]，在[InvocableHandlerMethod]的基础上提供了处理请求执行结果的逻辑
 
 [AppController]: aaa
 [AnnotationDrivenBeanDefinitionParser]: aaa

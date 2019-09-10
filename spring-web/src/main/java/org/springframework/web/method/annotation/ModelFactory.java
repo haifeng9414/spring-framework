@@ -81,6 +81,7 @@ public final class ModelFactory {
 
 		if (handlerMethods != null) {
 			for (InvocableHandlerMethod handlerMethod : handlerMethods) {
+				// ModelMethod类的作用是判断方法参数的ModelAttribute注解的值是否在ModelAndViewContainer中存在
 				this.modelMethods.add(new ModelMethod(handlerMethod));
 			}
 		}
@@ -112,7 +113,7 @@ public final class ModelFactory {
 		// 调用有ModelAttribute注解的方法，添加其返回值到container的model属性集合中
 		invokeModelAttributeMethods(request, container);
 
-		// 遍历将执行请求的方法的带有ModelAttribute注解的参数，返回所有这些参数的ModelAttribute注解的value值
+		// findSessionAttributeArguments方法返回需要的session属性名称，这里判断这些属性是否在container中存在
 		for (String name : findSessionAttributeArguments(handlerMethod)) {
 			// 如果属性名称在container中不存在则尝试调用sessionAttributesHandler.retrieveAttribute获取属性值，默认实现是从request的
 			// scope为session的参数中获取
@@ -138,14 +139,17 @@ public final class ModelFactory {
 			ModelAttribute ann = modelMethod.getMethodAnnotation(ModelAttribute.class);
 			Assert.state(ann != null, "No ModelAttribute annotation");
 			if (container.containsAttribute(ann.name())) {
+				// 如果当前ModelAttribute配置binding为false，表示不希望该属性绑定到model
 				if (!ann.binding()) {
 					container.setBindingDisabled(ann.name());
 				}
 				continue;
 			}
 
+			// 调用方法获取model属性的值
 			Object returnValue = modelMethod.invokeForRequest(request, container);
 			if (!modelMethod.isVoid()){
+				// 获取属性名，先尝试获取ModelAttribute注解的value，如果没有，则使用被调用方法的返回值类型的类名，如String类型的则为string
 				String returnValueName = getNameForReturnValue(returnValue, modelMethod.getReturnType());
 				if (!ann.binding()) {
 					container.setBindingDisabled(returnValueName);
@@ -179,6 +183,7 @@ public final class ModelFactory {
 	/**
 	 * Find {@code @ModelAttribute} arguments also listed as {@code @SessionAttributes}.
 	 */
+	// 返回同时存在于SessionAttributes注解和ModelAttribute注解的属性名称
 	private List<String> findSessionAttributeArguments(HandlerMethod handlerMethod) {
 		List<String> result = new ArrayList<>();
 		for (MethodParameter parameter : handlerMethod.getMethodParameters()) {
