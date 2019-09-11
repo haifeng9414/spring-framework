@@ -439,3 +439,266 @@ public final class ModelFactory {
 }
 ```
 
+[ModelFactory]将属性保存到了[ModelAndViewContainer]，[ModelAndViewContainer]类使用[LinkedHashMap]保存属性，代码：
+```java
+public class ModelAndViewContainer {
+
+	// 对于重定向的请求，如果redirectModel为空，是否使用defaultModel代替
+	private boolean ignoreDefaultModelOnRedirect = false;
+
+	@Nullable
+	private Object view;
+
+	// 本质上是个LinkedHashMap
+	private final ModelMap defaultModel = new BindingAwareModelMap();
+
+	@Nullable
+	// 如果不使用defaultModel的情况下，返回该map，默认实现是ModelMap，本质上是个LinkedHashMap
+	private ModelMap redirectModel;
+
+	private boolean redirectModelScenario = false;
+
+	@Nullable
+	private HttpStatus status;
+
+	// 保存不应该出现在model中的属性名称，如配置@ModelAttribute(binding=false)
+	private final Set<String> noBinding = new HashSet<>(4);
+
+	// 保存不应该出现在model中的属性名称
+	private final Set<String> bindingDisabled = new HashSet<>(4);
+
+	// 用于标记session是否已经完成
+	private final SessionStatus sessionStatus = new SimpleSessionStatus();
+
+	private boolean requestHandled = false;
+
+
+	/**
+	 * By default the content of the "default" model is used both during
+	 * rendering and redirect scenarios. Alternatively controller methods
+	 * can declare an argument of type {@code RedirectAttributes} and use
+	 * it to provide attributes to prepare the redirect URL.
+	 * <p>Setting this flag to {@code true} guarantees the "default" model is
+	 * never used in a redirect scenario even if a RedirectAttributes argument
+	 * is not declared. Setting it to {@code false} means the "default" model
+	 * may be used in a redirect if the controller method doesn't declare a
+	 * RedirectAttributes argument.
+	 * <p>The default setting is {@code false}.
+	 */
+	public void setIgnoreDefaultModelOnRedirect(boolean ignoreDefaultModelOnRedirect) {
+		this.ignoreDefaultModelOnRedirect = ignoreDefaultModelOnRedirect;
+	}
+
+	/**
+	 * Set a view name to be resolved by the DispatcherServlet via a ViewResolver.
+	 * Will override any pre-existing view name or View.
+	 */
+	public void setViewName(@Nullable String viewName) {
+		this.view = viewName;
+	}
+
+	/**
+	 * Return the view name to be resolved by the DispatcherServlet via a
+	 * ViewResolver, or {@code null} if a View object is set.
+	 */
+	@Nullable
+	public String getViewName() {
+		return (this.view instanceof String ? (String) this.view : null);
+	}
+
+	/**
+	 * Set a View object to be used by the DispatcherServlet.
+	 * Will override any pre-existing view name or View.
+	 */
+	public void setView(@Nullable Object view) {
+		this.view = view;
+	}
+
+	/**
+	 * Return the View object, or {@code null} if we using a view name
+	 * to be resolved by the DispatcherServlet via a ViewResolver.
+	 */
+	@Nullable
+	public Object getView() {
+		return this.view;
+	}
+  
+	public boolean isViewReference() {
+		return (this.view instanceof String);
+	}
+
+	/**
+	 * Return the model to use -- either the "default" or the "redirect" model.
+	 * The default model is used if {@code redirectModelScenario=false} or
+	 * there is no redirect model (i.e. RedirectAttributes was not declared as
+	 * a method argument) and {@code ignoreDefaultModelOnRedirect=false}.
+	 */
+	public ModelMap getModel() {
+		if (useDefaultModel()) {
+			return this.defaultModel;
+		}
+		else {
+			if (this.redirectModel == null) {
+				this.redirectModel = new ModelMap();
+			}
+			return this.redirectModel;
+		}
+	}
+  
+	private boolean useDefaultModel() {
+		return (!this.redirectModelScenario || (this.redirectModel == null && !this.ignoreDefaultModelOnRedirect));
+	}
+
+	/**
+	 * Return the "default" model created at instantiation.
+	 * <p>In general it is recommended to use {@link #getModel()} instead which
+	 * returns either the "default" model (template rendering) or the "redirect"
+	 * model (redirect URL preparation). Use of this method may be needed for
+	 * advanced cases when access to the "default" model is needed regardless,
+	 * e.g. to save model attributes specified via {@code @SessionAttributes}.
+	 * @return the default model (never {@code null})
+	 * @since 4.1.4
+	 */
+	public ModelMap getDefaultModel() {
+		return this.defaultModel;
+	}
+  
+	public void setRedirectModel(ModelMap redirectModel) {
+		this.redirectModel = redirectModel;
+	}
+
+	/**
+	 * Whether the controller has returned a redirect instruction, e.g. a
+	 * "redirect:" prefixed view name, a RedirectView instance, etc.
+	 */
+	public void setRedirectModelScenario(boolean redirectModelScenario) {
+		this.redirectModelScenario = redirectModelScenario;
+	}
+  
+	public void setStatus(@Nullable HttpStatus status) {
+		this.status = status;
+	}
+  
+	@Nullable
+	public HttpStatus getStatus() {
+		return this.status;
+	}
+
+	/**
+	 * Programmatically register an attribute for which data binding should not occur,
+	 * not even for a subsequent {@code @ModelAttribute} declaration.
+	 * @param attributeName the name of the attribute
+	 * @since 4.3
+	 */
+	public void setBindingDisabled(String attributeName) {
+		this.bindingDisabled.add(attributeName);
+	}
+  
+	public boolean isBindingDisabled(String name) {
+		return (this.bindingDisabled.contains(name) || this.noBinding.contains(name));
+	}
+
+	/**
+	 * Register whether data binding should occur for a corresponding model attribute,
+	 * corresponding to an {@code @ModelAttribute(binding=true/false)} declaration.
+	 * <p>Note: While this flag will be taken into account by {@link #isBindingDisabled},
+	 * a hard {@link #setBindingDisabled} declaration will always override it.
+	 * @param attributeName the name of the attribute
+	 * @since 4.3.13
+	 */
+	public void setBinding(String attributeName, boolean enabled) {
+		if (!enabled) {
+			this.noBinding.add(attributeName);
+		}
+		else {
+			this.noBinding.remove(attributeName);
+		}
+	}
+
+	/**
+	 * Return the {@link SessionStatus} instance to use that can be used to
+	 * signal that session processing is complete.
+	 */
+	public SessionStatus getSessionStatus() {
+		return this.sessionStatus;
+	}
+
+	/**
+	 * Whether the request has been handled fully within the handler, e.g.
+	 * {@code @ResponseBody} method, and therefore view resolution is not
+	 * necessary. This flag can also be set when controller methods declare an
+	 * argument of type {@code ServletResponse} or {@code OutputStream}).
+	 * <p>The default value is {@code false}.
+	 */
+	public void setRequestHandled(boolean requestHandled) {
+		this.requestHandled = requestHandled;
+	}
+  
+	public boolean isRequestHandled() {
+		return this.requestHandled;
+	}
+  
+	public ModelAndViewContainer addAttribute(String name, @Nullable Object value) {
+		getModel().addAttribute(name, value);
+		return this;
+	}
+  
+	public ModelAndViewContainer addAttribute(Object value) {
+		getModel().addAttribute(value);
+		return this;
+	}
+  
+	public ModelAndViewContainer addAllAttributes(@Nullable Map<String, ?> attributes) {
+		getModel().addAllAttributes(attributes);
+		return this;
+	}
+  
+	public ModelAndViewContainer mergeAttributes(@Nullable Map<String, ?> attributes) {
+		getModel().mergeAttributes(attributes);
+		return this;
+	}
+  
+	public ModelAndViewContainer removeAttributes(@Nullable Map<String, ?> attributes) {
+		if (attributes != null) {
+			for (String key : attributes.keySet()) {
+				getModel().remove(key);
+			}
+		}
+		return this;
+	}
+  
+	public boolean containsAttribute(String name) {
+		return getModel().containsAttribute(name);
+	}
+  
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder("ModelAndViewContainer: ");
+		if (!isRequestHandled()) {
+			if (isViewReference()) {
+				sb.append("reference to view with name '").append(this.view).append("'");
+			}
+			else {
+				sb.append("View is [").append(this.view).append(']');
+			}
+			if (useDefaultModel()) {
+				sb.append("; default model ");
+			}
+			else {
+				sb.append("; redirect model ");
+			}
+			sb.append(getModel());
+		}
+		else {
+			sb.append("Request handled directly");
+		}
+		return sb.toString();
+	}
+
+}
+```
+
+[ModelFactory]: aaa
+[ModelAndViewContainer]: aaa
+[LinkedHashMap]: aaa
+

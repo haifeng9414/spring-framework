@@ -811,51 +811,9 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
   }
   ```
   
-  针对[ModelAttribute]注解，需要关注的是`invokeHandlerMethod()`方法中调用的`getModelFactory()`方法，该方法返回[ModelFactory]对象，该对象能够初始化model属性到[ModelAndViewContainer]对象，而[ModelAndViewContainer]对象实际上就是model的容器，保存的model的数据，`getModelFactory()`方法代码：
-  ```java
-  // getModelFactory方法中用到的方法筛选器
-  public static final MethodFilter MODEL_ATTRIBUTE_METHODS = method ->
-  ((AnnotationUtils.findAnnotation(method, RequestMapping.class) == null) &&
-  (AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null));
-  
-  private ModelFactory getModelFactory(HandlerMethod handlerMethod, WebDataBinderFactory binderFactory) {
-      // SessionAttributesHandler能够解析handler上的SessionAttributes注解，并将该注解配置的属性保存到sessionAttributeStore
-      // 对象上，SessionAttributesHandler通过sessionAttributeStore可以实现session属性的读写，sessionAttributeStore的默认实现
-      // 是DefaultSessionAttributeStore，实现原理就是将属性保存到request中，scope设置为WebRequest.SCOPE_SESSION，即：
-      // request.setAttribute(storeAttributeName, attributeValue, WebRequest.SCOPE_SESSION);
-      SessionAttributesHandler sessionAttrHandler = getSessionAttributesHandler(handlerMethod);
-      Class<?> handlerType = handlerMethod.getBeanType();
-      Set<Method> methods = this.modelAttributeCache.get(handlerType);
-      if (methods == null) {
-          // 获取所有没有RequestMapping注解但是有ModelAttribute注解的方法
-          methods = MethodIntrospector.selectMethods(handlerType, MODEL_ATTRIBUTE_METHODS);
-          this.modelAttributeCache.put(handlerType, methods);
-      }
-      List<InvocableHandlerMethod> attrMethods = new ArrayList<>();
-      // Global methods first
-      // modelAttributeAdviceCache的key为所有实现了ControllerAdvice接口的bean，value为该bean上没有RequestMapping注解但是有ModelAttribute注解的方法集合
-      this.modelAttributeAdviceCache.forEach((clazz, methodSet) -> {
-          if (clazz.isApplicableToBeanType(handlerType)) {
-              Object bean = clazz.resolveBean();
-              for (Method method : methodSet) {
-                  // 为每个方法都创建一个InvocableHandlerMethod对象，注意这里的InvocableHandlerMethod对象和createInitBinderMethod方法中创建的InvocableHandlerMethod对象
-                  // 传入的HandlerMethodArgumentResolverComposite不同，用的是argumentResolvers
-                  attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
-              }
-          }
-      });
-      // 遍历当前bean上没有RequestMapping注解但是有ModelAttribute注解的方法，同样为这些方法创建InvocableHandlerMethod对象
-      for (Method method : methods) {
-          Object bean = handlerMethod.getBean();
-          attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
-      }
-      return new ModelFactory(attrMethods, binderFactory, sessionAttrHandler);
-  }
-  ```
+  针对[ModelAttribute]注解，需要关注的是`invokeHandlerMethod()`方法中调用的`getModelFactory()`方法，该方法返回[ModelFactory]对象，对于[ModelFactory]的作用，可以看笔记[ModelFactory的实现](ModelFactory的实现.md)，`getModelFactory()`方法遍历每个满足条件的method，调用`createModelAttributeMethod()`方法创建[InvocableHandlerMethod]对象，该对象持有指定的方法和该方法所属bean，同时还持有多个[HandlerMethodArgumentResolver]，能够对各种类型的方法参数进行解析，SpringMVC中方法参数上的各种注解就是不同的[HandlerMethodArgumentResolver]提供支持的，[InvocableHandlerMethod]类的实现可以看笔记[ServletInvocableHandlerMethod的实现](ServletInvocableHandlerMethod的实现.md)，而[HandlerMethodArgumentResolver]的实现在笔记[HandlerMethodArgumentResolver的实现](HandlerMethodArgumentResolver的实现.md)
 
-  `getModelFactory()`方法遍历每个满足条件的method，调用`createModelAttributeMethod()`方法创建[InvocableHandlerMethod]对象，该对象持有指定的方法和该方法所属bean，同时还持有多个[HandlerMethodArgumentResolver]，能够对各种类型的方法参数进行解析，SpringMVC中方法参数上的各种注解就是不同的[HandlerMethodArgumentResolver]提供支持的，[InvocableHandlerMethod]对象和[HandlerMethodArgumentResolver]的下面会说，这里先跳过
-
-  创建完[ModelFactory]对象后，`invokeHandlerMethod()`方法为将执行请求的方法创建[ServletInvocableHandlerMethod]对象，[ServletInvocableHandlerMethod]继承自[InvocableHandlerMethod]，在[InvocableHandlerMethod]的基础上提供了处理请求执行结果的逻辑
+  创建完[ModelFactory]对象后，`invokeHandlerMethod()`方法为将执行请求的方法创建[ServletInvocableHandlerMethod]对象，[ServletInvocableHandlerMethod]继承自[InvocableHandlerMethod]，在[InvocableHandlerMethod]的基础上提供了处理请求执行结果的逻辑，之后`invokeHandlerMethod()`方法调用`modelFactory.initModel(webRequest, mavContainer, invocableMethod);`初始化了model数据，这一过程在笔记[ModelFactory的实现](ModelFactory的实现.md)中有介绍，最后就是调用`invocableMethod.invokeAndHandle(webRequest, mavContainer);`执行请求，`invocableMethod`是[ServletInvocableHandlerMethod]类型的，该类的实现可以看笔记[ServletInvocableHandlerMethod的实现](ServletInvocableHandlerMethod的实现.md)
 
 [AppController]: aaa
 [AnnotationDrivenBeanDefinitionParser]: aaa

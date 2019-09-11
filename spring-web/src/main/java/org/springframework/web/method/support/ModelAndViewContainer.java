@@ -49,14 +49,17 @@ import org.springframework.web.bind.support.SimpleSessionStatus;
  */
 public class ModelAndViewContainer {
 
+	// 对于重定向的请求，如果redirectModel为空，是否使用defaultModel代替
 	private boolean ignoreDefaultModelOnRedirect = false;
 
 	@Nullable
 	private Object view;
 
+	// 本质上是个LinkedHashMap
 	private final ModelMap defaultModel = new BindingAwareModelMap();
 
 	@Nullable
+	// 如果不使用defaultModel的情况下，返回该map，默认实现是ModelMap，本质上是个LinkedHashMap
 	private ModelMap redirectModel;
 
 	private boolean redirectModelScenario = false;
@@ -64,12 +67,16 @@ public class ModelAndViewContainer {
 	@Nullable
 	private HttpStatus status;
 
+	// 保存不应该出现在model中的属性名称，如配置@ModelAttribute(binding=false)
 	private final Set<String> noBinding = new HashSet<>(4);
 
+	// 保存不应该出现在model中的属性名称
 	private final Set<String> bindingDisabled = new HashSet<>(4);
 
+	// 用于标记session是否已经完成
 	private final SessionStatus sessionStatus = new SimpleSessionStatus();
 
+	// 是否请求已经被处理完成，为true则在请求执行完成后不创建ModelAndView
 	private boolean requestHandled = false;
 
 
