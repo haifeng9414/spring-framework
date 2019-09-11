@@ -30,6 +30,7 @@ import org.springframework.web.context.request.NativeWebRequest;
 public class DefaultDataBinderFactory implements WebDataBinderFactory {
 
 	@Nullable
+	// 可以在返回WebDataBinder之前对其进行定制
 	private final WebBindingInitializer initializer;
 
 
@@ -53,10 +54,12 @@ public class DefaultDataBinderFactory implements WebDataBinderFactory {
 	public final WebDataBinder createBinder(
 			NativeWebRequest webRequest, @Nullable Object target, String objectName) throws Exception {
 
+		// 返回WebRequestDataBinder对象，WebRequestDataBinder在WebDataBinder基础上对MultipartRequest提供了支持
 		WebDataBinder dataBinder = createBinderInstance(target, objectName, webRequest);
 		if (this.initializer != null) {
 			this.initializer.initBinder(dataBinder, webRequest);
 		}
+		// 空方法，供子类实现
 		initBinder(dataBinder, webRequest);
 		return dataBinder;
 	}

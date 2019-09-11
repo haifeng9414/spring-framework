@@ -130,9 +130,13 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	private AbstractPropertyBindingResult bindingResult;
 
 	@Nullable
-	// 默认实现是SimpleTypeConverter
+	// DataBinder实现PropertyEditorRegistry和TypeConverter接口的方式很简单，如target不为空，则默认为target创建BeanPropertyBindingResult，
+	// 而BeanPropertyBindingResult中又为target创建了BeanWrapperImpl，BeanWrapperImpl类本身实现了PropertyEditorRegistry和TypeConverter接口，
+	// 所以target不为空时DataBinder直接通过其BeanWrapperImpl实现PropertyEditorRegistry和TypeConverter接口，如果target为空，则使用这里的SimpleTypeConverter
+	// 实现PropertyEditorRegistry和TypeConverter接口
 	private SimpleTypeConverter typeConverter;
 
+	// 下面两个值影响设置属性时是否在相应错误情况下抛出异常
 	private boolean ignoreUnknownFields = true;
 
 	private boolean ignoreInvalidFields = false;
@@ -143,15 +147,19 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	private int autoGrowCollectionLimit = DEFAULT_AUTO_GROW_COLLECTION_LIMIT;
 
 	@Nullable
+	// 被允许设置的属性列表，为空表示没有限制
 	private String[] allowedFields;
 
 	@Nullable
+	// 不被允许设置的属性列表，为空表示没有限制
 	private String[] disallowedFields;
 
 	@Nullable
+	// 必须被设置的属性列表，为空表示没有限制
 	private String[] requiredFields;
 
 	@Nullable
+	// BeanWrapperImpl和SimpleTypeConverter又是通过ConversionService实现的类型转换
 	private ConversionService conversionService;
 
 	@Nullable
@@ -260,6 +268,7 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	 * @since 4.2.1
 	 */
 	protected AbstractPropertyBindingResult createBeanPropertyBindingResult() {
+		// BeanPropertyBindingResult的特点是使用BeanWrapperImpl也就是getter、setter访问target属性
 		BeanPropertyBindingResult result = new BeanPropertyBindingResult(getTarget(),
 				getObjectName(), isAutoGrowNestedPaths(), getAutoGrowCollectionLimit());
 
@@ -291,6 +300,7 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 	 * @since 4.2.1
 	 */
 	protected AbstractPropertyBindingResult createDirectFieldBindingResult() {
+		// DirectFieldBindingResult的特点是直接使用field对象访问target属性
 		DirectFieldBindingResult result = new DirectFieldBindingResult(getTarget(),
 				getObjectName(), isAutoGrowNestedPaths());
 
@@ -737,7 +747,7 @@ public class DataBinder implements PropertyEditorRegistry, TypeConverter {
 		checkAllowedFields(mpvs);
 		// 判断即将被设置的属性属否包含了所有的require属性并且require属性的值不为空，如果某个属性不满足条件则会记录一个error到bindingResult
 		checkRequiredFields(mpvs);
-		// 调用保存在bindingResult的ConfigurablePropertyAccessor为targer设置属性，ConfigurablePropertyAccessor实际上就是bean对应的BeanWrapper对象
+		// 为target设置属性，如果设置失败则会记录一个error到bindingResult
 		applyPropertyValues(mpvs);
 	}
 

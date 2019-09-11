@@ -38,7 +38,7 @@ import org.springframework.web.method.support.InvocableHandlerMethod;
  * @since 3.1
  */
 public class InitBinderDataBinderFactory extends DefaultDataBinderFactory {
-
+	// 用于初始化WebDataBinder的方法
 	private final List<InvocableHandlerMethod> binderMethods;
 
 
@@ -63,6 +63,7 @@ public class InitBinderDataBinderFactory extends DefaultDataBinderFactory {
 	@Override
 	public void initBinder(WebDataBinder binder, NativeWebRequest request) throws Exception {
 		for (InvocableHandlerMethod binderMethod : this.binderMethods) {
+			// 先确保方法是支持初始化WebDataBinder的
 			if (isBinderMethodApplicable(binderMethod, binder)) {
 				Object returnValue = binderMethod.invokeForRequest(request, null, binder);
 				if (returnValue != null) {
