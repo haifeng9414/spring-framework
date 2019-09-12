@@ -325,7 +325,30 @@ class AnnotationDrivenBeanDefinitionParser implements BeanDefinitionParser {
 		以上是配置RequestMappingHandlerAdapter
 		 */
 
-		// 创建CompositeUriComponentsContributorFactoryBean bean
+		/*
+		 创建CompositeUriComponentsContributorFactoryBean bean，CompositeUriComponentsContributor用于配置UriComponentsContributor，
+		 而UriComponentsContributor用于构建UriComponentsBuilder，UriComponentsBuilder用于创建UriComponents
+
+		 UriComponents表示的是一个URI，UriComponents的作用是可以在controller的方法中很方便的构建请求地址，如：
+		 @RequestMapping(value = "/user/{test}", method = RequestMethod.GET)
+         public String demo(@PathVariable("test") String test) {
+             UriComponents uriComponents = MvcUriComponentsBuilder
+                     .fromMethodName(UserController.class, "demo", "demo").build();
+
+             URI uri = uriComponents.encode().toUri();
+             System.out.println(uri); //输出http://localhost:8080/user/demo
+             return test;
+         }
+
+		 这里将CompositeUriComponentsContributorFactoryBean作为bean添加到beanFactory的原因是创建UriComponents时需要借助MvcUriComponentsBuilder，
+		 而MvcUriComponentsBuilder中会尝试获取beanFactory中的CompositeUriComponentsContributor，CompositeUriComponentsContributor持有
+		 HandlerMethodArgumentResolver列表，某些HandlerMethodArgumentResolver的实现类在实现HandlerMethodArgumentResolver接口的同时，
+		 会实现UriComponentsContributor接口，而UriComponentsContributor接口能够对UriComponentsBuilder进行配置，如RequestParamMethodArgumentResolver，
+		 将CompositeUriComponentsContributorFactoryBean在创建CompositeUriComponentsContributor时会将上面配置的handlerAdapterDef的argumentResolvers
+		 也就是其HandlerMethodArgumentResolver列表添加到CompositeUriComponentsContributor，这样就实现了执行请求时配置的HandlerMethodArgumentResolver
+		 和使用MvcUriComponentsBuilder获取到的HandlerMethodArgumentResolver是同一个列表，使得使用MvcUriComponentsBuilder模拟请求构建uriComponents得到的URI和
+		 真正发送模拟请求使用的URI是一样的，上面的分析从MvcUriComponentsBuilder.fromMethodName的代码分析得到的
+		 */
 		RootBeanDefinition uriContributorDef =
 				new RootBeanDefinition(CompositeUriComponentsContributorFactoryBean.class);
 		uriContributorDef.setSource(source);

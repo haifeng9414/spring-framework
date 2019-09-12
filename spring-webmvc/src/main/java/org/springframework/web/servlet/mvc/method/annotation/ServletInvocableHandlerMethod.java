@@ -62,11 +62,12 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 	private static final Method CALLABLE_METHOD = ClassUtils.getMethod(Callable.class, "call");
 
 	@Nullable
+	// HandlerMethodReturnValueHandlerComposite包含了多个HandlerMethodReturnValueHandler，能够对方法de执行结果进行处理
 	private HandlerMethodReturnValueHandlerComposite returnValueHandlers;
 
 
 	/**
-	 * Creates an instance from the given handler and method.
+	 * Creates an instance from the gijven handler and method.
 	 */
 	public ServletInvocableHandlerMethod(Object handler, Method method) {
 		super(handler, method);
@@ -104,6 +105,7 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 		setResponseStatus(webRequest);
 
 		if (returnValue == null) {
+			// 如果请求的资源没有被修改过，或者存在responseStatus，则设置requestHandled为true，表示请求已经处理完成了
 			if (isRequestNotModified(webRequest) || getResponseStatus() != null || mavContainer.isRequestHandled()) {
 				mavContainer.setRequestHandled(true);
 				return;
@@ -134,11 +136,13 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 	 * Set the response status according to the {@link ResponseStatus} annotation.
 	 */
 	private void setResponseStatus(ServletWebRequest webRequest) throws IOException {
+		// 获取HttpStatus，HttpStatus从方法上的ResponseStatus注解获取到的
 		HttpStatus status = getResponseStatus();
 		if (status == null) {
 			return;
 		}
 
+		// 如果status不为空，这里为response设置状态码和异常信息
 		HttpServletResponse response = webRequest.getResponse();
 		if (response != null) {
 			String reason = getResponseStatusReason();

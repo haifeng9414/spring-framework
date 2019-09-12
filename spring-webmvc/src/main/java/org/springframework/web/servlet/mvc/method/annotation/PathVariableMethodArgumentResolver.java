@@ -73,6 +73,7 @@ public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethod
 		if (!parameter.hasParameterAnnotation(PathVariable.class)) {
 			return false;
 		}
+		// 判断参数是否是Map类型的，如果是，则需要PathVariable注解配置了参数名称
 		if (Map.class.isAssignableFrom(parameter.nestedIfOptional().getNestedParameterType())) {
 			PathVariable pathVariable = parameter.getParameterAnnotation(PathVariable.class);
 			return (pathVariable != null && StringUtils.hasText(pathVariable.value()));
@@ -84,6 +85,7 @@ public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethod
 	protected NamedValueInfo createNamedValueInfo(MethodParameter parameter) {
 		PathVariable ann = parameter.getParameterAnnotation(PathVariable.class);
 		Assert.state(ann != null, "No PathVariable annotation");
+		// PathVariableNamedValueInfo类继承自NamedValueInfo类，用PathVariable注解中的信息表示NamedValueInfo中信息
 		return new PathVariableNamedValueInfo(ann);
 	}
 
@@ -91,6 +93,8 @@ public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethod
 	@SuppressWarnings("unchecked")
 	@Nullable
 	protected Object resolveName(String name, MethodParameter parameter, NativeWebRequest request) throws Exception {
+		// PathVariable变量的值就保存在request的URI_TEMPLATE_VARIABLES_ATTRIBUTE属性中，这块可以看RequestMappingInfoHandlerMapping
+		// 的handleMatch方法的实现，这里只需要从uriTemplateVars中获取值就可以了
 		Map<String, String> uriTemplateVars = (Map<String, String>) request.getAttribute(
 				HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
 		return (uriTemplateVars != null ? uriTemplateVars.get(name) : null);
@@ -98,25 +102,30 @@ public class PathVariableMethodArgumentResolver extends AbstractNamedValueMethod
 
 	@Override
 	protected void handleMissingValue(String name, MethodParameter parameter) throws ServletRequestBindingException {
+		// 重新定义找不到值的异常
 		throw new MissingPathVariableException(name, parameter);
 	}
 
 	@Override
 	@SuppressWarnings("unchecked")
+	// 参数解析完成后执行，这里将解析到request属性中View.PATH_VARIABLES对应的HashMap中
 	protected void handleResolvedValue(@Nullable Object arg, String name, MethodParameter parameter,
 			@Nullable ModelAndViewContainer mavContainer, NativeWebRequest request) {
 
 		String key = View.PATH_VARIABLES;
 		int scope = RequestAttributes.SCOPE_REQUEST;
+		// 判断request中会否已存在View.PATH_VARIABLES对应的map，不存在则创建
 		Map<String, Object> pathVars = (Map<String, Object>) request.getAttribute(key, scope);
 		if (pathVars == null) {
 			pathVars = new HashMap<>();
 			request.setAttribute(key, pathVars, scope);
 		}
+		// 保存值
 		pathVars.put(name, arg);
 	}
 
 	@Override
+	// 该方法和MvcUriComponentsBuilder与UriComponents有关，对请求的执行没有影响
 	public void contributeMethodArgument(MethodParameter parameter, Object value,
 			UriComponentsBuilder builder, Map<String, Object> uriVariables, ConversionService conversionService) {
 

@@ -63,16 +63,55 @@ public class HandlerMethod {
 
 	private final Class<?> beanType;
 
+	// 传入构造函数的method
 	private final Method method;
 
+	/*
+	 传入构造函数的method可能是个桥接方法，bridgedMethod方法是解析桥接方法之后得到的其对应的原始方法
+	 桥接方法是JDK 1.5引入泛型后，为了使Java的泛型方法生成的字节码和1.5版本前的字节码相兼容，由编译器自动生成的方法。可以通过
+	 Method.isBridge()方法来判断一个方法是否是桥接方法，在字节码中桥接方法会被标记为ACC_BRIDGE和ACC_SYNTHETIC，其中ACC_BRIDGE用于
+	 说明这个方法是由编译生成的桥接方法，ACC_SYNTHETIC说明这个方法是由编译器生成，并且不会在源代码中出现。
+
+	 举个例子：一个子类在继承（或实现）一个父类（或接口）的泛型方法时，在子类中明确指定了泛型类型，那么在编译时编译器会自动生成桥接方法
+	 public interface SuperClass<T> {
+	 	T method(T param);
+	 }
+
+	 public class SubClass implements SuperClass<String> {
+	 	public String method(String param) {
+	 		return param;
+	 	}
+	 }
+
+	子类在编译后会自动加上一个方法：
+	public Object method(Object param) {
+        return this.method(((String) param));
+	}
+
+	这个方法就是桥接方法，为什么需要桥接方法，在JDK 1.5之前声明一个集合类型：
+	List list = new ArrayList();
+
+	那么往list中可以添加任何类型的对象，但是在从集合中获取对象时，无法确定获取到的对象是什么具体的类型，所以在1.5的时候引入了泛型，
+	在声明集合的时候就指定集合中存放的是什么类型的对象：
+	List<String> list = new ArrayList<String>();
+
+	那么在获取时就不必担心类型的问题，因为泛型在编译时编译器会检查往集合中添加的对象的类型是否匹配泛型类型，如果不正确会在编译时就会发现错误，
+	而不必等到运行时才发现错误。因为泛型是在1.5引入的，为了向前兼容，所以会在编译时去掉泛型（泛型擦除），但是我们还是可以通过反射API来获取
+	泛型的信息，在编译时可以通过泛型来保证类型的正确性，而不必等到运行时才发现类型不正确。由于泛型的擦除特性，SuperClass类的方法在运行时参数
+	时Object类型的，如果SubClass不生成桥接方法，那么SubClass类就没有实现SuperClass类的方法，这就与1.5之前的字节码就不兼容了
+	 */
 	private final Method bridgedMethod;
 
+	// 每个MethodParameter对象都代表一个方法参数，默认实现为HandlerMethodParameter，从MethodParameter可以获取参数本身的信息和其在方法
+	// 中的信息，如参数位置
 	private final MethodParameter[] parameters;
 
 	@Nullable
+	// 响应的状态码，从ResponseStatus注解获取
 	private HttpStatus responseStatus;
 
 	@Nullable
+	// 响应的状态信息，从ResponseStatus注解获取
 	private String responseStatusReason;
 
 	@Nullable

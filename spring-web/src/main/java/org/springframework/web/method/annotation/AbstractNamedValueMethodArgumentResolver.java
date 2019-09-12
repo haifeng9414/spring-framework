@@ -67,8 +67,10 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	private final ConfigurableBeanFactory configurableBeanFactory;
 
 	@Nullable
+	// BeanExpressionContext接收beanName，并从beanFactory获取bean，如果获取不到，则尝试从Scope对象中获取
 	private final BeanExpressionContext expressionContext;
 
+	// NamedValueInfo类保存参数的名称、require属性和默认值
 	private final Map<MethodParameter, NamedValueInfo> namedValueInfoCache = new ConcurrentHashMap<>(256);
 
 
@@ -84,6 +86,8 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	 */
 	public AbstractNamedValueMethodArgumentResolver(@Nullable ConfigurableBeanFactory beanFactory) {
 		this.configurableBeanFactory = beanFactory;
+		// 使用RequestScope作为expressionContext的scope，这样当从beanFactory获取不到bean时，会尝试从RequestScope获取，
+		// 而RequestScope只支持参数为request和session的对象获取操作，分别返回当前请求request和session
 		this.expressionContext =
 				(beanFactory != null ? new BeanExpressionContext(beanFactory, new RequestScope()) : null);
 	}
@@ -94,25 +98,32 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 	public final Object resolveArgument(MethodParameter parameter, @Nullable ModelAndViewContainer mavContainer,
 			NativeWebRequest webRequest, @Nullable WebDataBinderFactory binderFactory) throws Exception {
 
+		// 为当前参数创建NamedValueInfo，具体创建过程由子类实现
 		NamedValueInfo namedValueInfo = getNamedValueInfo(parameter);
 		MethodParameter nestedParameter = parameter.nestedIfOptional();
 
+		// 使用beanFactory中的BeanExpressionResolver对参数名称进行解析，以支持参数名称中的表达式
 		Object resolvedName = resolveStringValue(namedValueInfo.name);
 		if (resolvedName == null) {
 			throw new IllegalArgumentException(
 					"Specified name must not resolve to null: [" + namedValueInfo.name + "]");
 		}
 
+		// 由子类实现，解析参数值
 		Object arg = resolveName(resolvedName.toString(), nestedParameter, webRequest);
 		if (arg == null) {
+			// 如果解析结果为空，则尝试使用默认值
 			if (namedValueInfo.defaultValue != null) {
 				arg = resolveStringValue(namedValueInfo.defaultValue);
 			}
+			// 如果参数没有默认值，并且是require的，并且非optional，则默认抛出ServletRequestBindingException
 			else if (namedValueInfo.required && !nestedParameter.isOptional()) {
 				handleMissingValue(namedValueInfo.name, nestedParameter, webRequest);
 			}
+			// 如果参数类型是Boolean类型，则返回false，否则如果是基础类型，则抛出异常，因为基础类型不能被Optional封装
 			arg = handleNullValue(namedValueInfo.name, arg, nestedParameter.getNestedParameterType());
 		}
+		// 空字符串的解析结果也尝试用默认值替代
 		else if ("".equals(arg) && namedValueInfo.defaultValue != null) {
 			arg = resolveStringValue(namedValueInfo.defaultValue);
 		}
@@ -120,6 +131,9 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 		if (binderFactory != null) {
 			WebDataBinder binder = binderFactory.createBinder(webRequest, null, namedValueInfo.name);
 			try {
+				// 尝试对参数进行转换，这里用WebDataBinderFactory创建WebDataBinder来进行类型转换，是因为WebDataBinderFactory的实现类
+				// 可以对binder进行定制，这可能会影响转换结果，如InitBinderDataBinderFactory对initBinder注解提供了支持，可以通过在方法上
+				// 添加initBinder注解并声明一个WebDataBinder类型的参数接收WebDataBinder并对其进行定制
 				arg = binder.convertIfNecessary(arg, parameter.getParameterType(), parameter);
 			}
 			catch (ConversionNotSupportedException ex) {
@@ -133,6 +147,7 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 			}
 		}
 
+		// 空方法，供子类实现
 		handleResolvedValue(arg, namedValueInfo.name, parameter, mavContainer, webRequest);
 
 		return arg;
@@ -145,6 +160,8 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 		NamedValueInfo namedValueInfo = this.namedValueInfoCache.get(parameter);
 		if (namedValueInfo == null) {
 			namedValueInfo = createNamedValueInfo(parameter);
+			// updateNamedValueInfo方法检查创建的namedValueInfo是否有名字，如果没有则使用参数名，同时还检查了namedValueInfo是否存在
+			// 默认值
 			namedValueInfo = updateNamedValueInfo(parameter, namedValueInfo);
 			this.namedValueInfoCache.put(parameter, namedValueInfo);
 		}
@@ -172,6 +189,7 @@ public abstract class AbstractNamedValueMethodArgumentResolver implements Handle
 						"] not available, and parameter name information not found in class file either.");
 			}
 		}
+		// ValueConstants.DEFAULT_NONE表示没有默认值
 		String defaultValue = (ValueConstants.DEFAULT_NONE.equals(info.defaultValue) ? null : info.defaultValue);
 		return new NamedValueInfo(name, info.required, defaultValue);
 	}

@@ -51,8 +51,10 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	@Nullable
 	private WebDataBinderFactory dataBinderFactory;
 
+	// HandlerMethodArgumentResolverComposite对象包含了多个HandlerMethodArgumentResolver对象，能够对方法参数进行解析
 	private HandlerMethodArgumentResolverComposite argumentResolvers = new HandlerMethodArgumentResolverComposite();
 
+	// ParameterNameDiscoverer用于获取方法的参数名称
 	private ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
 
 
@@ -153,11 +155,16 @@ public class InvocableHandlerMethod extends HandlerMethod {
 		Object[] args = new Object[parameters.length];
 		for (int i = 0; i < parameters.length; i++) {
 			MethodParameter parameter = parameters[i];
+			// 为MethodParameter设置parameterNameDiscoverer
 			parameter.initParameterNameDiscovery(this.parameterNameDiscoverer);
+			// 先判断providedArgs中是否有当前参数类型的，如果有则直接使用，providedArgs中的参数和当前参数的匹配是通过参数
+			// 类型实现的，但是传入的providedArgs都是很特殊的参数，而且都是SpringMVC传入的，用户无法控制providedArgs，如WebDataBinder，
+			// 所以这么实现是可以的
 			args[i] = resolveProvidedArgument(parameter, providedArgs);
 			if (args[i] != null) {
 				continue;
 			}
+			// 如果providedArgs中没有找到可用的参数，则使用argumentResolvers解析参数
 			if (this.argumentResolvers.supportsParameter(parameter)) {
 				try {
 					args[i] = this.argumentResolvers.resolveArgument(
