@@ -974,6 +974,123 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 }
 ```
 
+[RequestResponseBodyMethodProcessor]对[RequestBody]注解和[ResponseBody]注解提供支持，其父类[AbstractMessageConverterMethodArgumentResolver]提供了从request的inputStream中获取参数的方法，[AbstractMessageConverterMethodProcessor]提供了将返回值写到response中的方法，[RequestResponseBodyMethodProcessor]利用这两个方法实现了[RequestBody]注解和[ResponseBody]注解的逻辑，代码：
+```java
+public class RequestResponseBodyMethodProcessor extends AbstractMessageConverterMethodProcessor {
+	public RequestResponseBodyMethodProcessor(List<HttpMessageConverter<?>> converters) {
+		super(converters);
+	}
+	
+	public RequestResponseBodyMethodProcessor(List<HttpMessageConverter<?>> converters,
+			@Nullable ContentNegotiationManager manager) {
+
+		super(converters, manager);
+	}
+	
+	public RequestResponseBodyMethodProcessor(List<HttpMessageConverter<?>> converters,
+			@Nullable List<Object> requestResponseBodyAdvice) {
+
+		super(converters, null, requestResponseBodyAdvice);
+	}
+	
+	public RequestResponseBodyMethodProcessor(List<HttpMessageConverter<?>> converters,
+			@Nullable ContentNegotiationManager manager, @Nullable List<Object> requestResponseBodyAdvice) {
+
+		super(converters, manager, requestResponseBodyAdvice);
+	}
+
+
+	@Override
+	public boolean supportsParameter(MethodParameter parameter) {
+		// 方法参数带RequestBody注解则表示支持
+		return parameter.hasParameterAnnotation(RequestBody.class);
+	}
+
+	@Override
+	public boolean supportsReturnType(MethodParameter returnType) {
+		// 方法返回值带ResponseBody注解则表示支持
+		return (AnnotatedElementUtils.hasAnnotation(returnType.getContainingClass(), ResponseBody.class) ||
+				returnType.hasMethodAnnotation(ResponseBody.class));
+	}
+	
+	@Override
+	public Object resolveArgument(MethodParameter parameter, @Nullable ModelAndViewContainer mavContainer,
+			NativeWebRequest webRequest, @Nullable WebDataBinderFactory binderFactory) throws Exception {
+
+		// 如果参数是Opitonal的，返回其范型对应的MethodParameter对象
+		parameter = parameter.nestedIfOptional();
+		// 从请求的inputStream获取数据，将其转换为参数对应的类型
+		Object arg = readWithMessageConverters(webRequest, parameter, parameter.getNestedGenericParameterType());
+		/*
+		 获取变量对应的名称
+		 Mono<com.myapp.Product> becomes "productMono"
+		 Flux<com.myapp.MyProduct> becomes "myProductFlux"
+		 Observable<com.myapp.MyProduct> becomes "myProductObservable"
+		 集合或数组类型的则统一为xxxList，如Flux<com.myapp.MyProduct> -> myProductFList
+		 */
+		String name = Conventions.getVariableNameForParameter(parameter);
+
+		if (binderFactory != null) {
+			WebDataBinder binder = binderFactory.createBinder(webRequest, arg, name);
+			if (arg != null) {
+				// 如果存在Validated注解，则进行校验
+				validateIfApplicable(binder, parameter);
+				// 如果校验存在错误，并且参数后面没有Errors类型的参数接收错误信息，则报错
+				if (binder.getBindingResult().hasErrors() && isBindExceptionRequired(binder, parameter)) {
+					throw new MethodArgumentNotValidException(parameter, binder.getBindingResult());
+				}
+			}
+			if (mavContainer != null) {
+				// 保存校验结果到model
+				mavContainer.addAttribute(BindingResult.MODEL_KEY_PREFIX + name, binder.getBindingResult());
+			}
+		}
+
+		// 如果参数是Optional的，则返回Optional对象
+		return adaptArgumentIfNecessary(arg, parameter);
+	}
+
+	@Override
+	protected <T> Object readWithMessageConverters(NativeWebRequest webRequest, MethodParameter parameter,
+			Type paramType) throws IOException, HttpMediaTypeNotSupportedException, HttpMessageNotReadableException {
+
+		HttpServletRequest servletRequest = webRequest.getNativeRequest(HttpServletRequest.class);
+		Assert.state(servletRequest != null, "No HttpServletRequest");
+		ServletServerHttpRequest inputMessage = new ServletServerHttpRequest(servletRequest);
+
+		// 用HttpMessageConverter解析请求的inputStream，返回参数对应的类型
+		Object arg = readWithMessageConverters(inputMessage, parameter, paramType);
+		// 如果不存在请求参数并且参数的RequestBody注解的required为true
+		if (arg == null && checkRequired(parameter)) {
+			throw new HttpMessageNotReadableException("Required request body is missing: " +
+					parameter.getExecutable().toGenericString());
+		}
+		return arg;
+	}
+
+	protected boolean checkRequired(MethodParameter parameter) {
+		RequestBody requestBody = parameter.getParameterAnnotation(RequestBody.class);
+		return (requestBody != null && requestBody.required() && !parameter.isOptional());
+	}
+
+	@Override
+	public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
+			ModelAndViewContainer mavContainer, NativeWebRequest webRequest)
+			throws IOException, HttpMediaTypeNotAcceptableException, HttpMessageNotWritableException {
+
+		// requestHandled为true表示请求已经处理完成了，不需要再创建ModelAndView
+		mavContainer.setRequestHandled(true);
+		ServletServerHttpRequest inputMessage = createInputMessage(webRequest);
+		ServletServerHttpResponse outputMessage = createOutputMessage(webRequest);
+
+		// Try even with null return value. ResponseBodyAdvice could get involved.
+		// 将请求的执行结果写到response
+		writeWithMessageConverters(returnValue, returnType, inputMessage, outputMessage);
+	}
+
+}
+```
+
 [HandlerMethodArgumentResolverd]: aaa
 [PathVariable]: aaa
 [HandlerMethodArgumentResolver]: aaa

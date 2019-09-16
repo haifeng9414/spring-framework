@@ -128,23 +128,36 @@ public class RequestResponseBodyMethodProcessor extends AbstractMessageConverter
 	public Object resolveArgument(MethodParameter parameter, @Nullable ModelAndViewContainer mavContainer,
 			NativeWebRequest webRequest, @Nullable WebDataBinderFactory binderFactory) throws Exception {
 
+		// 如果参数是Opitonal的，返回其范型对应的MethodParameter对象
 		parameter = parameter.nestedIfOptional();
+		// 从请求的inputStream获取数据，将其转换为参数对应的类型
 		Object arg = readWithMessageConverters(webRequest, parameter, parameter.getNestedGenericParameterType());
+		/*
+		 获取变量对应的名称
+		 Mono<com.myapp.Product> becomes "productMono"
+		 Flux<com.myapp.MyProduct> becomes "myProductFlux"
+		 Observable<com.myapp.MyProduct> becomes "myProductObservable"
+		 集合或数组类型的则统一为xxxList，如Flux<com.myapp.MyProduct> -> myProductFList
+		 */
 		String name = Conventions.getVariableNameForParameter(parameter);
 
 		if (binderFactory != null) {
 			WebDataBinder binder = binderFactory.createBinder(webRequest, arg, name);
 			if (arg != null) {
+				// 如果存在Validated注解，则进行校验
 				validateIfApplicable(binder, parameter);
+				// 如果校验存在错误，并且参数后面没有Errors类型的参数接收错误信息，则报错
 				if (binder.getBindingResult().hasErrors() && isBindExceptionRequired(binder, parameter)) {
 					throw new MethodArgumentNotValidException(parameter, binder.getBindingResult());
 				}
 			}
 			if (mavContainer != null) {
+				// 保存校验结果到model
 				mavContainer.addAttribute(BindingResult.MODEL_KEY_PREFIX + name, binder.getBindingResult());
 			}
 		}
 
+		// 如果参数是Optional的，则返回Optional对象
 		return adaptArgumentIfNecessary(arg, parameter);
 	}
 
@@ -156,7 +169,9 @@ public class RequestResponseBodyMethodProcessor extends AbstractMessageConverter
 		Assert.state(servletRequest != null, "No HttpServletRequest");
 		ServletServerHttpRequest inputMessage = new ServletServerHttpRequest(servletRequest);
 
+		// 用HttpMessageConverter解析请求的inputStream，返回参数对应的类型
 		Object arg = readWithMessageConverters(inputMessage, parameter, paramType);
+		// 如果不存在请求参数并且参数的RequestBody注解的required为true
 		if (arg == null && checkRequired(parameter)) {
 			throw new HttpMessageNotReadableException("Required request body is missing: " +
 					parameter.getExecutable().toGenericString());
@@ -174,11 +189,13 @@ public class RequestResponseBodyMethodProcessor extends AbstractMessageConverter
 			ModelAndViewContainer mavContainer, NativeWebRequest webRequest)
 			throws IOException, HttpMediaTypeNotAcceptableException, HttpMessageNotWritableException {
 
+		// requestHandled为true表示请求已经处理完成了，不需要再创建ModelAndView
 		mavContainer.setRequestHandled(true);
 		ServletServerHttpRequest inputMessage = createInputMessage(webRequest);
 		ServletServerHttpResponse outputMessage = createOutputMessage(webRequest);
 
 		// Try even with null return value. ResponseBodyAdvice could get involved.
+		// 将请求的执行结果写到response
 		writeWithMessageConverters(returnValue, returnType, inputMessage, outputMessage);
 	}
 
