@@ -177,6 +177,8 @@ public abstract class HttpRange {
 		}
 		List<ResourceRegion> regions = new ArrayList<>(ranges.size());
 		for (HttpRange range : ranges) {
+			// 为每个HttpRange创建当前Resource的ResourceRegion对象，该对象包含了当前的Resource对象、其对应的在Resource对象的起点和
+			// 对应的长度，即ResourceRegion对象表示Resource对象的一部分
 			regions.add(range.toResourceRegion(resource));
 		}
 		return regions;

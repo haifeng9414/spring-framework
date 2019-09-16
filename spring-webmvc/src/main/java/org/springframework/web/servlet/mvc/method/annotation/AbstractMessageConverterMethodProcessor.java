@@ -80,6 +80,7 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 
 	private static final MediaType MEDIA_TYPE_APPLICATION = new MediaType("application");
 
+	// ParameterizedTypeReference对象用于辅助获取范型信息的
 	private static final Type RESOURCE_REGION_LIST_TYPE =
 			new ParameterizedTypeReference<List<ResourceRegion>>() { }.getType();
 
@@ -127,8 +128,10 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 		super(converters, requestResponseBodyAdvice);
 
 		this.contentNegotiationManager = (manager != null ? manager : new ContentNegotiationManager());
+		// pathStrategy默认实现为PathExtensionContentNegotiationStrategy
 		this.pathStrategy = initPathStrategy(this.contentNegotiationManager);
 		this.safeExtensions.addAll(this.contentNegotiationManager.getAllFileExtensions());
+		// 添加SpringMVC本身支持的资源类型
 		this.safeExtensions.addAll(WHITELISTED_EXTENSIONS);
 	}
 
@@ -145,6 +148,7 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 	 * @return the output message
 	 */
 	protected ServletServerHttpResponse createOutputMessage(NativeWebRequest webRequest) {
+		// 从NativeWebRequest获取response并为其创建ServletServerHttpResponse对象
 		HttpServletResponse response = webRequest.getNativeResponse(HttpServletResponse.class);
 		Assert.state(response != null, "No HttpServletResponse");
 		return new ServletServerHttpResponse(response);
@@ -181,6 +185,7 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 		Class<?> valueType;
 		Type declaredType;
 
+		// 如果请求执行结果是CharSequence类型的，直接按照字符串处理
 		if (value instanceof CharSequence) {
 			outputValue = value.toString();
 			valueType = String.class;
@@ -188,23 +193,40 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 		}
 		else {
 			outputValue = value;
+			// 获取返回值类型，如果请求执行结果不为空，则返回其getClass，否则返回执行请求的方法的返回值的Class对象
 			valueType = getReturnValueType(outputValue, returnType);
+			// 获取执行请求的方法的返回值的Type对象
 			declaredType = getGenericType(returnType);
 		}
 
+		// 如果返回值是Resource类型的
 		if (isResourceType(value, returnType)) {
+			// 响应用Accept-Ranges表示服务器支持范围请求（partial requests），这里的bytes表示范围请求的单位
 			outputMessage.getHeaders().set(HttpHeaders.ACCEPT_RANGES, "bytes");
 			if (value != null && inputMessage.getHeaders().getFirst(HttpHeaders.RANGE) != null) {
+				// 将返回值强转成Resource对象，用于后续的范围处理
 				Resource resource = (Resource) value;
 				try {
+					// 将请求的Range请求头转换为HttpRange对象便于使用
 					List<HttpRange> httpRanges = inputMessage.getHeaders().getRange();
+					// 设置响应的状态码为206，即Partial Content，表示当前响应只是数据的一部分，对于后续的部分数据，请求会在Range首部指定范围
+					// 如果响应只有一个数据区间，则整个响应的Content-Type首部的值为所请求的文件的类型（如image/gif），同时包含Content-Range首部，显示了当前
+					// 响应包含了整个数据区间
+					// 如果包含多个数据区间，那么第一个响应的Content-Type首部的值为multipart/byteranges，之后的响应各包含一个片段，对应一个数据区间，
+					// 并提供Content-Range（表示当前响应对应的区间）和Content-Type（表示资源的类型，如image/gif）描述信息。
 					outputMessage.getServletResponse().setStatus(HttpStatus.PARTIAL_CONTENT.value());
+					// 重新设置返回值，根据Range获取Resource对象的ResourceRegion对象，ResourceRegion对象表示Resource对象的一部分，这里的返回值
+					// 为ResourceRegion对象的List
 					outputValue = HttpRange.toResourceRegions(httpRanges, resource);
+					// 重新设置返回值类型
 					valueType = outputValue.getClass();
+					// RESOURCE_REGION_LIST_TYPE包含了ParameterizedTypeReference<List<ResourceRegion>>(){}对象对应的范型类型，和HttpRange.toResourceRegions的
+					// 返回值相对应
 					declaredType = RESOURCE_REGION_LIST_TYPE;
 				}
 				catch (IllegalArgumentException ex) {
 					outputMessage.getHeaders().set(HttpHeaders.CONTENT_RANGE, "bytes */" + resource.contentLength());
+					// 设置响应的状态码为416，表示当前的范围请求不合法
 					outputMessage.getServletResponse().setStatus(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE.value());
 				}
 			}
@@ -213,13 +235,19 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 
 		List<MediaType> mediaTypesToUse;
 
+		// 获取当前响应的contentType
 		MediaType contentType = outputMessage.getHeaders().getContentType();
+		// 如果contentType不为空并且是具体的类型，即不是*/*或不是xxx/*+
 		if (contentType != null && contentType.isConcrete()) {
 			mediaTypesToUse = Collections.singletonList(contentType);
 		}
 		else {
 			HttpServletRequest request = inputMessage.getServletRequest();
+			// 获取请求的MediaType，请求的MediaType可以以多用形式指定，如Accept请求头，每种形式对应一个ContentNegotiationStrategy接口的实现，
+			// 这里根据contentNegotiationManager中保存的ContentNegotiationStrategy列表获取当前请求的MediaType，没获取到则返回*/*
 			List<MediaType> requestedMediaTypes = getAcceptableMediaTypes(request);
+			// 返回SpringMVC对当前请求支持的MediaType列表，默认返回请求中的PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE属性值，如果为空则遍历
+			// messageConverters，返回所有的HttpMessageConverter的getSupportedMediaTypes结果
 			List<MediaType> producibleMediaTypes = getProducibleMediaTypes(request, valueType, declaredType);
 
 			if (outputValue != null && producibleMediaTypes.isEmpty()) {
@@ -227,6 +255,7 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 						"No converter found for return value of type: " + valueType);
 			}
 			mediaTypesToUse = new ArrayList<>();
+			// 遍历请求的MediaType和SpringMVC对当前请求支持的MediaType，获取交集
 			for (MediaType requestedType : requestedMediaTypes) {
 				for (MediaType producibleType : producibleMediaTypes) {
 					if (requestedType.isCompatibleWith(producibleType)) {
@@ -240,33 +269,42 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 				}
 				return;
 			}
+			// 对MediaType进行排序，排序原理可以看org.springframework.http.MediaType.QUALITY_VALUE_COMPARATOR的实现
 			MediaType.sortBySpecificityAndQuality(mediaTypesToUse);
 		}
 
 		MediaType selectedMediaType = null;
 		for (MediaType mediaType : mediaTypesToUse) {
+			// 如果MediaType是具体的，即不是*/*或xxx/*+，则选择该MediaType
 			if (mediaType.isConcrete()) {
 				selectedMediaType = mediaType;
 				break;
 			}
+			// MediaType为application表示请求的是二进制数据，一般情况下情况下，对于text文件类型若没有特定的subtype，就使用text/plain，
+			// 类似的，二进制文件没有特定或已知的subtype，即使用application/octet-stream
 			else if (mediaType.equals(MediaType.ALL) || mediaType.equals(MEDIA_TYPE_APPLICATION)) {
+				// application/octet-stream，表示所有其他情况的默认值。一种未知的文件类型应当使用此类型。浏览器在处理这些文件时会特别小心，试图防止、避免用户的危险行为
 				selectedMediaType = MediaType.APPLICATION_OCTET_STREAM;
 				break;
 			}
 		}
 
 		if (selectedMediaType != null) {
+			// 移除MediaType中的q属性
 			selectedMediaType = selectedMediaType.removeQualityValue();
+			// 遍历HttpMessageConverter转换结果
 			for (HttpMessageConverter<?> converter : this.messageConverters) {
 				GenericHttpMessageConverter genericConverter =
 						(converter instanceof GenericHttpMessageConverter ? (GenericHttpMessageConverter<?>) converter : null);
 				if (genericConverter != null ?
 						((GenericHttpMessageConverter) converter).canWrite(declaredType, valueType, selectedMediaType) :
 						converter.canWrite(valueType, selectedMediaType)) {
+					// 转换前的回调
 					outputValue = getAdvice().beforeBodyWrite(outputValue, returnType, selectedMediaType,
 							(Class<? extends HttpMessageConverter<?>>) converter.getClass(),
 							inputMessage, outputMessage);
 					if (outputValue != null) {
+						// Content-Disposition响应头的处理
 						addContentDispositionHeader(inputMessage, outputMessage);
 						if (genericConverter != null) {
 							genericConverter.write(outputValue, declaredType, selectedMediaType, outputMessage);
@@ -389,12 +427,15 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 	 */
 	private void addContentDispositionHeader(ServletServerHttpRequest request, ServletServerHttpResponse response) {
 		HttpHeaders headers = response.getHeaders();
+		// HTTP应答中，Content-Disposition消息头指示回复的内容该以何种形式展示，是以内联的形式（即网页或者页面的一部分），还是以附件的形式下载并保存到本地
+		// 如果响响应头已经包含了该属性，则直接返回
 		if (headers.containsKey(HttpHeaders.CONTENT_DISPOSITION)) {
 			return;
 		}
 
 		try {
 			int status = response.getServletResponse().getStatus();
+			// 非成功响应则直接返回
 			if (status < 200 || status > 299) {
 				return;
 			}
@@ -407,21 +448,28 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 		String requestUri = rawUrlPathHelper.getOriginatingRequestUri(servletRequest);
 
 		int index = requestUri.lastIndexOf('/') + 1;
+		// 获取请求路径中最后一个/后面的字符串
 		String filename = requestUri.substring(index);
 		String pathParams = "";
 
+		// 如果包含请求参数，则将其与filename分开
 		index = filename.indexOf(';');
 		if (index != -1) {
 			pathParams = filename.substring(index);
 			filename = filename.substring(0, index);
 		}
 
+		// decode filename
 		filename = decodingUrlPathHelper.decodeRequestString(servletRequest, filename);
+		// 返回filename的扩展名，"myfile.txt" -> "txt"
 		String ext = StringUtils.getFilenameExtension(filename);
 
+		// decode pathParams
 		pathParams = decodingUrlPathHelper.decodeRequestString(servletRequest, pathParams);
+		// 返回pathParams的扩展名，"myfile.txt" -> "txt"
 		String extInPathParams = StringUtils.getFilenameExtension(pathParams);
 
+		// 判断获取到的文件扩展名是否是支持的
 		if (!safeExtension(servletRequest, ext) || !safeExtension(servletRequest, extInPathParams)) {
 			headers.add(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=f.txt");
 		}
@@ -436,6 +484,8 @@ public abstract class AbstractMessageConverterMethodProcessor extends AbstractMe
 		if (this.safeExtensions.contains(extension)) {
 			return true;
 		}
+
+		// 如果请求的属性中已经包含了扩展名，则返回
 		String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
 		if (pattern != null && pattern.endsWith("." + extension)) {
 			return true;

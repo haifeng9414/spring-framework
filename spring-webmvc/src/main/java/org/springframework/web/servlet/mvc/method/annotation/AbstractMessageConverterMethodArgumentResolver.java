@@ -110,6 +110,7 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 	 */
 	private static List<MediaType> getAllSupportedMediaTypes(List<HttpMessageConverter<?>> messageConverters) {
 		Set<MediaType> allSupportedMediaTypes = new LinkedHashSet<>();
+		// 遍历HttpMessageConverter获取支持的MediaType
 		for (HttpMessageConverter<?> messageConverter : messageConverters) {
 			allSupportedMediaTypes.addAll(messageConverter.getSupportedMediaTypes());
 		}
@@ -143,6 +144,7 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 	protected <T> Object readWithMessageConverters(NativeWebRequest webRequest, MethodParameter parameter,
 			Type paramType) throws IOException, HttpMediaTypeNotSupportedException, HttpMessageNotReadableException {
 
+		// createInputMessage方法返回ServletServerHttpRequest对象，ServletServerHttpRequest对象持有HttpServletRequest
 		HttpInputMessage inputMessage = createInputMessage(webRequest);
 		return readWithMessageConverters(inputMessage, parameter, paramType);
 	}
@@ -167,6 +169,7 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 		MediaType contentType;
 		boolean noContentType = false;
 		try {
+			// 先尝试获取请求头的ContentType，作为MediaType
 			contentType = inputMessage.getHeaders().getContentType();
 		}
 		catch (InvalidMediaTypeException ex) {
@@ -174,9 +177,11 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 		}
 		if (contentType == null) {
 			noContentType = true;
+			// 没获取到则使用默认值application/octet-stream
 			contentType = MediaType.APPLICATION_OCTET_STREAM;
 		}
 
+		// 获取MethodParameter对象对应的方法所在类
 		Class<?> contextClass = parameter.getContainingClass();
 		Class<T> targetClass = (targetType instanceof Class ? (Class<T>) targetType : null);
 		if (targetClass == null) {
@@ -184,30 +189,37 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 			targetClass = (Class<T>) resolvableType.resolve();
 		}
 
+		// 获取请求对应的method，如POST
 		HttpMethod httpMethod = (inputMessage instanceof HttpRequest ? ((HttpRequest) inputMessage).getMethod() : null);
 		Object body = NO_VALUE;
 
 		EmptyBodyCheckingHttpInputMessage message;
 		try {
+			// EmptyBodyCheckingHttpInputMessage在body为空的时候返回一个空的inputStream
 			message = new EmptyBodyCheckingHttpInputMessage(inputMessage);
 
 			for (HttpMessageConverter<?> converter : this.messageConverters) {
 				Class<HttpMessageConverter<?>> converterType = (Class<HttpMessageConverter<?>>) converter.getClass();
 				GenericHttpMessageConverter<?> genericConverter =
 						(converter instanceof GenericHttpMessageConverter ? (GenericHttpMessageConverter<?>) converter : null);
+				// 判断converter是否支持当前的类型转换
 				if (genericConverter != null ? genericConverter.canRead(targetType, contextClass, contentType) :
 						(targetClass != null && converter.canRead(targetClass, contentType))) {
 					if (logger.isDebugEnabled()) {
 						logger.debug("Read [" + targetType + "] as \"" + contentType + "\" with [" + converter + "]");
 					}
 					if (message.hasBody()) {
+						// 转换前的回调函数
 						HttpInputMessage msgToUse =
 								getAdvice().beforeBodyRead(message, parameter, targetType, converterType);
+						// 将请求的body也就是inputStream转换为对象
 						body = (genericConverter != null ? genericConverter.read(targetType, contextClass, msgToUse) :
 								((HttpMessageConverter<T>) converter).read(targetClass, msgToUse));
+						// 转换后的回调函数
 						body = getAdvice().afterBodyRead(body, msgToUse, parameter, targetType, converterType);
 					}
 					else {
+						// 空body用advice处理
 						body = getAdvice().handleEmptyBody(null, message, parameter, targetType, converterType);
 					}
 					break;
@@ -250,6 +262,7 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 	 * @since 4.1.5
 	 * @see #isBindExceptionRequired
 	 */
+	// 用于参数校验，如果参数有Validated注解，则调用binder.validate进行校验
 	protected void validateIfApplicable(WebDataBinder binder, MethodParameter parameter) {
 		Annotation[] annotations = parameter.getParameterAnnotations();
 		for (Annotation ann : annotations) {
@@ -270,9 +283,21 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 	 * @return {@code true} if the next method argument is not of type {@link Errors}
 	 * @since 4.1.5
 	 */
+	/*
+	 当使用参数校验功能时，被校验的参数后面可以跟Errors或其实现类接收校验结果（也只能跟在被校验参数后面），如：
+	 public String addUser(HttpServletRequest request,
+                          @Validated @ModelAttribute("user") User user,
+                          BindingResult userResult, // BindingResult实现了接口
+                          final RedirectAttributes redirectAttributes, @PathVariable String test) {
+    	//...
+	}
+
+	这里检查指定的被校验参数是否存在接收校验结果的参数
+	 */
 	protected boolean isBindExceptionRequired(WebDataBinder binder, MethodParameter parameter) {
 		int i = parameter.getParameterIndex();
 		Class<?>[] paramTypes = parameter.getExecutable().getParameterTypes();
+		// 检查当前参数后面一个参数是不是Errors类型的
 		boolean hasBindingResult = (paramTypes.length > (i + 1) && Errors.class.isAssignableFrom(paramTypes[i + 1]));
 		return !hasBindingResult;
 	}
@@ -285,6 +310,7 @@ public abstract class AbstractMessageConverterMethodArgumentResolver implements 
 	 * @since 4.3.5
 	 */
 	@Nullable
+	// 如果参数是Optional类型的，则将参数值转为响应的Optional结果，否则直接返回参数值
 	protected Object adaptArgumentIfNecessary(@Nullable Object arg, MethodParameter parameter) {
 		if (parameter.getParameterType() == Optional.class) {
 			if (arg == null || (arg instanceof Collection && ((Collection<?>) arg).isEmpty()) ||
