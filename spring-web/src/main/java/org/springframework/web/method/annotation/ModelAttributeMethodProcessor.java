@@ -124,6 +124,7 @@ public class ModelAttributeMethodProcessor implements HandlerMethodArgumentResol
 		BindingResult bindingResult = null;
 
 		if (mavContainer.containsAttribute(name)) {
+			// 先尝试从model中获取参数值
 			attribute = mavContainer.getModel().get(name);
 		}
 		else {
@@ -152,7 +153,9 @@ public class ModelAttributeMethodProcessor implements HandlerMethodArgumentResol
 				if (!mavContainer.isBindingDisabled(name)) {
 					bindRequestParameters(binder, webRequest);
 				}
+				// 如果参数存在Validated注解，则校验
 				validateIfApplicable(binder, parameter);
+				// 如果校验失败并且参数后没有Errors的参数接收失败结果，则抛出异常
 				if (binder.getBindingResult().hasErrors() && isBindExceptionRequired(binder, parameter)) {
 					throw new BindException(binder.getBindingResult());
 				}
@@ -165,6 +168,7 @@ public class ModelAttributeMethodProcessor implements HandlerMethodArgumentResol
 		}
 
 		// Add resolved attribute and BindingResult at the end of the model
+		// bindingResult的model中包含了参数值和bindingResult本身
 		Map<String, Object> bindingResultModel = bindingResult.getModel();
 		mavContainer.removeAttributes(bindingResultModel);
 		mavContainer.addAllAttributes(bindingResultModel);

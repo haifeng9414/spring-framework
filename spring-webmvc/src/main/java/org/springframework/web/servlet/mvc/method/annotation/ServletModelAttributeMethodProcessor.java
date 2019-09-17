@@ -74,6 +74,7 @@ public class ServletModelAttributeMethodProcessor extends ModelAttributeMethodPr
 
 		String value = getRequestValueForAttribute(attributeName, request);
 		if (value != null) {
+			// 如果获取到了参数值则将结果转换后返回
 			Object attribute = createAttributeFromRequestValue(
 					value, attributeName, parameter, binderFactory, request);
 			if (attribute != null) {
@@ -81,6 +82,7 @@ public class ServletModelAttributeMethodProcessor extends ModelAttributeMethodPr
 			}
 		}
 
+		// 否则使用ModelAttributeMethodProcessor中创建参数值的逻辑，即直接使用反射初始化参数值
 		return super.createAttribute(attributeName, parameter, binderFactory, request);
 	}
 
@@ -95,11 +97,13 @@ public class ServletModelAttributeMethodProcessor extends ModelAttributeMethodPr
 	 */
 	@Nullable
 	protected String getRequestValueForAttribute(String attributeName, NativeWebRequest request) {
+		// 先尝试从uriTemplateVariables中获取参数值，uriTemplateVariables保存的是请求路径中的参数，如pattern "/hotels/{hotel}"和path "/hotels/1"，则uriTemplateVariables为"hotel"->"1".
 		Map<String, String> variables = getUriTemplateVariables(request);
 		String variableValue = variables.get(attributeName);
 		if (StringUtils.hasText(variableValue)) {
 			return variableValue;
 		}
+		// 否则从请求的参数中获取参数值
 		String parameterValue = request.getParameter(attributeName);
 		if (StringUtils.hasText(parameterValue)) {
 			return parameterValue;
