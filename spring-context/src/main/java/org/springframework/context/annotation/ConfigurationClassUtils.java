@@ -80,6 +80,7 @@ abstract class ConfigurationClassUtils {
 	 */
 	public static boolean checkConfigurationClassCandidate(BeanDefinition beanDef, MetadataReaderFactory metadataReaderFactory) {
 		String className = beanDef.getBeanClassName();
+		// 没有类名或者设置了工厂方法则不满足成为configuration class的条件
 		if (className == null || beanDef.getFactoryMethodName() != null) {
 			return false;
 		}
@@ -109,9 +110,11 @@ abstract class ConfigurationClassUtils {
 			}
 		}
 
+		// 判断bean是否存在Configuration注解，存在则标记其为full configuration bean
 		if (isFullConfigurationCandidate(metadata)) {
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_FULL);
 		}
+		// 如果bean存在Component、ComponentScan、Import、ImportResource中的一个注解，或存在标记有Bean注解的方法，则标记该bean为lite configuration bean
 		else if (isLiteConfigurationCandidate(metadata)) {
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_LITE);
 		}
@@ -121,6 +124,7 @@ abstract class ConfigurationClassUtils {
 
 		// It's a full or lite configuration candidate... Let's determine the order value, if any.
 		Integer order = getOrder(metadata);
+		// 保存Order注解的值，便于之后排序
 		if (order != null) {
 			beanDef.setAttribute(ORDER_ATTRIBUTE, order);
 		}

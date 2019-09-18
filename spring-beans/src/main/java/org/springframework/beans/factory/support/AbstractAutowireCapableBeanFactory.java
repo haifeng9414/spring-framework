@@ -1143,7 +1143,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			return obtainFromSupplier(instanceSupplier, beanName);
 		}
 
-		// 如果存在工厂方法则使用工厂方法创建bean
+		// 如果存在工厂方法则使用工厂方法创建bean，即直接调用factory-method属性指定的方法创建bean，如果同时存在factory-bean和factory-method
+		// 属性，则使用指定的bean的method创建bean
 		if (mbd.getFactoryMethodName() != null)  {
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
