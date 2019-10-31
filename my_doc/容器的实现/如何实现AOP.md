@@ -21,7 +21,7 @@
 <aop:aspectj-autoproxy/>
 <beans>
 ```
-开配置将开启AspectJ注解的自动扫描功能，解析[BeanFactory]中所有代理AspectJ注解的类。当Spring解析XML时，对于aop标签，将会根据自定义命名空间找到指定的[NamespaceHandlerSupport]并进行解析，
+该配置将开启AspectJ注解的自动扫描功能，解析[BeanFactory]中所有存在AspectJ注解的类。当Spring解析XML时，对于aop标签，将会根据自定义命名空间找到指定的[NamespaceHandlerSupport]并进行解析，
 而`http://www.springframework.org/schema/aop`命名空间的[NamespaceHandlerSupport]是[AopNamespaceHandler]，[AopNamespaceHandler]注册了多个[BeanDefinitionParser]:
 ```
 registerBeanDefinitionParser("config", new ConfigBeanDefinitionParser());
@@ -34,7 +34,7 @@ registerBeanDefinitionParser("spring-configured", new SpringConfiguredBeanDefini
 对于上面的`<aop:aspectj-autoproxy/>`将交由[AspectJAutoProxyBeanDefinitionParser]进行解析，[AspectJAutoProxyBeanDefinitionParser]添加了一个class是[AnnotationAwareAspectJAutoProxyCreator]
 的[BeanDefinition]到[BeanFactory]，即手动添加[AnnotationAwareAspectJAutoProxyCreator]这个bean，[AnnotationAwareAspectJAutoProxyCreator]类图如下:
 ![AnnotationAwareAspectJAutoProxyCreator继承结构图](../img/AnnotationAwareAspectJAutoProxyCreator.png)
-[ProxyConfig]类定义了具有创建代理功能的类的通用配置，如`proxyTargetClass`，`exposeProxy`等属性，代码：
+上面大部分接口可以在笔记[从容器获取Bean](从容器获取Bean.md)中看到，这里不再赘述，直接从[ProxyConfig]类开始介绍。[ProxyConfig]类定义了具有创建代理功能的类的通用配置，如`proxyTargetClass`，`exposeProxy`等属性，代码：
 ```java
 // 创建bean代理类的类的父类，维护了拥有创建代理类功能的类的属性，确保代理的creator拥有一致的配置属性
 public class ProxyConfig implements Serializable {
@@ -822,7 +822,7 @@ public class AspectJAwareAdvisorAutoProxyCreator extends AbstractAdvisorAutoProx
 }
 ```
 
-最后是[AnnotationAwareAspectJAutoProxyCreator]，重新了`findCandidateAdvisors()`方法，在其父类的基础上添加了从注解解析而来的[Advisor]，代码：
+最后是[AnnotationAwareAspectJAutoProxyCreator]，重写了`findCandidateAdvisors()`方法，在其父类的基础上添加了从注解解析而来的[Advisor]，代码：
 ```java
 @SuppressWarnings("serial")
 public class AnnotationAwareAspectJAutoProxyCreator extends AspectJAwareAdvisorAutoProxyCreator {
@@ -964,13 +964,13 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 							aspectNames.add(beanName);
 							// AspectMetadata在构造函数中解析了beanType的AjType，对于没有value的AspectJ注解的类，PerClauseKind是SINGLETON
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
-							// PerClause用于设置实例化切面使得策略，从Aspect注解的value而来，默认情况下为singleton
+							// PerClause用于设置实例化切面时的策略，从Aspect注解的value而来，默认情况下为singleton
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {
 								// MetadataAwareAspectInstanceFactory接口只有两个方法，一个返回刚刚创建的AspectMetadata，一个返回
 								// 锁对象，该锁对象从beanFactory获取
 								MetadataAwareAspectInstanceFactory factory =
 										new BeanFactoryAspectInstanceFactory(this.beanFactory, beanName);
-								// advisorFactory是AnnotationAwareAspectJAutoProxyCreator设置beanFactory是创建的，默认为ReflectiveAspectJAdvisorFactory，
+								// advisorFactory是AnnotationAwareAspectJAutoProxyCreator设置beanFactory时创建的，默认为ReflectiveAspectJAdvisorFactory，
 								// 这里用advisorFactory获取指定了Aspect注解的bean的切面
 								List<Advisor> classAdvisors = this.advisorFactory.getAdvisors(factory);
 								if (this.beanFactory.isSingleton(beanName)) {
@@ -1079,16 +1079,15 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 		List<Advisor> advisors = new LinkedList<>();
 		/* getAdvisorMethods获取除了含有Pointcut注解外的其他方法，排序后返回，之所以排除Pointcut注解是因为Pointcut注解的作用是定义Pointcut的表达式，如：
-
 		@Pointcut("execution(* *.sleep())")
-    	public void sleepPoint(){}
+    public void sleepPoint(){}
 
-    	其他方法只需要在注解中指向sleepPoint方法即可，如
-    	@Before("sleepPoint()")
-    	public void beforeSleep(){
-    	    System.out.println("test");
-    	}
-    	即可定义一个完整的Pointcut
+    其他方法只需要在注解中指向sleepPoint方法即可，如
+    @Before("sleepPoint()")
+    public void beforeSleep(){
+        System.out.println("test");
+    }
+    即可定义一个完整的Pointcut
 		 */
 		for (Method method : getAdvisorMethods(aspectClass)) {
 			// 创建当前方法的切面
@@ -1113,7 +1112,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
     	public Animal animal;
 
     	上面的注解将会为所有Person类的子类添加一个Animal接口并指定实现为FemaleAnimal
-		 */
+		*/
 		for (Field field : aspectClass.getDeclaredFields()) {
 			Advisor advisor = getDeclareParentsAdvisor(field);
 			if (advisor != null) {
@@ -2139,7 +2138,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 		if (logger.isDebugEnabled()) {
 			logger.debug("Creating JDK dynamic proxy: target source is " + this.advised.getTargetSource());
 		}
-		// 如果被代理的接口中没有SpringProxy、Advised、DecoratingProxy等接口，则添加这写接口为到被代理接口列表中
+		// 如果被代理的接口中没有SpringProxy、Advised、DecoratingProxy等接口，则添加这些接口到被代理接口列表中
 		Class<?>[] proxiedInterfaces = AopProxyUtils.completeProxiedInterfaces(this.advised, true);
 		// 遍历接口，如果某个接口中存在equals方法，则标记equalsDefined为true，如果某个接口中存在hashCode方法，则标记hashCodeDefined为true
 		findDefinedEqualsAndHashCodeMethods(proxiedInterfaces);
