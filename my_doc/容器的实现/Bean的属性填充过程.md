@@ -293,7 +293,7 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
 
 `populateBean()`方法将属性注入分为两步，一步是获取所有的属性，也就是`PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null)`和该语句下面的`autowireByName()`与`autowireByType`，一步是`applyPropertyValues()`方法，将属性设置到bean中，[PropertyValues]可以在笔记[PropertyValues的实现](属性名解析相关类/PropertyValues的实现.md)中看到
 
-获取到[PropertyValues]后，执行的是autowire逻辑，代码：
+获取到[PropertyValues]后，执行的是autowire逻辑，代码：
 ```java
 protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable BeanWrapper bw) {
 	//...
@@ -806,3 +806,10 @@ public Object resolveValueIfNecessary(Object argName, @Nullable Object value) {
 [Element]: aaa
 [AbstractRefreshableApplicationContext]: aaa
 [BeanDefinitionParserDelegate]: aaa
+[PropertyValues]: aaa
+[PropertyValue]: aaa
+[MutablePropertyValues]: aaa
+[ObjectProvider]: aaa
+[BeanDefinitionValueResolver]: aaa
+[TypedStringValue]: aaa
+[ManagedProperties]: aaa
