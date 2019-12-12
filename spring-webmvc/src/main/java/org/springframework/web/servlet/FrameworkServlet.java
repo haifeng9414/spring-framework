@@ -939,7 +939,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	protected void doOptions(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 
-		// 如果dispatchOptionsRequest为true表示PATCH类型的http请求也应该发送给Handler
+		// 如果dispatchOptionsRequest为true表示Option类型的http请求也应该发送给Handler
 		if (this.dispatchOptionsRequest || CorsUtils.isPreFlightRequest(request)) {
 			processRequest(request, response);
 			if (response.containsHeader("Allow")) {
