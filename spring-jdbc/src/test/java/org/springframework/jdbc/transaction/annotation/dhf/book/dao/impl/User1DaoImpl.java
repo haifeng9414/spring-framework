@@ -1,8 +1,8 @@
-package org.springframework.transaction.annotation.dhf.book.dao.impl;
+package org.springframework.jdbc.transaction.annotation.dhf.book.dao.impl;
 
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
-import org.springframework.transaction.annotation.dhf.book.dao.User1Dao;
-import org.springframework.transaction.annotation.dhf.book.model.User1;
+import org.springframework.jdbc.transaction.annotation.dhf.book.dao.User1Dao;
+import org.springframework.jdbc.transaction.annotation.dhf.book.model.User1;
 
 public class User1DaoImpl extends JdbcDaoSupport implements User1Dao {
 	@Override

@@ -1,8 +1,8 @@
-package org.springframework.transaction.annotation.dhf.book.dao;
+package org.springframework.jdbc.transaction.annotation.dhf.book.dao;
 
+import org.springframework.jdbc.transaction.annotation.dhf.book.model.Book;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.dhf.book.model.Book;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
-package org.springframework.transaction.annotation.dhf.book.model;
+package org.springframework.jdbc.transaction.annotation.dhf.book.model;
 
-public class User1 {
+public class User2 {
 	private Integer id;
 	private String name;
 

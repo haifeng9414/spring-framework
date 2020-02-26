@@ -151,7 +151,8 @@ public abstract class AbstractFallbackTransactionAttributeSource implements Tran
 	@Nullable
 	protected TransactionAttribute computeTransactionAttribute(Method method, @Nullable Class<?> targetClass) {
 		// Don't allow no-public methods as required.
-		// 默认情况下非public的方法不执行事务
+		// 这里判断当当前方法不是public方法时是否只代理public方法，尽管当前类的allowPublicMethodsOnly方法返回false，但是子类
+		// AnnotationTransactionAttributeSource重写了该方法，默认返回true，所以默认情况下非public的方法不执行事务
 		if (allowPublicMethodsOnly() && !Modifier.isPublic(method.getModifiers())) {
 			return null;
 		}

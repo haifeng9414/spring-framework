@@ -167,6 +167,13 @@ public class XmlBeanFactoryTests {
 	}
 
 	@Test
+	public void myTest3() {
+		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-aop.xml").getPath(), getClass());
+		MyTestBean2 myBean2 = applicationContext.getBean("myTestBean2", MyTestBean2.class);
+		myBean2.getMyTestBean().test();
+	}
+
+	@Test
 	public void testAop() {
 		ClassPathXmlApplicationContext applicationContext = new ClassPathXmlApplicationContext(classPathResource("-application-context.xml").getPath(), getClass());
 		MyTestBean myTestBean = applicationContext.getBean("myTestBean", MyTestBean.class);

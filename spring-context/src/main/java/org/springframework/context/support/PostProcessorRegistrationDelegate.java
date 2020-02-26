@@ -327,7 +327,7 @@ class PostProcessorRegistrationDelegate {
 	/**
 	 * Invoke the given BeanFactoryPostProcessor beans.
 	 */
-	private static void invokeBeanFacto ryPostProcessors(
+	private static void invokeBeanFactoryPostProcessors(
 			Collection<? extends BeanFactoryPostProcessor> postProcessors, ConfigurableListableBeanFactory beanFactory) {
 
 		for (BeanFactoryPostProcessor postProcessor : postProcessors) {

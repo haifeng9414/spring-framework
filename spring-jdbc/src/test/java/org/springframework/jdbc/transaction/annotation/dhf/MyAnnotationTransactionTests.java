@@ -1,9 +1,9 @@
-package org.springframework.transaction.annotation.dhf;
+package org.springframework.jdbc.transaction.annotation.dhf;
 
 import org.junit.Test;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.transaction.annotation.dhf.book.dao.BookDao;
-import org.springframework.transaction.annotation.dhf.book.model.Book;
+import org.springframework.jdbc.transaction.annotation.dhf.book.dao.BookDao;
+import org.springframework.jdbc.transaction.annotation.dhf.book.model.Book;
 
 public class MyAnnotationTransactionTests {
 	ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("org/springframework/transaction/annotation/dhf/MyAnnotationTransactionTests.xml");

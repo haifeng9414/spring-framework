@@ -1,10 +1,10 @@
-package org.springframework.transaction.annotation.dhf.book.service;
+package org.springframework.jdbc.transaction.annotation.dhf.book.service;
 
+import org.springframework.jdbc.transaction.annotation.dhf.book.dao.impl.User1DaoImpl;
+import org.springframework.jdbc.transaction.annotation.dhf.book.model.User1;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.dhf.book.dao.impl.User1DaoImpl;
-import org.springframework.transaction.annotation.dhf.book.model.User1;
 
 @Service
 public class User1Service {

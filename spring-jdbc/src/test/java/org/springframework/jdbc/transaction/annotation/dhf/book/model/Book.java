@@ -1,4 +1,4 @@
-package org.springframework.transaction.annotation.dhf.book.model;
+package org.springframework.jdbc.transaction.annotation.dhf.book.model;
 
 public class Book {
     private long bookId;

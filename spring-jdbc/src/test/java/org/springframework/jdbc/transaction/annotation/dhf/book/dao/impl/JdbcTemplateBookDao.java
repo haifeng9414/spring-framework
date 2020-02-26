@@ -1,10 +1,10 @@
-package org.springframework.transaction.annotation.dhf.book.dao.impl;
+package org.springframework.jdbc.transaction.annotation.dhf.book.dao.impl;
 
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
-import org.springframework.transaction.annotation.dhf.book.dao.BookDao;
-import org.springframework.transaction.annotation.dhf.book.model.Book;
-import org.springframework.transaction.annotation.dhf.book.model.BookRowMapper;
+import org.springframework.jdbc.transaction.annotation.dhf.book.dao.BookDao;
+import org.springframework.jdbc.transaction.annotation.dhf.book.model.Book;
+import org.springframework.jdbc.transaction.annotation.dhf.book.model.BookRowMapper;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;

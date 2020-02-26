@@ -22,7 +22,7 @@
 		<property name="demoBeanAFactoryBean" ref="demoBeanA"/>
 	</bean>
 
-	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>
+	<bean id="myBean" class="org.springframework.tests.sample.beans.MyBeanFactoryBean"/>
 
 	<bean id="myBeanA" class="org.springframework.tests.sample.beans.MyBeanA">
 		<constructor-arg name="id" value="test"/>
