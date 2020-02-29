@@ -85,7 +85,7 @@
 
 - [DynamicIntroductionAdvice] 
   
-  Spring AOP有个概念叫introduction（引言），introduction的意思是Spring AOP允许通过advice指定代理额外需要实现的接口，执行这些接口方法时交由advice执行，笔记[spring的scope如何使用和实现](../../容器的使用/spring的scope如何使用和实现.md)中的[DelegatingIntroductionInterceptor]就是这种advice，[DynamicIntroductionAdvice]的作用是对advice对象上的接口进行过滤，`implementsInterface()`方法返回true的接口才会被代理，[DynamicIntroductionAdvice]接口代码：
+  Spring AOP有个概念叫introduction（引言），introduction的意思是Spring AOP允许通过advice指定代理额外需要实现的接口，执行这些接口方法时交由advice执行，笔记[spring的scope如何使用和实现](../../容器的使用/Spring的scope如何使用和实现.md)中的[DelegatingIntroductionInterceptor]就是这种advice，[DynamicIntroductionAdvice]的作用是对advice对象上的接口进行过滤，`implementsInterface()`方法返回true的接口才会被代理，[DynamicIntroductionAdvice]接口代码：
   ```java
   public interface DynamicIntroductionAdvice extends Advice {
       boolean implementsInterface(Class<?> intf);
