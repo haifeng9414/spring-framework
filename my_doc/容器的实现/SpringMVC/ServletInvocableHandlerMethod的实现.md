@@ -700,4 +700,7 @@ public class ServletInvocableHandlerMethod extends InvocableHandlerMethod {
 
 [InvocableHandlerMethod]在执行方法之前对参数进行了解析，用到了[HandlerMethodArgumentResolver]，该接口的实现可以看笔记[HandlerMethodArgumentResolver的实现.md](HandlerMethodArgumentResolver的实现.md)
 
+[HandlerMethod]: aaa
 [ServletInvocableHandlerMethod]: aaa
+[InvocableHandlerMethod]: aaa
+[HandlerMethodArgumentResolver]: aaa

@@ -705,7 +705,7 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
 
 上面用到的`handlerAdapters`的初始化和之前说到的`handlerMappings`的初始化一样，也是遍历所有实现了[HandlerAdapter]接口的bean，或者获取beanName为`HANDLER_ADAPTER_BEAN_NAME`的bean，而[AnnotationDrivenBeanDefinitionParser]类的`parse()`方法就添加了实现了[HandlerAdapter]接口的[RequestMappingHandlerAdapter]类作为bean，并设置beanName为`HANDLER_ADAPTER_BEAN_NAME`
 
-所以可以看到，[Controller]让一个类成为了bean，能是也满足了成功handler的条件，而[RequestMapping]注解配置了该handler所能处理的方法，[RequestMappingHandlerMapping]类通过解析[RequestMapping]注解实现了请求路径和handler的映射，在请求到来时，根据请求路径返回对应的标记了[Controller]注解的bean作为handler，从而实现了请求的基于注解的请求分发，请求分发的其他细节可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)
+所以可以看到，[Controller]让一个类成为了bean，同时也满足了成为handler的条件，而[RequestMapping]注解配置了该handler所能处理的方法，[RequestMappingHandlerMapping]类通过解析[RequestMapping]注解实现了请求路径和handler的映射，在请求到来时，根据请求路径返回对应的标记了[Controller]注解的bean作为handler，从而实现了请求的基于注解的请求分发，请求分发的其他细节可以看笔记[如何实现请求的分发和响应](如何实现请求的分发和响应.md)
 
 上面分析了[Controller]和[RequestMapping]注解是如何帮组SpringMVC实现请求分发的，这是SpringMVC的基本功能，在这基础之上，SpringMVC还提供了丰富的注解实现请求执行过程中的其他功能，下面再逐个分析例子中用到的注解：
 - [ModelAttribute]：该注解如果标记在方法上，则能够在controller处理请求之前，添加属性到model，如果标记在处理请求的方法参数上，则能够在处理请求的方法中访问model中的对应属性，该注解的实现原理是：
@@ -836,7 +836,7 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
   
   针对[ModelAttribute]注解，需要关注的是`invokeHandlerMethod()`方法中调用的`getModelFactory()`方法，该方法返回[ModelFactory]对象，对于[ModelFactory]的作用，可以看笔记[ModelFactory的实现](ModelFactory的实现.md)，`getModelFactory()`方法遍历每个满足条件的method，调用`createModelAttributeMethod()`方法创建[InvocableHandlerMethod]对象，该对象持有指定的方法和该方法所属bean，同时还持有多个[HandlerMethodArgumentResolver]，能够对各种类型的方法参数进行解析，SpringMVC中方法参数上的各种注解就是不同的[HandlerMethodArgumentResolver]提供支持的，[InvocableHandlerMethod]类的实现可以看笔记[ServletInvocableHandlerMethod的实现](ServletInvocableHandlerMethod的实现.md)，而[HandlerMethodArgumentResolver]的实现在笔记[HandlerMethodArgumentResolver的实现](HandlerMethodArgumentResolver的实现.md)
 
-  创建完[ModelFactory]对象后，`invokeHandlerMethod()`方法为将执行请求的方法创建[ServletInvocableHandlerMethod]对象，[ServletInvocableHandlerMethod]继承自[InvocableHandlerMethod]，在[InvocableHandlerMethod]的基础上提供了处理请求执行结果的逻辑，之后`invokeHandlerMethod()`方法调用`modelFactory.initModel(webRequest, mavContainer, invocableMethod);`初始化了model数据，这一过程在笔记[ModelFactory的实现](ModelFactory的实现.md)中有介绍，最后就是调用`invocableMethod.invokeAndHandle(webRequest, mavContainer);`执行请求，`invocableMethod`是[ServletInvocableHandlerMethod]类型的，该类的实现可以看笔记[ServletInvocableHandlerMethod的实现](ServletInvocableHandlerMethod的实现.md)，从该笔记可知，[ServletInvocableHandlerMethod]在调用执行请求的方法之前会遍历[HandlerMethodArgumentResolver]尝试解析方法参数值，而[ServletInvocableHandlerMethod]的[HandlerMethodArgumentResolver]就是[RequestMappingHandlerAdapter]的[argumentResolvers]，而[RequestMappingHandlerAdapter]默认情况下配置了若干个[HandlerMethodArgumentResolver]实例，其中有一个是[ServletModelAttributeMethodProcessor]类，该类的实现很简单，对于带有[ModelAttribute]注解的参数，其会尝试从[ModelAndViewContainer]中获取model中的参数值，如果没有获取到则尝试使用反射初始化一个参数值，这也就是[ModelAttribute]注解的实现原理
+  创建完[ModelFactory]对象后，`invokeHandlerMethod()`方法为将执行请求的方法创建[ServletInvocableHandlerMethod]对象，[ServletInvocableHandlerMethod]继承自[InvocableHandlerMethod]，在[InvocableHandlerMethod]的基础上提供了处理请求执行结果的逻辑，之后`invokeHandlerMethod()`方法调用`modelFactory.initModel(webRequest, mavContainer, invocableMethod);`初始化了model数据，这一过程在笔记[ModelFactory的实现](ModelFactory的实现.md)中有介绍，最后就是调用`invocableMethod.invokeAndHandle(webRequest, mavContainer);`执行请求，`invocableMethod`是[ServletInvocableHandlerMethod]类型的，该类的实现可以看笔记[ServletInvocableHandlerMethod的实现](ServletInvocableHandlerMethod的实现.md)，从该笔记可知，[ServletInvocableHandlerMethod]在调用执行请求的方法之前会遍历[HandlerMethodArgumentResolver]尝试解析方法参数值，而[ServletInvocableHandlerMethod]的[HandlerMethodArgumentResolver]就是[RequestMappingHandlerAdapter]的`argumentResolvers`属性，[RequestMappingHandlerAdapter]默认情况下配置了若干个[HandlerMethodArgumentResolver]实例并保存到其`argumentResolvers`属性，其中有一个是[ServletModelAttributeMethodProcessor]类，该类的实现很简单，对于带有[ModelAttribute]注解的参数，其会尝试从[ModelAndViewContainer]中获取model中的参数值，如果没有获取到则尝试使用反射初始化一个参数值，这也就是[ModelAttribute]注解的实现原理
 - todo：其他注解的实现大同小异
 
 [AppController]: aaa
@@ -846,3 +846,11 @@ protected HandlerAdapter getHandlerAdapter(Object handler) throws ServletExcepti
 [RequestMappingInfo]: aaa
 [DispatcherServlet]: aaa
 [HandlerExecutionChain]: aaa
+[HandlerAdapter]: aaa
+[Controller]: aaa
+[RequestMappingHandlerAdapter]: aaa
+[ModelAttribute]: aaa
+[ModelFactory]: aaa
+[InvocableHandlerMethod]: aaa
+[HandlerMethodArgumentResolver]: aaa
+[ServletInvocableHandlerMethod]: aaa
