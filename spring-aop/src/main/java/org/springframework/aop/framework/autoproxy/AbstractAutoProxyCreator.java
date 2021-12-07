@@ -139,6 +139,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	private final Set<Object> earlyProxyReferences = Collections.newSetFromMap(new ConcurrentHashMap<>(16));
 
+	// 保存bean和其代理的class的映射关系
 	private final Map<Object, Class<?>> proxyTypes = new ConcurrentHashMap<>(16);
 
 	// key为bean，value为true表示该bean已创建代理，false表示不需要创建代理
@@ -235,13 +236,13 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 
 	@Override
 	@Nullable
-	// 由于将为bean创建代理，所以没必要决定可用的构造函数
 	public Constructor<?>[] determineCandidateConstructors(Class<?> beanClass, String beanName) throws BeansException {
 		return null;
 	}
 
 	@Override
-	// bean从BeanFactory最终返回前被调用
+	// 当存在bean的循环引用时，被循环引用的bean会在属性填充完成之前被其他bean先注入，被循环引用的bean被注入时会调用该方法获取bean实例
+	// 这个时候可以进行bean代理的创建，如果不存在循环引用，则由postProcessAfterInitialization方法完成代理的创建
 	public Object getEarlyBeanReference(Object bean, String beanName) throws BeansException {
 		Object cacheKey = getCacheKey(bean.getClass(), beanName);
 		if (!this.earlyProxyReferences.contains(cacheKey)) {
@@ -314,6 +315,8 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	public Object postProcessAfterInitialization(@Nullable Object bean, String beanName) throws BeansException {
 		if (bean != null) {
 			Object cacheKey = getCacheKey(bean.getClass(), beanName);
+			// 如果存在bean的循环引用，则被循环引用的bean在getEarlyBeanReference方法中就已经创建好代理了，如果不存在循环引用，则
+			// getEarlyBeanReference方法不会被执行，这里就在返回bean之前创建代理
 			if (!this.earlyProxyReferences.contains(cacheKey)) {
 				// 创建代理
 				return wrapIfNecessary(bean, beanName, cacheKey);
@@ -486,6 +489,7 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 			}
 		}
 
+		// 构建切面对象
 		Advisor[] advisors = buildAdvisors(beanName, specificInterceptors);
 		proxyFactory.addAdvisors(advisors);
 		// targetSource用于获取被代理类

@@ -6,12 +6,26 @@
 	   http://www.springframework.org/schema/beans/spring-beans.xsd
 	   http://www.springframework.org/schema/aop
 	   http://www.springframework.org/schema/aop/spring-aop.xsd">
-	<bean id="beanA" class="org.springframework.tests.sample.beans.FactoryBeanA">
+	<aop:aspectj-autoproxy/>
+
+	<bean id="beanA" class="org.springframework.tests.sample.beans.BeanA">
+		<constructor-arg name="id" value="test"/>
+		<constructor-arg name="name" value="v"/>
 		<property name="beanB" ref="beanB"/>
 	</bean>
 
-	<bean id="beanB" class="org.springframework.tests.sample.beans.FactoryBeanB">
+	<bean id="beanB" class="org.springframework.tests.sample.beans.BeanB">
+		<constructor-arg name="id" value="test"/>
+		<constructor-arg name="name" value="v"/>
 		<property name="beanA" ref="beanA"/>
+	</bean>
+
+	<bean id="factoryBeanA" class="org.springframework.tests.sample.beans.FactoryBeanA">
+		<property name="beanB" ref="factoryBeanB"/>
+	</bean>
+
+	<bean id="factoryBeanB" class="org.springframework.tests.sample.beans.FactoryBeanB">
+		<property name="beanA" ref="factoryBeanA"/>
 	</bean>
 
 	<bean id="demoBeanA" class="org.springframework.tests.sample.beans.DemoBeanAFactoryBean">
@@ -62,7 +76,6 @@
 		</property>
 	</bean>
 
-	<aop:aspectj-autoproxy/>
 	<bean id="myBeanAop" class="org.springframework.tests.sample.beans.MyBeanAop"/>
 	<bean id="myTestBean" class="org.springframework.tests.sample.beans.MyTestBean"/>
 

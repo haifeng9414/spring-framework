@@ -312,6 +312,7 @@ public abstract class AopUtils {
 		List<Advisor> eligibleAdvisors = new LinkedList<>();
 		for (Advisor candidate : candidateAdvisors) {
 			// 如果是IntroductionAdvisor类型的则调用getClassFilter方法直接通过类进行过滤
+			// 这里的canApply方法和下面循环中调用canApply方法的主要区别是这里hasIntroductions属性默认为false
 			if (candidate instanceof IntroductionAdvisor && canApply(candidate, clazz)) {
 				eligibleAdvisors.add(candidate);
 			}
@@ -323,6 +324,7 @@ public abstract class AopUtils {
 				// already processed
 				continue;
 			}
+			// 这里再次遍历，主要是为了计算hasIntroductions属性
 			if (canApply(candidate, clazz, hasIntroductions)) {
 				eligibleAdvisors.add(candidate);
 			}

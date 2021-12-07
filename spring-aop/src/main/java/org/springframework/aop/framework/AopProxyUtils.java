@@ -127,6 +127,7 @@ public abstract class AopProxyUtils {
 					advised.setInterfaces(targetClass);
 				}
 				else if (Proxy.isProxyClass(targetClass)) {
+					// 如果targetClass是动态代理实现类，则获取其代理的接口
 					advised.setInterfaces(targetClass.getInterfaces());
 				}
 				specifiedInterfaces = advised.getProxiedInterfaces();

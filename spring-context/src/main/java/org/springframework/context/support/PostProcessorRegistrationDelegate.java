@@ -223,7 +223,7 @@ class PostProcessorRegistrationDelegate {
 		// a bean is created during BeanPostProcessor instantiation, i.e. when
 		// a bean is not eligible for getting processed by all BeanPostProcessors.
 		// prepareBeanFactory添加了两个BeanPostProcessor到BeanFactory，这里用beanFactory.getBeanPostProcessorCount()获取已经添加到
-		// BeanFactory的BeanPostProcessor，加上获取到的实现了BeanPostProcessor接口的bean的数量，再加上1以为下面一行会添加一个BeanPostProcessor，
+		// BeanFactory的BeanPostProcessor，加上获取到的实现了BeanPostProcessor接口的bean的数量，再加上1因为下面一行会添加一个BeanPostProcessor，
 		// 得到的结果表示期望的将被初始化的bean数量，也即是当前BeanFactory中BeanPostProcessor的数量
 		int beanProcessorTargetCount = beanFactory.getBeanPostProcessorCount() + 1 + postProcessorNames.length;
 		// BeanPostProcessorChecker用于记录创建BeanPostProcessor过程中被创建的依赖bean，这些bean的创建是不会被BeanPostProcessor感知的，BeanPostProcessorChecker

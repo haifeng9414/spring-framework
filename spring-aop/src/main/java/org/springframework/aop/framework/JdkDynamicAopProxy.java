@@ -80,6 +80,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 	private static final Log logger = LogFactory.getLog(JdkDynamicAopProxy.class);
 
 	/** Config used to configure this proxy */
+	// 指向创建当前proxy的ProxyFactory，该ProxyFactory上有aop的各种配置
 	private final AdvisedSupport advised;
 
 	/**
@@ -118,7 +119,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 		if (logger.isDebugEnabled()) {
 			logger.debug("Creating JDK dynamic proxy: target source is " + this.advised.getTargetSource());
 		}
-		// 如果被代理的接口中没有SpringProxy、Advised、DecoratingProxy等接口，则添加这写接口为到被代理接口列表中
+		// 如果被代理的接口中没有SpringProxy、Advised、DecoratingProxy等接口，则添加这些接口到被代理接口列表中
 		Class<?>[] proxiedInterfaces = AopProxyUtils.completeProxiedInterfaces(this.advised, true);
 		// 遍历接口，如果某个接口中存在equals方法，则标记equalsDefined为true，如果某个接口中存在hashCode方法，则标记hashCodeDefined为true
 		findDefinedEqualsAndHashCodeMethods(proxiedInterfaces);
@@ -189,7 +190,7 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 
 			Object retVal;
 
-			// 如果exposeProxy为true则暴露向前的代理到ThreadLocal中
+			// 如果exposeProxy为true则暴露当前的代理到ThreadLocal中
 			if (this.advised.exposeProxy) {
 				// Make invocation available if necessary.
 				oldProxy = AopContext.setCurrentProxy(proxy);
@@ -227,9 +228,11 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 
 			// Massage return value if necessary.
 			Class<?> returnType = method.getReturnType();
+			// 如果方法的返回值返回的是被代理对象自己，则在这里将返回值替换成代理对象，即被代理方法return this的时候将返回的this替换
+			// 成代理对象
 			if (retVal != null && retVal == target &&
 					returnType != Object.class && returnType.isInstance(proxy) &&
-					!RawTargetAccess.class.isAssignableFrom(method.getDeclaringClass())) {
+					!RawTargetAccess.class.isAssignableFrom(method.getDeclaringClass())) { // RawTargetAccess用于标识不希望this被替换成代理对象
 				// Special case: it returned "this" and the return type of the method
 				// is type-compatible. Note that we can't help if the target sets
 				// a reference to itself in another returned object.

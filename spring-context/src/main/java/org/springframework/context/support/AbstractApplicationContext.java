@@ -741,7 +741,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * <p>Must be called before singleton instantiation.
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
-		// 注意传入的beanFactoryPostProcessors不是BeanFactory中的实现了BeanFactoryPostProcessor接口的bean，则是
+		// 注意传入的beanFactoryPostProcessors不是BeanFactory中的实现了BeanFactoryPostProcessor接口的bean，而是
 		// 保存在AbstractApplicationContext的成员变量beanFactoryPostProcessors中的实现了BeanFactoryPostProcessor接口的对象
 		// invokeBeanFactoryPostProcessors方法对BeanFactory中的实现了BeanFactoryPostProcessor接口的bean和这里获取到的beanFactoryPostProcessors
 		// 分别做了处理

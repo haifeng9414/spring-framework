@@ -59,6 +59,11 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 		boolean hasIntroductions = hasMatchingIntroductions(config, actualClass);
 		AdvisorAdapterRegistry registry = GlobalAdvisorAdapterRegistry.getInstance();
 
+		// 这里获取到的config.getAdvisors()一般都是ReflectiveAspectJAdvisorFactory的getAdvisor方法返回的
+		// InstantiationModelAwarePointcutAdvisorImpl对象，该对象是PointcutAdvisor类型的，默认根据aspect bean的aspectj表达式
+		// 对类和方法进行过滤
+		// 当然还有AbstractAdvisorAutoProxyCreator的extendAdvisors方法中默认加在首位的ExposeInvocationInterceptor，用于
+		// 保存MethodInvocation到ThreadLocal
 		for (Advisor advisor : config.getAdvisors()) {
 			// PointcutAdvisor是通过Pointcut对advice的适用性进行过滤
 			if (advisor instanceof PointcutAdvisor) {
@@ -74,7 +79,7 @@ public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializ
 					if (MethodMatchers.matches(mm, method, actualClass, hasIntroductions)) {
 						// 如果是runtime的，则表示方法参数对pointcut的匹配结果有影响，则在上面的if中，MethodMatchers.matches方法即使调用了
 						// matches(Method method, @Nullable Class<?> targetClass)方法进行判断，在之后最终执行advice之前还要执行matches(Method method, @Nullable Class<?> targetClass, Object... args)
-						// 方法再次判断，这里用InterceptorAndDynamicMethodMatcher组合MethodInterceptor和MethodMatcher，待后面再次执行时使用
+						// 方法再次判断，这里用InterceptorAndDynamicMethodMatcher组合MethodInterceptor和MethodMatcher，在ReflectiveMethodInvocation对象执行方法调用时再进行match判断
 						if (mm.isRuntime()) {
 							// Creating a new object instance in the getInterceptors() method
 							// isn't a problem as we normally cache created chains.

@@ -94,7 +94,7 @@ public class AspectJAwareAdvisorAutoProxyCreator extends AbstractAdvisorAutoProx
 	 */
 	@Override
 	protected void extendAdvisors(List<Advisor> candidateAdvisors) {
-		// 如果candidateAdvisors包含AspectJ的增强则添加ExposeInvocationInterceptor到增强链的首位，目的是暴露执行方法调用时的MethodInvocation便于全局访问
+		// 如果candidateAdvisors包含AspectJ的增强则添加ExposeInvocationInterceptor到增强链的首位，目的是暴露执行方法调用时的MethodInvocation到ThreadLocal便于全局访问
 		AspectJProxyUtils.makeAdvisorChainAspectJCapableIfNecessary(candidateAdvisors);
 	}
 

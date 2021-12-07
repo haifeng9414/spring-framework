@@ -579,7 +579,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			// 如果当前BeanDefinition还没有被MergedBeanDefinitionPostProcessor处理过
 			if (!mbd.postProcessed) {
 				try {
-					// 调用MergedBeanDefinitionPostProcessor接口的postProcessMergedBeanDefinition方，Autowired注解就是通过该接口实现的
+					// 调用MergedBeanDefinitionPostProcessor接口的postProcessMergedBeanDefinition方法，Autowired注解就是通过该接口实现的
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -624,15 +624,15 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		// 检查在循环引用的情况下其他bean引入的是原始bean而原始bean又做了代理配置导致和原始的bean不一样了的情况
-		// 如果存在这种情况则报错
+		// 如果存在这种情况则报错，如https://segmentfault.com/a/1190000021217176
 		if (earlySingletonExposure) {
 			Object earlySingletonReference = getSingleton(beanName, false);
 			if (earlySingletonReference != null) {
-				// 判断是否是原始bean
+				// 判断是否是原始bean，如果是原始bean就不存在bean引用的不对的问题
 				if (exposedObject == bean) {
 					exposedObject = earlySingletonReference;
 				}
-				// 是否允许自动注入被包装过的bean，如果不允许则当前bean是否存在依赖它的bean，如果存在说明其他bean注入了和当前bean不一样的bean，报错
+				// 是否允许自动注入被包装过的bean，如果不允许则判断当前bean是否存在依赖它的bean，如果存在说明其他bean注入了和当前bean不一样的bean，报错
 				else if (!this.allowRawInjectionDespiteWrapping && hasDependentBean(beanName)) {
 					String[] dependentBeans = getDependentBeans(beanName);
 					Set<String> actualDependentBeans = new LinkedHashSet<>(dependentBeans.length);
@@ -1078,7 +1078,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 				Class<?> targetType = determineTargetType(beanName, mbd);
 				if (targetType != null) {
-					// 遍历beanPostProcessors调用postProcessBeforeInstantiation获取bean
+					// 遍历beanPostProcessors中InstantiationAwareBeanPostProcessor类型的，调用其postProcessBeforeInstantiation方法创建bean
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
 					if (bean != null) {
 						// 如果返回的bean不为空则调用postProcessAfterInitialization获取bean并将该bean作为正在的bean返回

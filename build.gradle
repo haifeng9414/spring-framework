@@ -1,5 +1,7 @@
 buildscript {
 	repositories {
+		mavenCentral()
+		jcenter()
 		maven { url "https://repo.spring.io/plugins-release" }
 	}
 	dependencies {
@@ -138,6 +140,8 @@ configure(allprojects) { project ->
 	}
 
 	repositories {
+		mavenCentral()
+		jcenter()
 		maven { url "https://repo.spring.io/libs-release" }
 		maven { url "https://repo.spring.io/snapshot" }  // for Reactor
 	}

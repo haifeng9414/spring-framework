@@ -166,7 +166,8 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 
 		Object interceptorOrInterceptionAdvice =
 				this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
-		// 遍历拦截器并调用，这里判断当前拦截器是否是动态拦截器，如果是则在下面判断是否匹配当前方法
+		// 遍历拦截器并调用，这里判断当前拦截器是否是动态拦截器（DefaultAdvisorChainFactory的getInterceptorsAndDynamicInterceptionAdvice
+		// 方法中构建MethodInterceptor的时候创建的），如果是则在下面判断是否匹配当前方法
 		if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
 			// Evaluate dynamic method matcher here: static part will already have
 			// been evaluated and found to match.
@@ -178,6 +179,7 @@ public class ReflectiveMethodInvocation implements ProxyMethodInvocation, Clonea
 				// proceed方法所有的invoke调用传入的代理都是this，所以在拦截器执行MethodInvocation.proceed方法是实际上调用的还是这里的proceed方法，
 				// 对于before的拦截器，调用完拦截器自身的逻辑后调用proceed方法即可回到该方法继续执行后面的拦截器，而after则是先执行proceed再调用自身的逻辑。
 				// 即递归调用，这样当proceed递归到最后执行上面invokeJoinpoint方法后，所有的after就会依次被执行了
+				// 这里在满足执行条件的情况下调用保存在InterceptorAndDynamicMethodMatcher中的MethodInterceptor
 				return dm.interceptor.invoke(this);
 			}
 			else {

@@ -237,7 +237,7 @@ public abstract class AbstractNestablePropertyAccessor extends AbstractPropertyA
 	public void setPropertyValue(String propertyName, @Nullable Object value) throws BeansException {
 		AbstractNestablePropertyAccessor nestedPa;
 		try {
-			// 获取属性的AbstractNestablePropertyAccessor，如果是a.b.c这种个数的属性，则返回的是
+			// 获取属性的AbstractNestablePropertyAccessor，如果是a.b.c这种格式的属性，则返回的是最终c的AbstractNestablePropertyAccessor
 			nestedPa = getPropertyAccessorForPropertyPath(propertyName);
 		}
 		catch (NotReadablePropertyException ex) {

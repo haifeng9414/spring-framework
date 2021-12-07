@@ -214,6 +214,7 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 		}
 
 		// InstantiationModelAwarePointcutAdvisorImpl会在构造函数中调用当前类的getAdvice方法初始化Advice
+		// expressionPointcut用于判断bean的方法是否应该被执行Advice
 		return new InstantiationModelAwarePointcutAdvisorImpl(expressionPointcut, candidateAdviceMethod,
 				this, aspectInstanceFactory, declarationOrderInAspect, aspectName);
 	}
@@ -264,6 +265,8 @@ public class ReflectiveAspectJAdvisorFactory extends AbstractAspectJAdvisorFacto
 
 		AbstractAspectJAdvice springAdvice;
 
+		// 下面返回的不同类型的advice每个实现的接口都不一样，对于在被代理方法执行后执行的advice，都会实现MethodInterceptor方法，
+		// 实现自己调用方法并执行自己的逻辑
 		switch (aspectJAnnotation.getAnnotationType()) {
 			case AtBefore:
 				springAdvice = new AspectJMethodBeforeAdvice(

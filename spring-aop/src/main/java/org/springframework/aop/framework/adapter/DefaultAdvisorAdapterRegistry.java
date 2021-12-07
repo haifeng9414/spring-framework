@@ -61,11 +61,18 @@ public class DefaultAdvisorAdapterRegistry implements AdvisorAdapterRegistry, Se
 		if (!(adviceObject instanceof Advice)) {
 			throw new UnknownAdviceTypeException(adviceObject);
 		}
+		// 如果adviceObject不是Advisor类型的，那只能是Advice类型的，而Advice类型只具备代理逻辑执行的功能，没有判断是否应该对某个
+		// 方法或类执行代理的逻辑，也就是缺少Pointcut的能力，所以下面对所有的advice都封装成DefaultPointcutAdvisor类，其Pointcut
+		// 为Pointcut.TRUE
 		Advice advice = (Advice) adviceObject;
+		// 每个方法执行的时候如果需要被aop代理，则所有相关的advice都会被转换成MethodInterceptor对象（通过AdvisorAdapter实现）再通过MethodInterceptor对象
+		// 进行advice逻辑和方法的调用，这里如果发现advice已经是MethodInterceptor了，直接返回DefaultPointcutAdvisor就行了
 		if (advice instanceof MethodInterceptor) {
 			// So well-known it doesn't even need an adapter.
 			return new DefaultPointcutAdvisor(advice);
 		}
+		// 对于不是MethodInterceptor的advice，判断是否有支持该advice类型的AdvisorAdapter对象，如果有则返回DefaultPointcutAdvisor
+		// 最后在执行aop逻辑的时候，会调用AdvisorAdapter的getInterceptor方法将advice转换成MethodInterceptor
 		for (AdvisorAdapter adapter : this.adapters) {
 			// Check that it is supported.
 			if (adapter.supportsAdvice(advice)) {
