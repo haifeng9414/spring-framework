@@ -356,7 +356,7 @@ public abstract class DataSourceUtils {
 				// It's the transactional Connection: Don't close it.
 				// 由于Connection在事务之中，Connection可能正在被其他方法使用，所以不能直接close connection，这里将referenceCount - 1
 				// 如果这里将referenceCount减到了0该方法也会执行尝试释放连接，取决于实现方法，对于Spring的事务创建的ConnectionHolder对象，
-				// referenceCount减到了0尝试释放连接时什么都不会做，有事务代理进行连接的释放
+				// referenceCount减到了0尝试释放连接时什么都不会做
 				conHolder.released();
 				return;
 			}

@@ -5,7 +5,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.jdbc.transaction.annotation.dhf.book.service.UserService;
 
 public class MyAnnotationTransactionTests2 {
-	private ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("org/springframework/transaction/annotation/dhf/MyAnnotationTransactionTests.xml");
+	ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("org/springframework/transaction/MyAnnotationTransactionTests.xml");
 	private UserService userService = context.getBean("userService", UserService.class);
 
 	@Test

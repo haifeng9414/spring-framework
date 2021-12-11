@@ -12,4 +12,5 @@ dependencies {
 	optional("org.apache.derby:derbyclient:10.14.1.0")
 	optional("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
 	optional("org.jetbrains.kotlin:kotlin-stdlib:${kotlinVersion}")
+	testCompile("mysql:mysql-connector-java:8.0.11")
 }

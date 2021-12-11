@@ -38,6 +38,7 @@ public class BeanFactoryTransactionAttributeSourceAdvisor extends AbstractBeanFa
 	// 在AnnotationDrivenBeanDefinitionParser中被设置为了AnnotationTransactionAttributeSource
 	private TransactionAttributeSource transactionAttributeSource;
 
+	// 这里的pointcut用于判断bean的类是否需要被当前advisor执行代理逻辑
 	private final TransactionAttributeSourcePointcut pointcut = new TransactionAttributeSourcePointcut() {
 		@Override
 		@Nullable

@@ -13,30 +13,30 @@
 	</bean>
 
 	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
-		<property name="driverClassName" value="com.mysql.jdbc.Driver"/>
-		<property name="url" value="jdbc:mysql://10.211.55.4:3306/demo?autoReconnect=false&amp;useUnicode=true&amp;characterEncoding=UTF-8&amp;characterSetResults=UTF-8&amp;zeroDateTimeBehavior=convertToNull"/>
-		<property name="username" value="root"/>
-		<property name="password" value="Calong@2015"/>
+		<property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
+		<property name="url" value="jdbc:mysql://bjfk-staging-d58.yz02:15604/gifshow?serverTimezone=UTC&amp;useSSL=false"/>
+		<property name="username" value="test_rw"/>
+		<property name="password" value="54rltyi5BCdcm06wu22A0brvvzU5uDgB"/>
 	</bean>
 
-	<bean id="bookDao" class="org.springframework.transaction.annotation.dhf.book.dao.impl.JdbcTemplateBookDao">
+	<bean id="bookDao" class="org.springframework.jdbc.transaction.annotation.dhf.book.dao.impl.JdbcTemplateBookDao">
 		<property name="dataSource" ref="dataSource"/>
 	</bean>
 
-	<bean id="user1Dao" class="org.springframework.transaction.annotation.dhf.book.dao.impl.User1DaoImpl">
+	<bean id="user1Dao" class="org.springframework.jdbc.transaction.annotation.dhf.book.dao.impl.User1DaoImpl">
 		<property name="dataSource" ref="dataSource"/>
 	</bean>
-	<bean id="user2Dao" class="org.springframework.transaction.annotation.dhf.book.dao.impl.User2DaoImpl">
+	<bean id="user2Dao" class="org.springframework.jdbc.transaction.annotation.dhf.book.dao.impl.User2DaoImpl">
 		<property name="dataSource" ref="dataSource"/>
 	</bean>
 
-	<bean id="user1Service" class="org.springframework.transaction.annotation.dhf.book.service.User1Service">
+	<bean id="user1Service" class="org.springframework.jdbc.transaction.annotation.dhf.book.service.User1Service">
 		<property name="user1Dao" ref="user1Dao"/>
 	</bean>
-	<bean id="user2Service" class="org.springframework.transaction.annotation.dhf.book.service.User2Service">
+	<bean id="user2Service" class="org.springframework.jdbc.transaction.annotation.dhf.book.service.User2Service">
 		<property name="user2Dao" ref="user2Dao"/>
 	</bean>
-	<bean id="userService" class="org.springframework.transaction.annotation.dhf.book.service.UserService">
+	<bean id="userService" class="org.springframework.jdbc.transaction.annotation.dhf.book.service.UserService">
 		<property name="user1Service" ref="user1Service"/>
 		<property name="user2Service" ref="user2Service"/>
 	</bean>

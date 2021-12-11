@@ -50,17 +50,24 @@ import org.springframework.util.Assert;
  */
 public class DefaultTransactionStatus extends AbstractTransactionStatus {
 
+	// transaction在transactionManager实现类为DataSourceTransactionManager的情况下，默认为DataSourceTransactionObject对象，通过该对象能够获取当前事务的ConnectionHolder，同时也能够实现savepoint的管理
 	@Nullable
 	private final Object transaction;
 
+	// newTransaction为true表示当前对象是根据刚新建的事务创建的，有个特殊情况时当不存在已有的事务，并且传播行为是PROPAGATION_SUPPORTS、
+	// PROPAGATION_NOT_SUPPORTED、PROPAGATION_NEVER等不需要事务的情况下，创建的DefaultTransactionStatus的newTransaction
+	// 也是true，但是实际上并没有数据库连接被创建
 	private final boolean newTransaction;
 
+	// newSynchronization为true表示需要将事务配置和事务状态等信息保存到TransactionSynchronizationManager中
 	private final boolean newSynchronization;
 
+	// 是否是只读事务
 	private final boolean readOnly;
 
 	private final boolean debug;
 
+	// suspendedResources表示被挂起的事务，如果不存在被挂起的事务则为null
 	@Nullable
 	private final Object suspendedResources;
 

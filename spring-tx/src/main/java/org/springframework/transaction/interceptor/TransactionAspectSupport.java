@@ -288,16 +288,21 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 		// 这里返回的实际上是AnnotationTransactionAttributeSource
 		TransactionAttributeSource tas = getTransactionAttributeSource();
 		// 对于使用默认的Spring的Transaction注解的方法，AnnotationTransactionAttributeSource返回的TransactionAttribute实例是RuleBasedTransactionAttribute
+		// 这里从方法和类上获取TransactionAttribute，TransactionAttribute保存了Transactional注解的所有配置
 		final TransactionAttribute txAttr = (tas != null ? tas.getTransactionAttribute(method, targetClass) : null);
+		// 根据Transactional注解的qualifier获取TransactionManager，如果没有则默认获取beanName为transactionManager的
+		// 如果还没有则找type为PlatformTransactionManager的bean，通常实现为DataSourceTransactionManager
 		final PlatformTransactionManager tm = determineTransactionManager(txAttr);
-		// 以方法的唯一标识表示当前的连接点
+		// 以方法的唯一标识表示当前的连接点，由全类名.方法名组成
 		final String joinpointIdentification = methodIdentification(method, targetClass, txAttr);
 
 		// CallbackPreferringPlatformTransactionManager在PlatformTransactionManager接口的基础上定义了一个execute方法，用于代替PlatformTransactionManager
 		// 执行事务管理逻辑
 		if (txAttr == null || !(tm instanceof CallbackPreferringPlatformTransactionManager)) {
 			// Standard transaction demarcation with getTransaction and commit/rollback calls.
-			// 如果txAttr不为空，则开启事务，创建TransactionInfo对象并保存事务状态到TransactionInfo对象中
+			// 创建TransactionInfo对象并保存事务状态到TransactionInfo对象中
+			// createTransactionIfNecessary方法在txAttr不为空的情况下开启事务，txAttr为空还是会创建TransactionInfo对象但是不开启事务，
+			// 并且TransactionInfo的TransactionStatus为空
 			TransactionInfo txInfo = createTransactionIfNecessary(tm, txAttr, joinpointIdentification);
 			Object retVal = null;
 			try {
@@ -327,6 +332,8 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 
 			// It's a CallbackPreferringPlatformTransactionManager: pass a TransactionCallback in.
 			try {
+				// 这里用CallbackPreferringPlatformTransactionManager的execute和上面的if语句的主要区别是，这里
+				// execute方法的TransactionCallback只负责事务的开启和业务方法的执行，事务回滚和commit不负责，由实现类决定回滚和commit
 				Object result = ((CallbackPreferringPlatformTransactionManager) tm).execute(txAttr, status -> {
 					// 创建TransactionInfo，设置当前线程的ThreadLocal -> transactionInfoHolder指向这个新创建的TransactionInfo，
 					// TransactionInfo持有所有事务相关的对象，包括事务管理器、事务属性对象、事务状态对象等
@@ -507,7 +514,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 		TransactionStatus status = null;
 		if (txAttr != null) {
 			if (tm != null) {
-				// getTransaction方法开启事务并返回TransactionStatus对象
+				// getTransaction方法开启事务并返回TransactionStatus对象，这个方法是关键点
 				status = tm.getTransaction(txAttr);
 			}
 			else {
@@ -518,6 +525,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 			}
 		}
 		// 创建TransactionInfo对象，TransactionInfo类持有事务管理器、事务属性、代表当前事务的连接点和事务状态
+		// 保存TransactionInfo对象到ThreadLocal
 		return prepareTransactionInfo(tm, txAttr, joinpointIdentification, status);
 	}
 
@@ -533,7 +541,7 @@ public abstract class TransactionAspectSupport implements BeanFactoryAware, Init
 			@Nullable TransactionAttribute txAttr, String joinpointIdentification,
 			@Nullable TransactionStatus status) {
 
-		// TransactionInfo类维护了传入的三个属性，这三个属性分别用于事务管理、获取事务配置、代表当前事务的连接点
+		// TransactionInfo类维护了传入的三个属性，这三个属性分别用于事务管理器、当前事务方法的事务配置、代表当前事务的连接点（由全类名.方法名组成）
 		TransactionInfo txInfo = new TransactionInfo(tm, txAttr, joinpointIdentification);
 		if (txAttr != null) {
 			// We need a transaction for this method...

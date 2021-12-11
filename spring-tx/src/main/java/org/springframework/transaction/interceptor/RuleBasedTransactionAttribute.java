@@ -137,6 +137,9 @@ public class RuleBasedTransactionAttribute extends DefaultTransactionAttribute i
 		RollbackRuleAttribute winner = null;
 		int deepest = Integer.MAX_VALUE;
 
+		// 每个RollbackRuleAttribute都代表一个Transactional注解中rollbackFor和noRollbackFor方法指定的异常类
+		// 可以看SpringTransactionAnnotationParser的parseTransactionAnnotation方法是如果创建RuleBasedTransactionAttribute对象的
+		// rollbackRules同时包含了应该回滚和不应该回滚的异常，这里遍历所有的RollbackRuleAttribute，找到和当前异常最接近的异常
 		if (this.rollbackRules != null) {
 			for (RollbackRuleAttribute rule : this.rollbackRules) {
 				int depth = rule.getDepth(ex);
@@ -152,11 +155,13 @@ public class RuleBasedTransactionAttribute extends DefaultTransactionAttribute i
 		}
 
 		// User superclass behavior (rollback on unchecked) if no rule matches.
+		// 没找到则用父类的默认规则，即(ex instanceof RuntimeException || ex instanceof Error)
 		if (winner == null) {
 			logger.trace("No relevant rollback rule found: applying default rules");
 			return super.rollbackOn(ex);
 		}
 
+		// 找到了则判断是否是NoRollbackRuleAttribute类型的，如果是则不应该回滚
 		return !(winner instanceof NoRollbackRuleAttribute);
 	}
 

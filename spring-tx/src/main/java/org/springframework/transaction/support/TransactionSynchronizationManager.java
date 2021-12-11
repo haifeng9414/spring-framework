@@ -151,6 +151,7 @@ public abstract class TransactionSynchronizationManager {
 	 */
 	@Nullable
 	private static Object doGetResource(Object actualKey) {
+		// resources.get在一个事务内第一次调用doGetResource时返回null
 		Map<Object, Object> map = resources.get();
 		if (map == null) {
 			return null;
@@ -158,6 +159,8 @@ public abstract class TransactionSynchronizationManager {
 		Object value = map.get(actualKey);
 		// Transparently remove ResourceHolder that was marked as void...
 		// 如果返回的值是ResourceHolder类型的并且被标记为void，则从当前线程的resources中移除key
+		// 当调用ResourceHolder的unbound方法时isVoid方法就会返回true，即如果value是ResourceHolder类型的，则可有通过unbound方法
+		// 将其从resources移除，避免再被使用
 		if (value instanceof ResourceHolder && ((ResourceHolder) value).isVoid()) {
 			map.remove(actualKey);
 			// Remove entire ThreadLocal if empty...

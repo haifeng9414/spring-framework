@@ -123,6 +123,8 @@ public abstract class AopConfigUtils {
 
 		Assert.notNull(registry, "BeanDefinitionRegistry must not be null");
 
+		// 如果已经存在AUTO_PROXY_CREATOR_BEAN_NAME这个bean则判断已存在的beanClass和当前需要注册的class的优先级，以优先级高的class
+		// 为AUTO_PROXY_CREATOR_BEAN_NAME的beanClass，class的优先级写死在了APC_PRIORITY_LIST属性中
 		if (registry.containsBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME)) {
 			BeanDefinition apcDefinition = registry.getBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME);
 			if (!cls.getName().equals(apcDefinition.getBeanClassName())) {

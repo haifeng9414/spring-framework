@@ -106,7 +106,8 @@ public abstract class AbstractFallbackTransactionAttributeSource implements Tran
 		}
 		else {
 			// We need to work it out.
-			// 创建TransactionAttribute
+			// 从方法和类获取TransactionAttribute，TransactionAttribute表示方法或类上事务的配置，即Transactional
+			// 注解的相关配置，默认实现是RuleBasedTransactionAttribute
 			TransactionAttribute txAttr = computeTransactionAttribute(method, targetClass);
 			// Put it in the cache.
 			if (txAttr == null) {
@@ -114,7 +115,7 @@ public abstract class AbstractFallbackTransactionAttributeSource implements Tran
 				this.attributeCache.put(cacheKey, NULL_TRANSACTION_ATTRIBUTE);
 			}
 			else {
-				// 获取方法的唯一名称，由全类名.方法名组成
+				// 获取方法的唯一名称，由全类名.方法名组成，作为描述
 				String methodIdentification = ClassUtils.getQualifiedMethodName(method, targetClass);
 				if (txAttr instanceof DefaultTransactionAttribute) {
 					((DefaultTransactionAttribute) txAttr).setDescriptor(methodIdentification);
@@ -171,8 +172,9 @@ public abstract class AbstractFallbackTransactionAttributeSource implements Tran
 		}
 
 		// Second try is the transaction attribute on the target class.
+		// 如果在方法上没找到就在类上找
 		txAttr = findTransactionAttribute(specificMethod.getDeclaringClass());
-		// 供子类实现，获取类上的TransactionAttribute属性，如果返回值不为空并且方法是用户创建的而不是桥接方法等自动生成的方法，则直接返回
+		// 供子类实现，获取类上的TransactionAttribute属性，如果返回值不为空并且方法是用户创建的或者是桥接方法而不是JVM生成的方法，则直接返回
 		if (txAttr != null && ClassUtils.isUserLevelMethod(method)) {
 			return txAttr;
 		}

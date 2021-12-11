@@ -162,6 +162,7 @@ public class AnnotationTransactionAttributeSource extends AbstractFallbackTransa
 	@Nullable
 	// 遍历TransactionAnnotationParser尝试解析注解，所有可被注解的元素都实现了AnnotatedElement接口，如Method和Class
 	protected TransactionAttribute determineTransactionAttribute(AnnotatedElement ae) {
+		// TransactionAnnotationParser默认实现为SpringTransactionAnnotationParser
 		for (TransactionAnnotationParser annotationParser : this.annotationParsers) {
 			TransactionAttribute attr = annotationParser.parseTransactionAnnotation(ae);
 			if (attr != null) {

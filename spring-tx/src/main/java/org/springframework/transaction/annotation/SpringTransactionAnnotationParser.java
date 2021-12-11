@@ -60,16 +60,20 @@ public class SpringTransactionAnnotationParser implements TransactionAnnotationP
 		// 创建RuleBasedTransactionAttribute类，并为RuleBasedTransactionAttribute设置传入的注解的若干属性值
 		RuleBasedTransactionAttribute rbta = new RuleBasedTransactionAttribute();
 		Propagation propagation = attributes.getEnum("propagation");
+		// 设置传播行为
 		rbta.setPropagationBehavior(propagation.value());
 		Isolation isolation = attributes.getEnum("isolation");
+		// 设置隔离级别
 		rbta.setIsolationLevel(isolation.value());
 		rbta.setTimeout(attributes.getNumber("timeout").intValue());
 		rbta.setReadOnly(attributes.getBoolean("readOnly"));
+		// 设置transaction manager的beanName，默认为空
 		rbta.setQualifier(attributes.getString("value"));
 		ArrayList<RollbackRuleAttribute> rollBackRules = new ArrayList<>();
 		Class<?>[] rbf = attributes.getClassArray("rollbackFor");
 		for (Class<?> rbRule : rbf) {
 			// rbf表示所有应该被回滚的异常，这里用RollbackRuleAttribute封装异常类并保存到RuleBasedTransactionAttribute中
+			// RollbackRuleAttribute提供了获取指定类与传入的rbRule类的深度的功能，能够用于判断某个异常或其子类是否应该回滚
 			RollbackRuleAttribute rule = new RollbackRuleAttribute(rbRule);
 			rollBackRules.add(rule);
 		}
@@ -79,6 +83,9 @@ public class SpringTransactionAnnotationParser implements TransactionAnnotationP
 			RollbackRuleAttribute rule = new RollbackRuleAttribute(rbRule);
 			rollBackRules.add(rule);
 		}
+		// 注意下面不应该被回滚的异常也保存到了rollBackRules，RuleBasedTransactionAttribute的rollbackOn方法在判断业务方法抛出
+		// 的异常是否应该回滚的时候，会遍历所有的RollbackRuleAttribute和NoRollbackRuleAttribute，找到深度最小的，并在最后判断
+		// 找到的是RollbackRuleAttribute还是NoRollbackRuleAttribute，来决定是否应该回滚
 		Class<?>[] nrbf = attributes.getClassArray("noRollbackFor");
 		for (Class<?> rbRule : nrbf) {
 			// nrbf表示所有不应该被回滚的异常

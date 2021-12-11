@@ -6,7 +6,7 @@ import org.springframework.jdbc.transaction.annotation.dhf.book.dao.BookDao;
 import org.springframework.jdbc.transaction.annotation.dhf.book.model.Book;
 
 public class MyAnnotationTransactionTests {
-	ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("org/springframework/transaction/annotation/dhf/MyAnnotationTransactionTests.xml");
+	ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("org/springframework/transaction/MyAnnotationTransactionTests.xml");
 	@Test
 	public void baseTest() {
 		BookDao bookDao = (BookDao) context.getBean("bookDao");

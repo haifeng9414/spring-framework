@@ -234,6 +234,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 
 	@Override
 	protected Object doGetTransaction() {
+		// DataSourceTransactionObject表示一个事务对象，通过该对象能够获取当前事务的ConnectionHolder，同时也能够实现savepoint的管理
 		DataSourceTransactionObject txObject = new DataSourceTransactionObject();
 		// 允许内嵌事务的情况下才支持保存点，DataSourceTransactionManager的默认构造函数将nestedTransactionAllowed设置为true
 		txObject.setSavepointAllowed(isNestedTransactionAllowed());
@@ -247,6 +248,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 	@Override
 	protected boolean isExistingTransaction(Object transaction) {
 		DataSourceTransactionObject txObject = (DataSourceTransactionObject) transaction;
+		// 如果当前事务的连接已经创建了并且连接的事务已经被激活，则认为已存在事务
 		return (txObject.hasConnectionHolder() && txObject.getConnectionHolder().isTransactionActive());
 	}
 
@@ -276,7 +278,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 			con = txObject.getConnectionHolder().getConnection();
 
 			// 根据TransactionDefinition中保存的事务配置来设置Connection的readonly和隔离级别属性，definition对象配置的隔离级别
-			// 非默认的并且和connection对象的隔离级别不相等则该方法的返回值为connection对象原先的隔离级别，否则返回null
+			// 非默认的并且和connection对象的隔离级别不相等则设置connection对象的隔离级别并返回connection对象原先的隔离级别，否则返回null
 			Integer previousIsolationLevel = DataSourceUtils.prepareConnectionForTransaction(con, definition);
 			// 保存原先的隔离级别
 			txObject.setPreviousIsolationLevel(previousIsolationLevel);
@@ -391,6 +393,7 @@ public class DataSourceTransactionManager extends AbstractPlatformTransactionMan
 		// Reset connection.
 		Connection con = txObject.getConnectionHolder().getConnection();
 		try {
+			// 如果连接一开始是autoCommit的，则这里恢复一下
 			if (txObject.isMustRestoreAutoCommit()) {
 				// 恢复autoCommit属性
 				con.setAutoCommit(true);

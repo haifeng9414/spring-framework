@@ -50,6 +50,7 @@ public class ConnectionHolder extends ResourceHolderSupport {
 	@Nullable
 	private Connection currentConnection;
 
+	// 事务是否已被激活，在获取了数据库连接并设置autoCommit为false后该属性就为true了
 	private boolean transactionActive = false;
 
 	@Nullable
